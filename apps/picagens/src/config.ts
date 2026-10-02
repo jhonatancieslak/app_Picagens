@@ -1,7 +1,10 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Valores fixos da app Picagens Quiosque. A API está descrita no doc 43 §4 (repo picagens-saas-v2).
+// Valores fixos da app Picagens (modos colaborador e quiosque). APIs no doc 43 §3 e §4 (repo picagens-saas-v2).
 
-export const API_BASE_URL = 'https://picagens.pt/app/api/quiosque/v1';
+export const KIOSK_API_URL = 'https://picagens.pt/app/api/quiosque/v1';
+export const EMPLOYEE_API_URL = 'https://picagens.pt/app/api/v1/mobile';
+/** Link de ativação do email: https://picagens.pt/app/colaborador/<empresa>/ativar/<token> */
+export const ACTIVATION_LINK_PATTERN = /\/colaborador\/([a-z0-9_-]+)\/ativar\/([^/?#\s]+)/i;
 
 export const PIN_LENGTH = 4;
 export const ADMIN_CODE_MAX_LENGTH = 8;

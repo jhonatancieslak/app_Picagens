@@ -4,9 +4,9 @@ import * as Application from 'expo-application';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
-import { CameraIcon, KeypadIcon } from '../components/icons';
-import { BigButton, LinkButton, useVw } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { CameraIcon, KeypadIcon } from '../../components/icons';
+import { BigButton, LinkButton, useVw } from '../../components/ui';
+import { colors, fonts } from '../../theme';
 
 const WEEKDAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -22,7 +22,7 @@ const ANDROID_RELEASES: Record<number, string> = { 28: '9', 29: '10', 30: '11', 
 export const androidLabel = () =>
   Platform.OS === 'android' ? `Android ${ANDROID_RELEASES[Platform.Version as number] ?? `API ${Platform.Version}`}` : Platform.OS;
 
-export const versionLabel = () => `Picagens Quiosque ${Application.nativeApplicationVersion ?? ''}`.trim();
+export const versionLabel = () => `Picagens ${Application.nativeApplicationVersion ?? ''} · quiosque`;
 
 interface Props {
   tabletName: string;

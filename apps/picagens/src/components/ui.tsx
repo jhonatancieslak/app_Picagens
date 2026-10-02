@@ -1,5 +1,5 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Peças comuns do quiosque. Medidas em percentagem da largura (vw), como no protótipo, para o mesmo
+// Peças comuns (desenhadas para o quiosque). Medidas em percentagem da largura (vw), como no protótipo, para o mesmo
 // desenho servir tablets de 8" a 13".
 import { ReactNode } from 'react';
 import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';

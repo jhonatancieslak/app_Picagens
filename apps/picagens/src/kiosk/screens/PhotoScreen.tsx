@@ -6,10 +6,10 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { NO_PHOTO_AUTO_SECONDS, PHOTO_COUNTDOWN_SECONDS } from '../config';
+import { NO_PHOTO_AUTO_SECONDS, PHOTO_COUNTDOWN_SECONDS } from '../../config';
 import { takeConfirmationPhoto } from '../photo';
-import { BigButton, Heading, Paragraph, useVw } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { BigButton, Heading, Paragraph, useVw } from '../../components/ui';
+import { colors, fonts } from '../../theme';
 
 type Phase = 'countdown' | 'capturing' | 'failed';
 

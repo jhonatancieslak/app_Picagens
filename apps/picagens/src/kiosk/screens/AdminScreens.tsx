@@ -6,11 +6,11 @@ import { ReactNode, useState } from 'react';
 import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import type { LicenseState } from '../api';
-import { CameraIcon, CloudIcon, ExitIcon, LockIcon } from '../components/icons';
-import { BigButton, Heading, LinkButton, Notice, Paragraph, useVw } from '../components/ui';
+import { CameraIcon, CloudIcon, ExitIcon, LockIcon } from '../../components/icons';
+import { BigButton, Heading, LinkButton, Notice, Paragraph, useVw } from '../../components/ui';
 import type { QueueStatus } from '../queue';
 import type { ScreenSettings } from '../storage';
-import { colors, fonts } from '../theme';
+import { colors, fonts } from '../../theme';
 import { androidLabel, versionLabel } from './WaitScreen';
 
 function AdminHeader({ title, right, onBack }: { title: string; right?: ReactNode; onBack?: () => void }) {
@@ -141,7 +141,7 @@ export function ScreenSettingsScreen({ settings, onChange, onUnlink, onBack }: S
       {row('Ecrã sempre ligado', 'O tablet não apaga o ecrã enquanto a app está aberta. Deixe-o ligado à corrente.', settings.keepAwake, 'keepAwake')}
       {row('Escurecer fora de horas', 'Entre as 20:00 e as 06:00 o ecrã fica mais escuro. Volta ao normal com um toque.', settings.dimAtNight, 'dimAtNight')}
       <Notice tone="info">
-        Para não sair da app: Definições do Android › Segurança › Afixar app, e depois afixe o Picagens Quiosque. O bloqueio total (sem barra do Android) é feito na instalação assistida.
+        Para não sair da app: Definições do Android › Segurança › Afixar app, e depois afixe a app Picagens. O bloqueio total (sem barra do Android) é feito na instalação assistida.
       </Notice>
       <View style={{ marginTop: vw(1), gap: vw(1) }}>
         {confirmUnlink ? (

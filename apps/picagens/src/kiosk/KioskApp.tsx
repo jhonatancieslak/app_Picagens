@@ -1,33 +1,30 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Picagens Quiosque: tablet partilhado à entrada da obra. Picagem com PIN + foto de confirmação
+// Modo quiosque da app Picagens: tablet partilhado à entrada da obra. Picagem com PIN + foto de confirmação
 // (sem reconhecimento facial), fila offline, administração com código e estado da licença.
 // Fluxo e decisões: doc 44 §14 (UI) e doc 43 §4 (API) no repo picagens-saas-v2.
-import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google-fonts/inter';
-import { SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import NetInfo from '@react-native-community/netinfo';
-import { useFonts } from 'expo-font';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, Text, View } from 'react-native';
 
-import { ApiError, KioskConfig, NetworkError, api } from './src/api';
-import { TopBar } from './src/components/TopBar';
-import { useVw } from './src/components/ui';
-import { ADMIN_SESSION_SECONDS, CONFIG_REFRESH_MS, PHOTO_RETENTION_DAYS_DEFAULT, QUEUE_RETRY_MS } from './src/config';
-import { QueueStatus, clearQueue, enqueuePunch, flushQueue, queueStatus } from './src/queue';
-import { AdminScreen, CameraTestScreen, ScreenSettingsScreen } from './src/screens/AdminScreens';
-import { DoneInfo, DoneScreen } from './src/screens/DoneScreen';
-import { PhotoInfoScreen, SuspendedScreen, UpdateRequiredScreen } from './src/screens/InfoScreens';
-import { PadScreen } from './src/screens/PadScreen';
-import { PhotoScreen } from './src/screens/PhotoScreen';
-import { SetupScreen } from './src/screens/SetupScreen';
-import { WaitScreen } from './src/screens/WaitScreen';
+import { ApiError, KioskConfig, NetworkError, api } from './api';
+import { TopBar } from './TopBar';
+import { useVw } from '../components/ui';
+import { ADMIN_SESSION_SECONDS, CONFIG_REFRESH_MS, PHOTO_RETENTION_DAYS_DEFAULT, QUEUE_RETRY_MS } from '../config';
+import { QueueStatus, clearQueue, enqueuePunch, flushQueue, queueStatus } from './queue';
+import { AdminScreen, CameraTestScreen, ScreenSettingsScreen } from './screens/AdminScreens';
+import { DoneInfo, DoneScreen } from './screens/DoneScreen';
+import { PhotoInfoScreen, SuspendedScreen, UpdateRequiredScreen } from './screens/InfoScreens';
+import { PadScreen } from './screens/PadScreen';
+import { PhotoScreen } from './screens/PhotoScreen';
+import { SetupScreen } from './screens/SetupScreen';
+import { WaitScreen } from './screens/WaitScreen';
 import {
   DEFAULT_SCREEN_SETTINGS, ScreenSettings, clearAll, getCachedConfig, getScreenSettings, getToken,
   saveCachedConfig, saveScreenSettings, saveToken,
-} from './src/storage';
-import { colors, fonts } from './src/theme';
+} from './storage';
+import { colors, fonts } from '../theme';
 
 type Screen = 'wait' | 'pin' | 'photo' | 'done' | 'adminCode' | 'admin' | 'camera' | 'screenSettings' | 'info';
 
@@ -36,9 +33,13 @@ const NIGHT_END_HOUR = 6;
 const WAKE_MS = 2 * 60 * 1000;
 const isNight = (date: Date) => date.getHours() >= NIGHT_START_HOUR || date.getHours() < NIGHT_END_HOUR;
 
-export default function App() {
+interface Props {
+  /** Tablet desligado da empresa (ou configuração cancelada): volta à escolha do modo. */
+  onLeave: () => void;
+}
+
+export function KioskApp({ onLeave }: Props) {
   const vw = useVw();
-  const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold });
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [config, setConfig] = useState<KioskConfig | null>(null);
   const [online, setOnline] = useState(true);
@@ -58,10 +59,8 @@ export default function App() {
   const unlink = useCallback(async () => {
     await clearQueue();
     await clearAll();
-    setConfig(null);
-    setToken(null);
-    setScreen('wait');
-  }, []);
+    onLeave();
+  }, [onLeave]);
 
   /** 401 = tablet desativado no painel; 426 = versão antiga. Devolve true se o erro foi tratado. */
   const handleAuthErrors = useCallback((error: unknown) => {
@@ -218,7 +217,7 @@ export default function App() {
     saveScreenSettings(next);
   }
 
-  if (!fontsLoaded || token === undefined) {
+  if (token === undefined) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
         <ActivityIndicator color={colors.action} />
@@ -227,7 +226,7 @@ export default function App() {
   }
 
   if (updateRequired) return <Shell><UpdateRequiredScreen /></Shell>;
-  if (!token) return <Shell><SetupScreen onActivated={async (newToken) => { await saveToken(newToken); setToken(newToken); }} /></Shell>;
+  if (!token) return <Shell><SetupScreen onBack={onLeave} onActivated={async (newToken) => { await saveToken(newToken); setToken(newToken); }} /></Shell>;
   if (!config) {
     return (
       <Shell>

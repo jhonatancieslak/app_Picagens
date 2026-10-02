@@ -5,7 +5,7 @@ import type { CameraView } from 'expo-camera';
 import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
-import { PHOTO_JPEG_QUALITY, PHOTO_WIDTH_PX } from './config';
+import { PHOTO_JPEG_QUALITY, PHOTO_WIDTH_PX } from '../config';
 
 function removeQuietly(uri: string) {
   try {

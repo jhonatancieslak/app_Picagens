@@ -1,15 +1,19 @@
 <!-- Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214 -->
 # Picagens — apps React Native (Expo)
 
-Apps da Google Play do Picagens.pt, em React Native com Expo (SDK 57, TypeScript). Uma pasta por app:
+Uma só app na Google Play, **Picagens** (`pt.picagens.colaborador`), em React Native com Expo (SDK 57, TypeScript),
+pasta `apps/picagens`. No 1.º arranque escolhe-se o modo:
 
-| App | Pasta | Package Android | Estado |
+| Modo | Para quê | Código | API |
 |---|---|---|---|
-| Picagens Quiosque (tablet partilhado na obra) | `apps/quiosque` | `pt.picagens.quiosque` | 1.0.0 — PIN + foto de confirmação, fila offline, admin, licença |
-| Picagens Mobile (telemóvel do colaborador) | `apps/mobile` (a criar) | `pt.picagens.colaborador` | hoje TWA da PWA; a versão React Native entra como atualização do mesmo package |
+| Colaborador (vertical) | telemóvel pessoal: picar com GPS, registos, avisos | `src/employee/` | `/api/v1/mobile` |
+| Quiosque (horizontal) | tablet partilhado na obra: PIN + foto de confirmação, fila offline, admin | `src/kiosk/` | `/api/quiosque/v1` |
 
-API e decisões: repo `picagens-saas-v2` — doc 43 (APIs `/api/quiosque/v1` e `/api/v1/mobile`), doc 44 (UI,
-protótipo v4, §14: foto sem reconhecimento facial), doc 47 (esta app e como publicar).
+Partilhado: `App.tsx` (escolha do modo e orientação), `src/ModeScreen.tsx`, `src/http.ts`, `src/theme.ts`,
+`src/config.ts`, `src/components/`.
+
+API e decisões: repo `picagens-saas-v2`, `/var/www/picagens/levantamento/`: doc 43 (APIs), doc 44 (UI), doc 47
+(quiosque) e **doc 48 (app única e publicação na Play)**.
 
 ## Regras
 
@@ -26,7 +30,7 @@ Ferramentas em `/opt/android-build` (JDK 17 + Android SDK). Chave de envio em `/
 (fora do repo; a chave final fica com a Google — Play App Signing).
 
 ```bash
-cd apps/quiosque
+cd apps/picagens
 export ANDROID_HOME=/opt/android-build/sdk JAVA_HOME=/opt/android-build/jdk
 npx expo prebuild --platform android --clean
 set -a; . /root/.picagens-android/senhas.env; set +a
@@ -41,15 +45,15 @@ Nova versão: subir `version` e `android.versionCode` em `app.json`.
 
 ## Build de teste na nuvem (EAS)
 
-Projeto `@cieslak-sistemas/picagens-quiosque`. Token pessoal em `/root/.expo-token` (o `eas login` interativo
+Projeto `@cieslak-sistemas/picagens`. Token pessoal em `/root/.expo-token` (o `eas login` interativo
 não funciona sem terminal; usar `EXPO_TOKEN`).
 
 ```bash
-cd apps/quiosque
+cd apps/picagens
 export EXPO_TOKEN=$(cat /root/.expo-token)
 npx eas-cli@latest build -p android --profile preview --non-interactive --no-wait
 npx eas-cli@latest build:view <build-id> --json   # artifacts.buildUrl = link do APK
 ```
 
 O perfil `preview` assina com uma keystore gerada pelo EAS (guardada no Expo), **não** com a chave de envio
-acima: serve só para testes. Detalhe e decisão pendente para produção: doc 47 §3.1 em `/var/www/picagens/levantamento/`.
+acima: serve só para testes. Assinatura para produção e passos da Play: doc 48 §4–§6 em `/var/www/picagens/levantamento/`.

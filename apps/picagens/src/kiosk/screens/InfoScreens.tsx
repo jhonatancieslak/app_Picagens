@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
-import { Heading, LinkButton, Logo, Paragraph, useVw } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { Heading, LinkButton, Logo, Paragraph, useVw } from '../../components/ui';
+import { colors, fonts } from '../../theme';
 
 export function PhotoInfoScreen({ company, retentionDays, onBack }: { company: string; retentionDays: number; onBack: () => void }) {
   const vw = useVw();
@@ -60,7 +60,7 @@ export function UpdateRequiredScreen() {
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: vw(1.6), padding: vw(4) }}>
       <Logo height={vw(6)} />
       <Heading>Atualize a app</Heading>
-      <Paragraph>Esta versão do Picagens Quiosque já não é suportada. Abra a Play Store e atualize a app para continuar a picar.</Paragraph>
+      <Paragraph>Esta versão da app Picagens já não é suportada. Abra a Play Store e atualize a app para continuar a picar.</Paragraph>
     </View>
   );
 }

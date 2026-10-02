@@ -4,9 +4,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Text, View } from 'react-native';
 
-import { ADMIN_CODE_MAX_LENGTH, IDLE_TIMEOUT_SECONDS, PIN_LENGTH } from '../config';
-import { Dots, Heading, Keypad, LinkButton, Paragraph, useVw } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { ADMIN_CODE_MAX_LENGTH, IDLE_TIMEOUT_SECONDS, PIN_LENGTH } from '../../config';
+import { Dots, Heading, Keypad, LinkButton, Paragraph, useVw } from '../../components/ui';
+import { colors, fonts } from '../../theme';
 
 export type PadMode = 'pin' | 'admin';
 

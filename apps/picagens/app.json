@@ -1,0 +1,95 @@
+{
+  "expo": {
+    "name": "Picagens",
+    "slug": "picagens",
+    "version": "2.0.0",
+    "orientation": "default",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F7F9FC",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "pt.picagens.colaborador"
+    },
+    "android": {
+      "package": "pt.picagens.colaborador",
+      "versionCode": 2,
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
+      "allowBackup": false,
+      "predictiveBackGestureEnabled": false,
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "picagens.pt",
+              "pathPattern": "/app/colaborador/.*/ativar/.*"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "No modo quiosque (tablet da empresa), a Picagens usa a câmara para a foto de confirmação de cada picagem. Não faz reconhecimento facial.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "A Picagens usa a localização só no momento em que pica, para confirmar que está no local de trabalho.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isIosBackgroundLocationEnabled": false
+        }
+      ],
+      "expo-screen-orientation",
+      "expo-secure-store",
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 200,
+          "backgroundColor": "#FFFFFF",
+          "resizeMode": "contain"
+        }
+      ],
+      "./plugins/withReleaseSigning"
+    ],
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "owner": "cieslak-sistemas",
+    "extra": {
+      "eas": {
+        "projectId": "514b214e-505f-400c-a415-7ea0a74797fa"
+      }
+    }
+  }
+}

@@ -4,10 +4,10 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Text, View } from 'react-native';
 
-import { CONFIRMATION_MS } from '../config';
-import { CheckIcon } from '../components/icons';
-import { Logo, useVw } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { CONFIRMATION_MS } from '../../config';
+import { CheckIcon } from '../../components/icons';
+import { Logo, useVw } from '../../components/ui';
+import { colors, fonts } from '../../theme';
 
 export type DoneKind = 'ok' | 'no_photo' | 'queued' | 'refused';
 

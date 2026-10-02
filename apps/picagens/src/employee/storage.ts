@@ -1,0 +1,28 @@
+// Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
+// Sessão do colaborador no armazenamento seguro do Android (Keystore). Chaves separadas das do quiosque.
+import * as SecureStore from 'expo-secure-store';
+
+import type { Me } from './api';
+
+const TOKEN_KEY = 'employee_token';
+const ME_KEY = 'employee_me';
+
+export const getEmployeeToken = () => SecureStore.getItemAsync(TOKEN_KEY);
+
+export async function getCachedMe(): Promise<Me | null> {
+  try {
+    const raw = await SecureStore.getItemAsync(ME_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveSession(token: string, me: Me) {
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await SecureStore.setItemAsync(ME_KEY, JSON.stringify(me));
+}
+
+export async function clearSession() {
+  await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(ME_KEY)]);
+}

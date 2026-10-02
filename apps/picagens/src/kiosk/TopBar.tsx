@@ -3,8 +3,8 @@
 import { Pressable, Text, View } from 'react-native';
 
 import { colors, fonts } from '../theme';
-import { GearIcon } from './icons';
-import { Logo, useVw } from './ui';
+import { GearIcon } from '../components/icons';
+import { Logo, useVw } from '../components/ui';
 
 interface Props {
   company: string;

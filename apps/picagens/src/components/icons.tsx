@@ -56,3 +56,55 @@ export const CheckIcon = ({ size, color }: IconProps) => (
     />
   </Svg>
 );
+
+export const PhoneIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Rect x={6} y={2} width={12} height={20} rx={3} />
+    <Path strokeLinecap="round" d="M11 18h2" />
+  </Svg>
+);
+
+export const LocationIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
+    <Circle cx={12} cy={9.5} r={2.5} />
+  </Svg>
+);
+
+export const EntryIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M14 4h5v16h-5M3 12h11M10 8l4 4-4 4" />
+  </Svg>
+);
+
+export const PauseIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2.4} strokeLinecap="round">
+    <Path d="M9 6v12M15 6v12" />
+  </Svg>
+);
+
+export const PlayIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill={color}>
+    <Path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.4-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+  </Svg>
+);
+
+export const HomeIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round">
+    <Path d="M4 10.5 12 4l8 6.5V20h-5v-6H9v6H4z" />
+  </Svg>
+);
+
+export const ListIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Rect x={4} y={4} width={16} height={17} rx={2} />
+    <Path strokeLinecap="round" d="M8 2v4M16 2v4M4 10h16M8 14h3M8 17h6" />
+  </Svg>
+);
+
+export const UserIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Circle cx={12} cy={8} r={4} />
+    <Path strokeLinecap="round" d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6" />
+  </Svg>
+);

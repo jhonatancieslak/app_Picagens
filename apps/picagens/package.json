@@ -1,5 +1,5 @@
 {
-  "name": "quiosque",
+  "name": "picagens",
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
@@ -14,12 +14,15 @@
     "expo-font": "~57.0.4",
     "expo-image-manipulator": "~57.0.20",
     "expo-keep-awake": "~57.0.2",
+    "expo-location": "~57.0.20",
+    "expo-screen-orientation": "~57.0.2",
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
     "expo-system-ui": "~57.0.4",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
     "react-native-svg": "15.15.4"
   },
   "devDependencies": {

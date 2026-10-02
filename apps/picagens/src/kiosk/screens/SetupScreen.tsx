@@ -6,15 +6,15 @@ import { useState } from 'react';
 import { Platform, Text, TextInput, View } from 'react-native';
 
 import { ApiError, NetworkError, api } from '../api';
-import { BigButton, Heading, Logo, Paragraph, useVw } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { BigButton, Heading, LinkButton, Logo, Paragraph, useVw } from '../../components/ui';
+import { colors, fonts } from '../../theme';
 
 const KEY_LENGTH = 12;
 
 const formatKey = (value: string) =>
   value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, KEY_LENGTH).replace(/(.{4})(?=.)/g, '$1-');
 
-export function SetupScreen({ onActivated }: { onActivated: (token: string) => void }) {
+export function SetupScreen({ onActivated, onBack }: { onActivated: (token: string) => void; onBack: () => void }) {
   const vw = useVw();
   const [key, setKey] = useState('');
   const [error, setError] = useState('');
@@ -61,6 +61,7 @@ export function SetupScreen({ onActivated }: { onActivated: (token: string) => v
         <View style={{ alignSelf: 'flex-start' }}>
           <BigButton primary small title={busy ? 'A ligar…' : 'Ligar tablet'} onPress={activate} disabled={busy || key.length < KEY_LENGTH + 2} />
         </View>
+        <LinkButton title="‹ Este dispositivo não é um tablet da empresa" onPress={onBack} />
       </View>
       <View style={{ flex: 1.1, gap: vw(1.6) }}>
         <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.6), padding: vw(1.6), gap: vw(0.8) }}>
