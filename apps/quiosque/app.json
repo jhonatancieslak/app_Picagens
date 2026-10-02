@@ -57,6 +57,12 @@
     ],
     "web": {
       "favicon": "./assets/favicon.png"
+    },
+    "owner": "cieslak-sistemas",
+    "extra": {
+      "eas": {
+        "projectId": "4306f129-a158-408e-bfa9-f91481cbd466"
+      }
     }
   }
 }
