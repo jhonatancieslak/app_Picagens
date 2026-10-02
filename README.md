@@ -38,3 +38,18 @@ cd android && ./gradlew --no-daemon -PreactNativeArchitectures=arm64-v8a,armeabi
 Saída: `android/app/build/outputs/bundle/release/app-release.aab` (Play Console) e
 `android/app/build/outputs/apk/release/app-release.apk` (instalar direto num tablet de teste).
 Nova versão: subir `version` e `android.versionCode` em `app.json`.
+
+## Build de teste na nuvem (EAS)
+
+Projeto `@cieslak-sistemas/picagens-quiosque`. Token pessoal em `/root/.expo-token` (o `eas login` interativo
+não funciona sem terminal; usar `EXPO_TOKEN`).
+
+```bash
+cd apps/quiosque
+export EXPO_TOKEN=$(cat /root/.expo-token)
+npx eas-cli@latest build -p android --profile preview --non-interactive --no-wait
+npx eas-cli@latest build:view <build-id> --json   # artifacts.buildUrl = link do APK
+```
+
+O perfil `preview` assina com uma keystore gerada pelo EAS (guardada no Expo), **não** com a chave de envio
+acima: serve só para testes. Detalhe e decisão pendente para produção: doc 47 §3.1 em `/var/www/picagens/levantamento/`.
