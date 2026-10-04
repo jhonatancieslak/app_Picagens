@@ -1,6 +1,6 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Modo do dispositivo, escolhido no 1.º arranque: telemóvel do colaborador ou tablet de quiosque.
-// Fica guardado; só volta à escolha quando a sessão termina (colaborador) ou o tablet é desligado (admin).
+// Modo do dispositivo: telemóvel do colaborador (padrão) ou tablet de quiosque (botão "Quiosque" na entrada).
+// Só o quiosque fica guardado; volta a colaborador em "Sou colaborador" ou ao desligar o tablet (admin).
 import * as SecureStore from 'expo-secure-store';
 
 export type DeviceMode = 'employee' | 'kiosk';

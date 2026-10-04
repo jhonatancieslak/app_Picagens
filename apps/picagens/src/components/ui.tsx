@@ -159,3 +159,23 @@ const styles = StyleSheet.create({
 });
 
 export { radius };
+
+/** Botão discreto no canto superior direito: "Quiosque" no login do telemóvel e "Sou colaborador" no tablet (doc 49). */
+export function CornerButton({ label, icon, onPress, top }: { label: string; icon: ReactNode; onPress: () => void; top: number }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      hitSlop={10}
+      style={({ pressed }) => ({
+        position: 'absolute', top, right: 14, zIndex: 5, flexDirection: 'row', alignItems: 'center', gap: 6,
+        paddingHorizontal: 12, paddingVertical: 8, borderRadius: 999, borderWidth: 1, borderColor: colors.line,
+        backgroundColor: colors.surface, opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.97 : 1 }],
+      })}
+    >
+      {icon}
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink2 }}>{label}</Text>
+    </Pressable>
+  );
+}

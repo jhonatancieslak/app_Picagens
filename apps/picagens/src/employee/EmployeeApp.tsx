@@ -1,7 +1,8 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Modo colaborador da app Picagens (telemóvel pessoal, vertical): entrar (link do email ou NIF + PIN),
+// Modo colaborador da app Picagens (telemóvel pessoal, vertical): entrar (código da empresa + NIF + PIN, ou link do email),
 // Hoje (picar com GPS), Registos e Perfil. Sessão de 180 dias renovada a cada abertura; 401 → sai.
 import NetInfo from '@react-native-community/netinfo';
+import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Linking, Pressable, Text, View } from 'react-native';
@@ -14,6 +15,7 @@ import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
 import { colors, fonts } from '../theme';
 import { Dashboard, Me, Session, employeeApi } from './api';
 import { clearEmployeeQueue, flushEmployeeQueue, pendingEmployeePunches } from './queue';
+import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { LoginScreen, parseActivationLink } from './screens/LoginScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
@@ -30,7 +32,7 @@ const TABS: { key: Tab; label: string; Icon: typeof HomeIcon }[] = [
 
 const sessionToMe = ({ token: _token, validade_dias: _days, ...me }: Session & { ok?: boolean }): Me => me;
 
-export function EmployeeApp({ onLeave }: { onLeave: () => void }) {
+export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const insets = useSafeAreaInsets();
   const [token, setToken] = useState<string | null | undefined>(undefined);
   const [me, setMe] = useState<Me | null>(null);
@@ -40,12 +42,16 @@ export function EmployeeApp({ onLeave }: { onLeave: () => void }) {
   const [pending, setPending] = useState(0);
   const [updateRequired, setUpdateRequired] = useState(false);
   const [link, setLink] = useState<string | null>(null);
+  const [locationIntro, setLocationIntro] = useState(false);
 
   const logout = useCallback(async () => {
     clearEmployeeQueue();
     await clearSession();
-    onLeave();
-  }, [onLeave]);
+    setMe(null);
+    setDashboard(null);
+    setTab('today');
+    setToken(null);
+  }, []);
 
   /** 401 = sessão revogada no painel; 426 = versão antiga. Devolve true se o erro foi tratado. */
   const onAuthError = useCallback((error: unknown) => {
@@ -65,6 +71,9 @@ export function EmployeeApp({ onLeave }: { onLeave: () => void }) {
     await saveSession(session.token, profile);
     setMe(profile);
     setToken(session.token);
+    // Android ainda não perguntou pela localização: explicar antes (doc 49 §11).
+    const permission = await Location.getForegroundPermissionsAsync();
+    setLocationIntro(permission.status === Location.PermissionStatus.UNDETERMINED);
   }, []);
 
   const refreshDashboard = useCallback(async () => {
@@ -142,7 +151,16 @@ export function EmployeeApp({ onLeave }: { onLeave: () => void }) {
     return (
       <>
         <StatusBar style="dark" />
-        <LoginScreen link={link} onSession={startSession} onBack={onLeave} />
+        <LoginScreen link={link} onSession={startSession} onKiosk={onKiosk} />
+      </>
+    );
+  }
+
+  if (locationIntro) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <LocationIntroScreen company={me.empresa.nome} onDone={() => setLocationIntro(false)} />
       </>
     );
   }

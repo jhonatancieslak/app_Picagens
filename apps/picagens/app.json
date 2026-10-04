@@ -2,7 +2,7 @@
   "expo": {
     "name": "Picagens",
     "slug": "picagens",
-    "version": "2.0.0",
+    "version": "2.1.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "pt.picagens.colaborador",
-      "versionCode": 2,
+      "versionCode": 3,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -55,9 +55,9 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "No modo quiosque (tablet da empresa), a Picagens usa a câmara para a foto de confirmação de cada picagem. Não faz reconhecimento facial.",
+          "cameraPermission": "No modo quiosque (tablet da empresa), a Picagens usa a câmara para ler o QR de ativação e para a foto de confirmação de cada picagem. Não faz reconhecimento facial.",
           "recordAudioAndroid": false,
-          "barcodeScannerEnabled": false
+          "barcodeScannerEnabled": true
         }
       ],
       [

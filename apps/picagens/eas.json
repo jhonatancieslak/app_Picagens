@@ -8,12 +8,18 @@
       "distribution": "internal",
       "android": {
         "buildType": "apk"
-      }
+      },
+      "credentialsSource": "local"
     },
     "production": {
       "android": {
         "buildType": "app-bundle"
-      }
+      },
+      "credentialsSource": "local"
+    },
+    "piloto": {
+      "extends": "preview",
+      "credentialsSource": "remote"
     }
   },
   "submit": {

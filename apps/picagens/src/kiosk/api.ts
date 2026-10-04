@@ -20,6 +20,13 @@ export interface KioskConfig {
   versao_minima: string;
 }
 
+export interface KeyCheck {
+  empresa: string;
+  tablet: string;
+  local: string | null;
+  acessos: { em_uso: number; limite: number | null };
+}
+
 export interface PunchResult {
   nome: string;
   tipo: string;
@@ -40,6 +47,8 @@ const request = createClient(KIOSK_API_URL);
 export const api = {
   activate: (chave: string, modelo: string) =>
     request<{ token: string; empresa: string; tablet: string }>('POST', '/ativar', { chave, modelo, versao: appVersion }),
+  /** Só lê: empresa, local e nome do tablet antes de gastar a chave (doc 49 §9). */
+  verify: (chave: string) => request<KeyCheck>('POST', '/ativar/verificar', { chave }),
   config: (token: string) => request<KioskConfig>('GET', '/config', undefined, token),
   punch: (token: string, payload: PunchRequest) => request<PunchResult>('POST', '/picar', payload, token),
   adminLogin: (token: string, pinAdmin: string) =>

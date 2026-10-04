@@ -6,6 +6,7 @@ import type { Me } from './api';
 
 const TOKEN_KEY = 'employee_token';
 const ME_KEY = 'employee_me';
+const COMPANY_CODE_KEY = 'company_code';
 
 export const getEmployeeToken = () => SecureStore.getItemAsync(TOKEN_KEY);
 
@@ -26,3 +27,7 @@ export async function saveSession(token: string, me: Me) {
 export async function clearSession() {
   await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(ME_KEY)]);
 }
+
+/** Último código da empresa usado: depois de terminar sessão não é preciso voltar a escrevê-lo. */
+export const getLastCompanyCode = () => SecureStore.getItemAsync(COMPANY_CODE_KEY);
+export const saveLastCompanyCode = (code: string) => SecureStore.setItemAsync(COMPANY_CODE_KEY, code);

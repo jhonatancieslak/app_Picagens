@@ -108,3 +108,47 @@ export const UserIcon = ({ size, color }: IconProps) => (
     <Path strokeLinecap="round" d="M4 21c1.2-4 4.3-6 8-6s6.8 2 8 6" />
   </Svg>
 );
+
+export const TabletIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Rect x={3} y={5} width={18} height={14} rx={2} />
+    <Path strokeLinecap="round" strokeWidth={2.6} d="M12 16h.01" />
+  </Svg>
+);
+
+export const KeyIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round">
+    <Circle cx={8} cy={15} r={4} />
+    <Path d="M11 12l9-9M17 6l3 3" />
+  </Svg>
+);
+
+export const MailIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Rect x={3} y={5} width={18} height={14} rx={2} />
+    <Path d="M3 7l9 6 9-6" />
+  </Svg>
+);
+
+export const QrIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round">
+    <Rect x={3} y={3} width={7} height={7} rx={1.5} />
+    <Rect x={14} y={3} width={7} height={7} rx={1.5} />
+    <Rect x={3} y={14} width={7} height={7} rx={1.5} />
+    <Path d="M14 14h3v3M21 14v.01M17 21h4v-4M14 21v-3" />
+  </Svg>
+);
+
+export const ClipboardIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round">
+    <Rect x={8} y={3} width={8} height={4} rx={1.5} />
+    <Path d="M16 5h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2" />
+  </Svg>
+);
+
+export const ShieldIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M12 3l8 3v6c0 4.5-3.4 8.2-8 9-4.6-.8-8-4.5-8-9V6z" />
+    <Path d="M8.5 12l2.5 2.5 4.5-5" />
+  </Svg>
+);

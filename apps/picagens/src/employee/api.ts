@@ -15,6 +15,13 @@ export interface Me {
   opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean };
 }
 
+/** Empresa encontrada pelo código de 6 algarismos (doc 49): confirma-se antes de pedir NIF e PIN. */
+export interface Company {
+  codigo: string;
+  nome: string;
+  logo_url: string | null;
+}
+
 export interface Session extends Me {
   token: string;
   validade_dias: number;
@@ -81,7 +88,8 @@ const request = createClient(EMPLOYEE_API_URL);
 
 export const employeeApi = {
   activate: (empresa: string, token: string) => request<Session>('POST', '/sessao/ativar', { empresa, token }),
-  login: (empresa: string, nif: string, pin: string) => request<Session>('POST', '/sessao/entrar', { empresa, nif, pin }),
+  company: (codigo: string) => request<Company>('POST', '/empresa', { codigo }),
+  login: (codigo: string, nif: string, pin: string) => request<Session>('POST', '/sessao/entrar', { codigo, nif, pin }),
   renew: (token: string) => request<Session>('POST', '/sessao/renovar', {}, token),
   dashboard: (token: string) => request<Dashboard>('GET', '/painel', undefined, token),
   checkPlace: (token: string, lat: number, lon: number) => request<PlaceCheck>('POST', '/verificar-local', { lat, lon }, token),
