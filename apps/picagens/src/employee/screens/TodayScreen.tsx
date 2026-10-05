@@ -4,7 +4,7 @@
 // A posição só é lida neste ecrã e no toque de picar. O servidor decide o tipo e repete as regras (doc 43 §3).
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Animated, Easing, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
@@ -284,13 +284,23 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
 }
 
 const MAP_HEIGHT = 196;
-const MAP_CENTER_Y = 92;
-const INSIDE_RADIUS_PX = 62;
-const OUTSIDE_DISTANCE_PX = 82;
-const EARTH_METERS_PER_DEGREE = 111_320;
+const TILE_PX = 256;
+const MAP_TILES_URL = 'https://picagens.pt/mapa';
+const METERS_PER_PIXEL_Z0 = 156_543.033_92;
+const MIN_ZOOM = 3;
+const MAX_ZOOM = 18;
+const MIN_VIEW_METERS = 60;
+const EDGE_PX = 14;
 
-/** Mapa esquemático (protótipo v6): quarteirões e ruas decorativos, o raio da obra à escala e a sua posição real
- * (direção e distância calculadas a partir das coordenadas da obra devolvidas por /verificar-local). */
+/** Pixel no mapa-múndi (Web Mercator) ao zoom z. */
+function worldPixel(lat: number, lon: number, zoom: number) {
+  const scale = TILE_PX * 2 ** zoom;
+  const sin = Math.sin((lat * Math.PI) / 180);
+  return { x: ((lon + 180) / 360) * scale, y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale };
+}
+
+/** Mapa real (protótipo v6): mosaicos do OpenStreetMap através da cache de picagens.pt/mapa, a obra ao centro com o
+ * raio à escala e a sua posição exata (ponto a pulsar). O zoom ajusta-se para caberem o raio e a sua distância. */
 function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null; fix: Fix | null; error: string; onRecenter: () => void }) {
   const [width, setWidth] = useState(340);
   const pulse = useRef(new Animated.Value(0)).current;
@@ -301,23 +311,48 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
     return () => loop.stop();
   }, [pulse]);
 
-  const cx = width / 2;
   const radiusMeters = place?.raio ?? 0;
-  const hasSite = place?.local_lat !== undefined && place?.local_lon !== undefined && radiusMeters > 0;
+  const site = place?.local_lat !== undefined && place?.local_lon !== undefined ? { lat: place.local_lat, lon: place.local_lon } : null;
+  const center = site ?? (fix ? { lat: fix.lat, lon: fix.lon } : null);
+  let zoom = MAX_ZOOM - 1;
+  let tiles: { key: string; uri: string; left: number; top: number }[] = [];
   let user: { x: number; y: number } | null = null;
-  let radiusPx = INSIDE_RADIUS_PX;
-  if (hasSite && fix) {
-    const east = (fix.lon - place!.local_lon!) * EARTH_METERS_PER_DEGREE * Math.cos((place!.local_lat! * Math.PI) / 180);
-    const north = (fix.lat - place!.local_lat!) * EARTH_METERS_PER_DEGREE;
-    const distance = Math.hypot(east, north);
-    const scale = distance <= radiusMeters * 1.3 ? INSIDE_RADIUS_PX / radiusMeters : OUTSIDE_DISTANCE_PX / distance;
-    radiusPx = Math.max(radiusMeters * scale, 6);
-    user = {
-      x: Math.min(Math.max(cx + east * scale, 14), width - 14),
-      y: Math.min(Math.max(MAP_CENTER_Y - north * scale, 14), MAP_HEIGHT - 14),
-    };
-  } else if (fix) {
-    user = { x: cx + 18, y: MAP_CENTER_Y + 12 };
+  let radiusPx = 0;
+  let sitePx: { x: number; y: number } | null = null;
+  if (center) {
+    const centerPx0 = worldPixel(center.lat, center.lon, 0);
+    const userDistance = site && fix ? Math.hypot(
+      (worldPixel(fix.lat, fix.lon, 0).x - centerPx0.x) * METERS_PER_PIXEL_Z0 * Math.cos((center.lat * Math.PI) / 180),
+      (worldPixel(fix.lat, fix.lon, 0).y - centerPx0.y) * METERS_PER_PIXEL_Z0 * Math.cos((center.lat * Math.PI) / 180),
+    ) : 0;
+    const halfPx = Math.min(width, MAP_HEIGHT) / 2 - EDGE_PX;
+    const needed = Math.max(radiusMeters * 1.3, userDistance * 1.15, MIN_VIEW_METERS);
+    const metersPerPixel = (z: number) => (METERS_PER_PIXEL_Z0 * Math.cos((center.lat * Math.PI) / 180)) / 2 ** z;
+    zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, Math.floor(Math.log2((METERS_PER_PIXEL_Z0 * Math.cos((center.lat * Math.PI) / 180) * halfPx) / needed))));
+    const c = worldPixel(center.lat, center.lon, zoom);
+    const left = c.x - width / 2;
+    const top = c.y - MAP_HEIGHT / 2;
+    const count = 2 ** zoom;
+    for (let x = Math.floor(left / TILE_PX); x <= Math.floor((left + width) / TILE_PX); x += 1) {
+      for (let y = Math.floor(top / TILE_PX); y <= Math.floor((top + MAP_HEIGHT) / TILE_PX); y += 1) {
+        if (y < 0 || y >= count) continue;
+        const wrapped = ((x % count) + count) % count;
+        tiles.push({ key: `${zoom}/${x}/${y}`, uri: `${MAP_TILES_URL}/${zoom}/${wrapped}/${y}.png`, left: x * TILE_PX - left, top: y * TILE_PX - top });
+      }
+    }
+    if (site) {
+      sitePx = { x: width / 2, y: MAP_HEIGHT / 2 };
+      radiusPx = Math.max(radiusMeters / metersPerPixel(zoom), 6);
+    }
+    if (fix) {
+      const u = worldPixel(fix.lat, fix.lon, zoom);
+      user = {
+        x: Math.min(Math.max(u.x - left, EDGE_PX), width - EDGE_PX),
+        y: Math.min(Math.max(u.y - top, EDGE_PX), MAP_HEIGHT - EDGE_PX),
+      };
+    }
+  } else {
+    tiles = [];
   }
 
   const chip: { tone: ChipTone; label: string } = error ? { tone: 'danger', label: 'Sem posição' }
@@ -334,21 +369,22 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       style={{ height: MAP_HEIGHT, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.mapLand }}
     >
-      <Svg width={width} height={MAP_HEIGHT}>
-        <Rect width={width} height={MAP_HEIGHT} fill={colors.mapLand} />
-        <Rect x={-10} y={-10} width={cx - 32} height={78} rx={8} fill={colors.mapBlock} />
-        <Rect x={cx + 30} y={-10} width={cx} height={78} rx={8} fill={colors.mapPark} />
-        <Rect x={-10} y={118} width={cx - 32} height={90} rx={8} fill={colors.mapBlock} />
-        <Rect x={cx + 30} y={118} width={cx} height={90} rx={8} fill={colors.mapBlock} />
-        <Path d={`M-10 93 H${width + 10}`} stroke={colors.mapRoad} strokeWidth={22} />
-        <Path d={`M${cx - 6} -10 V${MAP_HEIGHT + 10}`} stroke={colors.mapRoad} strokeWidth={16} />
-        <Circle cx={cx} cy={MAP_CENTER_Y} r={radiusPx} fill="rgba(37,99,235,.09)" stroke={colors.action} strokeWidth={1.5} strokeDasharray="4 4" />
-        <G x={cx} y={MAP_CENTER_Y}>
-          <Path d="M0 0 C-9 -12 -12 -16 -12 -22 a12 12 0 0 1 24 0 c0 6 -3 10 -12 22z" fill={colors.ink} />
-          <Rect x={-5} y={-27} width={10} height={9} rx={1.5} fill="#fff" />
-        </G>
+      {tiles.map((tile) => (
+        <Image key={tile.key} source={{ uri: tile.uri }} style={{ position: 'absolute', left: tile.left, top: tile.top, width: TILE_PX, height: TILE_PX }} fadeDuration={0} />
+      ))}
+      <Svg width={width} height={MAP_HEIGHT} style={{ position: 'absolute', left: 0, top: 0 }}>
+        {sitePx ? (
+          <>
+            <Circle cx={sitePx.x} cy={sitePx.y} r={radiusPx} fill="rgba(37,99,235,.12)" stroke={colors.action} strokeWidth={1.5} strokeDasharray="4 4" />
+            <G x={sitePx.x} y={sitePx.y}>
+              <Path d="M0 0 C-9 -12 -12 -16 -12 -22 a12 12 0 0 1 24 0 c0 6 -3 10 -12 22z" fill={colors.ink} />
+              <Rect x={-5} y={-27} width={10} height={9} rx={1.5} fill="#fff" />
+            </G>
+          </>
+        ) : null}
         {user ? <Circle cx={user.x} cy={user.y} r={7} fill={colors.brand} stroke="#fff" strokeWidth={2.5} /> : null}
       </Svg>
+      <Text style={{ position: 'absolute', right: 4, bottom: 2, fontFamily: fonts.body, fontSize: 9, color: colors.ink2, backgroundColor: 'rgba(255,255,255,.75)', paddingHorizontal: 3, borderRadius: 3 }}>© OpenStreetMap</Text>
       {user ? (
         <Animated.View
           pointerEvents="none"

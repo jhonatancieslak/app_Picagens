@@ -252,7 +252,7 @@ export function KioskApp({ onLeave }: Props) {
     <Shell>
       {screen !== 'done' ? <TopBar company={config.empresa} place={config.local} online={online} onAdmin={inAdmin ? undefined : () => openPad('adminCode')} /> : null}
       {screen === 'wait' ? (
-        <WaitScreen tabletName={config.tablet} onPin={() => openPad('pin')} onInfo={() => setScreen('info')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
+        <WaitScreen tabletName={config.tablet} place={config.local} address={config.local_morada ?? null} onPin={() => openPad('pin')} onInfo={() => setScreen('info')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
       ) : null}
       {screen === 'pin' || screen === 'adminCode' ? (
         <PadScreen

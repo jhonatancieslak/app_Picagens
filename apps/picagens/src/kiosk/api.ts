@@ -11,6 +11,8 @@ export interface KioskConfig {
   empresa: string;
   tablet: string;
   local: string | null;
+  /** Morada exata do local escolhido na chave de ativação (o quiosque não usa GPS). */
+  local_morada?: string | null;
   cor: string;
   logo_url: string;
   foto: { retencao_dias: number; lado_maximo_px: number };
@@ -27,6 +29,7 @@ export interface KeyCheck {
   empresa: string;
   tablet: string;
   local: string | null;
+  local_morada?: string | null;
   acessos: { em_uso: number; limite: number | null };
 }
 

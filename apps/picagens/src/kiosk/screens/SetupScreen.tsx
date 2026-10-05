@@ -156,6 +156,7 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
               <Text style={{ fontFamily: fonts.bodyBold, color: colors.ok, fontSize: vw(1.6) }}>✓ Chave válida</Text>
               <Fact label="Empresa" value={found.empresa} />
               <Fact label="Local" value={found.local ?? 'Sem local (posição do tablet)'} />
+              {found.local_morada ? <Fact label="Morada" value={found.local_morada} /> : null}
               <Fact label="Nome" value={`Tablet “${found.tablet}”`} />
               <Fact label="Acessos" value={found.acessos.limite ? `${found.acessos.em_uso} de ${found.acessos.limite} do plano` : `${found.acessos.em_uso} (plano sem limite)`} />
               <Paragraph>A seguir o Android pede a câmara: serve só para a foto de confirmação de cada picagem (30 dias, cifrada, sem reconhecimento facial).</Paragraph>

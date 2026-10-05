@@ -26,13 +26,15 @@ export const versionLabel = () => `Picagens ${Application.nativeApplicationVersi
 
 interface Props {
   tabletName: string;
+  place: string | null;
+  address: string | null;
   onPin: () => void;
   onInfo: () => void;
   dimmed: boolean;
   onWake: () => void;
 }
 
-export function WaitScreen({ tabletName, onPin, onInfo, dimmed, onWake }: Props) {
+export function WaitScreen({ tabletName, place, address, onPin, onInfo, dimmed, onWake }: Props) {
   const vw = useVw();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -51,6 +53,12 @@ export function WaitScreen({ tabletName, onPin, onInfo, dimmed, onWake }: Props)
         <View style={{ marginTop: vw(1.4), alignSelf: 'flex-start', backgroundColor: colors.okSoft, borderRadius: 999, paddingHorizontal: vw(1.4), paddingVertical: vw(0.8) }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.5), color: colors.ok }}>✓ Tablet ativo nesta obra</Text>
         </View>
+        {place || address ? (
+          <View style={{ marginTop: vw(0.6), gap: vw(0.2) }} accessibilityLabel={`Local: ${[place, address].filter(Boolean).join(', ')}`}>
+            {place ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.7), color: colors.ink }}>{place}</Text> : null}
+            {address ? <Text style={{ fontFamily: fonts.body, fontSize: vw(1.5), color: colors.ink2 }}>{address}</Text> : null}
+          </View>
+        ) : null}
       </View>
       <View style={{ flex: 1, justifyContent: 'center', paddingLeft: vw(1), paddingRight: vw(4), gap: vw(1.5) }}>
         <BigButton primary title="Picar com PIN" subtitle="Código de 4 dígitos, depois uma foto rápida" icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
