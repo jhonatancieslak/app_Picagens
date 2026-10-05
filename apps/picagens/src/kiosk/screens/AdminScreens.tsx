@@ -3,7 +3,7 @@
 // ecrã e bloqueio, sair. Não há rostos nem reconhecimento facial (doc 44 §14).
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ReactNode, useState } from 'react';
-import { Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import type { LicenseState } from '../api';
 import { CameraIcon, CloudIcon, ExitIcon, LockIcon } from '../../components/icons';
@@ -49,13 +49,15 @@ interface AdminProps {
   queue: QueueStatus;
   settings: ScreenSettings;
   tabletName: string;
+  /** Versão mais recente publicada, quando é mais nova do que a instalada. */
+  update?: { version: string; url: string } | null;
   onCamera: () => void;
   onScreen: () => void;
   onFlush: () => void;
   onExit: () => void;
 }
 
-export function AdminScreen({ secondsLeft, license, licenseUntil, queue, settings, tabletName, onCamera, onScreen, onFlush, onExit }: AdminProps) {
+export function AdminScreen({ secondsLeft, license, licenseUntil, queue, settings, tabletName, update, onCamera, onScreen, onFlush, onExit }: AdminProps) {
   const vw = useVw();
   const minutes = Math.floor(secondsLeft / 60);
   const queueText = queue.pending
@@ -77,6 +79,11 @@ export function AdminScreen({ secondsLeft, license, licenseUntil, queue, setting
         <Tile title="Ecrã e bloqueio" text={[settings.keepAwake ? 'Sempre ligado' : 'Apaga sozinho', settings.dimAtNight ? 'Escurece à noite' : null].filter(Boolean).join(' · ')} icon={<LockIcon size={vw(2.8)} color={colors.action} />} onPress={onScreen} />
         <Tile title="Sair" text="Volta ao ecrã de picagem." danger icon={<ExitIcon size={vw(2.8)} color={colors.danger} />} onPress={onExit} />
       </View>
+      {update ? (
+        <Pressable accessibilityRole="button" onPress={() => Linking.openURL(update.url)}>
+          <Notice tone="info">Nova versão disponível ({update.version}). Toque para descarregar e instalar por cima: o tablet continua ligado à empresa.</Notice>
+        </Pressable>
+      ) : null}
       {license === 'a_terminar' ? (
         <Notice tone="info">A licença termina{licenseUntil ? ` a ${licenseUntil.split('-').reverse().join('/')}` : ' em breve'}. Só o administrador vê este aviso. A renovação faz-se no painel da empresa › Plano.</Notice>
       ) : null}

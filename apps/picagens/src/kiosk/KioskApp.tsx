@@ -15,6 +15,7 @@ import { ADMIN_SESSION_SECONDS, CONFIG_REFRESH_MS, PHOTO_RETENTION_DAYS_DEFAULT,
 import { QueueStatus, clearQueue, enqueuePunch, flushQueue, queueStatus } from './queue';
 import { AdminScreen, CameraTestScreen, ScreenSettingsScreen } from './screens/AdminScreens';
 import { DoneInfo, DoneScreen } from './screens/DoneScreen';
+import { DEFAULT_UPDATE_URL, isNewer } from '../update';
 import { PhotoInfoScreen, SuspendedScreen, UpdateRequiredScreen } from './screens/InfoScreens';
 import { PadScreen } from './screens/PadScreen';
 import { PhotoScreen } from './screens/PhotoScreen';
@@ -225,7 +226,7 @@ export function KioskApp({ onLeave }: Props) {
     );
   }
 
-  if (updateRequired) return <Shell><UpdateRequiredScreen /></Shell>;
+  if (updateRequired) return <Shell><UpdateRequiredScreen url={config?.url_atualizacao} /></Shell>;
   if (!token) return <Shell><SetupScreen onBack={onLeave} onActivated={async (newToken) => { await saveToken(newToken); setToken(newToken); }} /></Shell>;
   if (!config) {
     return (
@@ -280,6 +281,7 @@ export function KioskApp({ onLeave }: Props) {
           queue={queue}
           settings={settings}
           tabletName={config.tablet}
+          update={isNewer(config.versao_atual) ? { version: config.versao_atual!, url: config.url_atualizacao || DEFAULT_UPDATE_URL } : null}
           onCamera={() => setScreen('camera')}
           onScreen={() => setScreen('screenSettings')}
           onFlush={sendQueue}

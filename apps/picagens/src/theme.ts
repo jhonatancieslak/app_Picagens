@@ -1,25 +1,31 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Tokens da marca (doc 02/30 e protótipo v4 do doc 44). Verde reservado a "picagem feita".
+// Tokens da marca (doc 02/30 e protótipo v6 aprovado, doc 49). Verde reservado a "picagem feita".
 
 export const colors = {
   bg: '#F7F9FC',
   surface: '#FFFFFF',
   line: '#E3E8EF',
   ink: '#16233A',
-  ink2: '#556579',
+  ink2: '#55657A',
   ink3: '#8A97A8',
   action: '#2563EB',
   actionSoft: '#E8EFFE',
   brand: '#00C3FF',
   ok: '#1E9E52',
-  okSoft: '#E5F5EC',
+  okSoft: '#E6F6EC',
   pending: '#0E7490',
-  warn: '#B45309',
-  warnSoft: '#FEF3E2',
+  warn: '#B86E00',
+  warnSoft: '#FFF3DC',
   danger: '#C62828',
   dangerSoft: '#FDECEC',
-  info: '#0369A1',
-  infoSoft: '#E0F2FE',
+  info: '#0B7FA6',
+  infoSoft: '#E6F7FD',
+  hol: '#7C3AED',
+  holSoft: '#F1EBFE',
+  mapLand: '#EEF1F4',
+  mapRoad: '#FFFFFF',
+  mapBlock: '#E2E7EC',
+  mapPark: '#DDEFE2',
 };
 
 export const fonts = {

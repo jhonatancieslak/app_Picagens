@@ -1,7 +1,7 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Cliente da API do colaborador (/api/v1/mobile, doc 43 §3). Mesmas regras da PWA no servidor.
 import { EMPLOYEE_API_URL } from '../config';
-import { createClient } from '../http';
+import { createClient, createFormClient } from '../http';
 import type { LicenseState } from '../kiosk/api';
 
 export type PunchType = 'entrada' | 'saida' | 'pausa_inicio' | 'pausa_fim';
@@ -11,6 +11,9 @@ export interface Me {
   empresa: { slug: string; nome: string };
   local: string | null;
   versao_minima: string;
+  /** Versão mais recente publicada e o link do APK (servidor ≥ 05/10/2026); a app mostra "Nova versão disponível". */
+  versao_atual?: string;
+  url_atualizacao?: string;
   licenca: { estado: LicenseState; ate: string | null };
   opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean };
 }
@@ -61,6 +64,8 @@ export interface PlaceCheck {
   distancia?: number;
   raio?: number;
   local?: string;
+  local_lat?: number;
+  local_lon?: number;
   bloqueio: boolean;
   mensagem?: string;
 }
@@ -84,7 +89,33 @@ export interface MonthRecords {
   dias: { data: string; horas: string; completo: boolean; picagens: DayPunch[] }[];
 }
 
+export type RequestState = 'pendente' | 'aprovada' | 'rejeitada';
+
+export interface Requests {
+  ferias: { id: string; data_inicio: string; data_fim: string; estado: RequestState; tipo_ferias_id: string | null; data_inicio_aprovada: string | null; data_fim_aprovada: string | null }[];
+  baixas: { id: string; data_inicio: string; data_fim: string | null; estado: RequestState; motivo_rejeicao: string | null }[];
+  tipos_ferias: { id: string; nome: string }[];
+}
+
+export interface Documents {
+  documentos: { id: string; titulo: string; tipo: string; tipo_nome: string; ficheiro: string; valido_ate: string | null; validade: { estado: string | null; dias: number | null }; criado_em: string | null }[];
+  contratos_por_assinar: { id: string; titulo: string; criado_em: string | null }[];
+}
+
+export interface Contract {
+  id: string;
+  titulo: string;
+  estado: string;
+  corpo: string;
+  codigo_verificacao: string | null;
+  empresa_assinante: string | null;
+  empresa_assinou_em: string | null;
+  colaborador_assinou_em: string | null;
+  documento_id: string | null;
+}
+
 const request = createClient(EMPLOYEE_API_URL);
+const sendForm = createFormClient(EMPLOYEE_API_URL);
 
 export const employeeApi = {
   activate: (empresa: string, token: string) => request<Session>('POST', '/sessao/ativar', { empresa, token }),
@@ -95,4 +126,14 @@ export const employeeApi = {
   checkPlace: (token: string, lat: number, lon: number) => request<PlaceCheck>('POST', '/verificar-local', { lat, lon }, token),
   punch: (token: string, payload: PunchPayload) => request<{ tipo: PunchType; hora: string }>('POST', '/picar', payload, token),
   records: (token: string, ano: number, mes: number) => request<MonthRecords>('GET', `/registos?ano=${ano}&mes=${mes}`, undefined, token),
+  requests: (token: string) => request<Requests>('GET', '/pedidos', undefined, token),
+  requestVacation: (token: string, data_inicio: string, data_fim: string, tipo_ferias_id?: string) =>
+    request<{ id: string; mensagem: string }>('POST', '/pedidos/ferias', { data_inicio, data_fim, tipo_ferias_id }, token),
+  requestSickLeave: (token: string, form: FormData) => sendForm<{ id: string; mensagem: string }>('/pedidos/baixa', form, token),
+  documents: (token: string) => request<Documents>('GET', '/documentos', undefined, token),
+  documentUrl: (id: string) => `${EMPLOYEE_API_URL}/documentos/${encodeURIComponent(id)}`,
+  contract: (token: string, id: string) => request<Contract & { ok: boolean }>('GET', `/contratos/${encodeURIComponent(id)}`, undefined, token),
+  contractCode: (token: string, id: string) => request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/codigo`, {}, token),
+  signContract: (token: string, id: string, nome: string, codigo: string) =>
+    request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/assinar`, { nome, codigo, li_e_aceito: true }, token),
 };

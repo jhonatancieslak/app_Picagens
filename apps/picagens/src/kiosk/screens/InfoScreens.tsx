@@ -1,9 +1,10 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Informação ao colaborador sobre a foto (RGPD art. 13.º), licença suspensa e versão desatualizada.
 import { useEffect, useState } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { Linking, ScrollView, Text, View } from 'react-native';
 
-import { Heading, LinkButton, Logo, Paragraph, useVw } from '../../components/ui';
+import { BigButton, Heading, LinkButton, Logo, Paragraph, useVw } from '../../components/ui';
+import { DEFAULT_UPDATE_URL } from '../../update';
 import { colors, fonts } from '../../theme';
 
 export function PhotoInfoScreen({ company, retentionDays, onBack }: { company: string; retentionDays: number; onBack: () => void }) {
@@ -54,13 +55,16 @@ export function SuspendedScreen({ onAdmin }: { onAdmin: () => void }) {
   );
 }
 
-export function UpdateRequiredScreen() {
+/** Versão abaixo da mínima (HTTP 426). Enquanto a app é distribuída por APK, o botão descarrega a versão nova,
+ * que se instala por cima da atual sem perder a sessão nem a configuração do tablet. */
+export function UpdateRequiredScreen({ url }: { url?: string | null }) {
   const vw = useVw();
   return (
     <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: vw(1.6), padding: vw(4) }}>
       <Logo height={vw(6)} />
       <Heading>Atualize a app</Heading>
-      <Paragraph>Esta versão da app Picagens já não é suportada. Abra a Play Store e atualize a app para continuar a picar.</Paragraph>
+      <Paragraph>Esta versão da app Picagens já não é suportada. Descarregue a versão nova: instala-se por cima desta, sem perder os seus dados.</Paragraph>
+      <BigButton primary title="Descarregar a versão nova" onPress={() => Linking.openURL(url || DEFAULT_UPDATE_URL)} />
     </View>
   );
 }

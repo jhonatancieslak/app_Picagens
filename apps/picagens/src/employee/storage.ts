@@ -19,7 +19,17 @@ export async function getCachedMe(): Promise<Me | null> {
   }
 }
 
+const KEEP_KEY = 'employee_keep_session';
+
+/** "Manter sessão neste telemóvel" (protótipo v6): desligado, a sessão só vive enquanto a app está aberta. */
+export const getKeepSession = async () => (await SecureStore.getItemAsync(KEEP_KEY)) !== '0';
+export const saveKeepSession = (keep: boolean) => SecureStore.setItemAsync(KEEP_KEY, keep ? '1' : '0');
+
 export async function saveSession(token: string, me: Me) {
+  if (!(await getKeepSession())) {
+    await clearSession();
+    return;
+  }
   await SecureStore.setItemAsync(TOKEN_KEY, token);
   await SecureStore.setItemAsync(ME_KEY, JSON.stringify(me));
 }

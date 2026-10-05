@@ -18,6 +18,9 @@ export interface KioskConfig {
   agora: string;
   licenca: { estado: LicenseState; ate: string | null };
   versao_minima: string;
+  /** Versão mais recente e link do APK (servidor ≥ 05/10/2026): o admin do tablet mostra "Nova versão disponível". */
+  versao_atual?: string;
+  url_atualizacao?: string;
 }
 
 export interface KeyCheck {
