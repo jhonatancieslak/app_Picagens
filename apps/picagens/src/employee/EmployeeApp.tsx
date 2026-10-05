@@ -20,6 +20,7 @@ import { clearEmployeeQueue, flushEmployeeQueue, pendingEmployeePunches } from '
 import { DocumentsScreen } from './screens/DocumentsScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
+import { PhotosScreen } from './screens/PhotosScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
@@ -49,6 +50,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [tab, setTab] = useState<Tab>('today');
   const [profile, setProfile] = useState(false);
+  const [photos, setPhotos] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
@@ -68,6 +70,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setDashboard(null);
     setTab('today');
     setProfile(false);
+    setPhotos(false);
     setToken(null);
   }, []);
 
@@ -148,6 +151,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   // "Voltar" do Android: Perfil e contrato voltam atrás; outros separadores voltam a Hoje; em Hoje sai da app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (photos) { setPhotos(false); return true; }
       if (profile) { setProfile(false); return true; }
       if (contract) { setContract(null); return true; }
       if (tab === 'today') return false;
@@ -155,10 +159,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract]);
+  }, [tab, profile, photos, contract]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
+    setPhotos(false);
     if (notice.acao === 'contrato' && notice.id) {
       setContract(notice.id);
       setTab('documents');
@@ -205,7 +210,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
 
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
-  const screenKey = profile ? 'profile' : tab;
+  const screenKey = photos ? 'photos' : profile ? 'profile' : tab;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -213,7 +218,10 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       {toast.node}
       <View style={{ flex: 1 }}>
         <FadeIn deps={screenKey}>
-          {profile ? (
+          {profile && photos ? (
+            <PhotosScreen token={token} company={me.empresa.nome} onBack={() => setPhotos(false)} onAuthError={onAuthError} />
+          ) : null}
+          {profile && !photos ? (
             <ProfileScreen
               me={me}
               notices={notices}
@@ -222,6 +230,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onNotice={openNotice}
               onLogout={logout}
               onInfo={(title, text) => toast.show({ tone: 'ok', title, text })}
+              onPhotos={() => setPhotos(true)}
             />
           ) : null}
           {!profile && tab === 'today' ? (

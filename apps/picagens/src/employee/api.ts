@@ -64,6 +64,7 @@ export interface PlaceCheck {
   distancia?: number;
   raio?: number;
   local?: string;
+  local_morada?: string | null;
   local_lat?: number;
   local_lon?: number;
   bloqueio: boolean;
@@ -114,6 +115,11 @@ export interface Contract {
   documento_id: string | null;
 }
 
+export interface Photos {
+  retencao_dias: number;
+  fotos: { id: string; tipo: PunchType; rotulo: string; data: string; hora: string; apaga_em: string }[];
+}
+
 const request = createClient(EMPLOYEE_API_URL);
 const sendForm = createFormClient(EMPLOYEE_API_URL);
 
@@ -130,6 +136,8 @@ export const employeeApi = {
   requestVacation: (token: string, data_inicio: string, data_fim: string, tipo_ferias_id?: string) =>
     request<{ id: string; mensagem: string }>('POST', '/pedidos/ferias', { data_inicio, data_fim, tipo_ferias_id }, token),
   requestSickLeave: (token: string, form: FormData) => sendForm<{ id: string; mensagem: string }>('/pedidos/baixa', form, token),
+  photos: (token: string) => request<Photos>('GET', '/fotos', undefined, token),
+  photoUrl: (id: string) => `${EMPLOYEE_API_URL}/fotos/${encodeURIComponent(id)}`,
   documents: (token: string) => request<Documents>('GET', '/documentos', undefined, token),
   documentUrl: (id: string) => `${EMPLOYEE_API_URL}/documentos/${encodeURIComponent(id)}`,
   contract: (token: string, id: string) => request<Contract & { ok: boolean }>('GET', `/contratos/${encodeURIComponent(id)}`, undefined, token),

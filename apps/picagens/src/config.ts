@@ -19,3 +19,5 @@ export const QUEUE_RETRY_MS = 60 * 1000;
 export const ADMIN_SESSION_SECONDS = 15 * 60;
 export const REQUEST_TIMEOUT_MS = 20 * 1000;
 export const PHOTO_RETENTION_DAYS_DEFAULT = 30;
+/** Prazo em que o servidor ainda aceita uma picagem feita sem rede (picagem_service.py). */
+export const OFFLINE_MAX_HOURS = 48;

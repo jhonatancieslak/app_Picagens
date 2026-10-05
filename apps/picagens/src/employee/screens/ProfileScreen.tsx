@@ -26,9 +26,10 @@ interface Props {
   onNotice: (notice: Notice) => void;
   onLogout: () => void;
   onInfo: (title: string, text: string) => void;
+  onPhotos: () => void;
 }
 
-export function ProfileScreen({ me, notices, pending, onBack, onNotice, onLogout, onInfo }: Props) {
+export function ProfileScreen({ me, notices, pending, onBack, onNotice, onLogout, onInfo, onPhotos }: Props) {
   const insets = useSafeAreaInsets();
   const [confirming, setConfirming] = useState(false);
   const [keep, setKeep] = useState(true);
@@ -84,7 +85,7 @@ export function ProfileScreen({ me, notices, pending, onBack, onNotice, onLogout
           title="Fotos das picagens no tablet"
           subtitle="Guardadas 30 dias, cifradas. Só o gestor vê, para rever."
           right={<Text style={{ color: colors.ink3 }}>›</Text>}
-          onPress={() => onInfo('Fotos no tablet da obra', 'Servem só para confirmar que foi mesmo você. Não há reconhecimento facial. Peça cópia ao RH.')}
+          onPress={onPhotos}
         />
         <Row
           title="Os meus dados (RGPD)"

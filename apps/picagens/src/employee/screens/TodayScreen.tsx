@@ -325,7 +325,8 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
     : place?.dentro === false ? { tone: place.bloqueio ? 'danger' : 'warn', label: 'Fora do local' }
     : { tone: 'neutral', label: fix ? 'Posição obtida' : 'A obter posição…' };
   const tagDetails = [radiusMeters ? `raio ${radiusMeters} m` : null, fix ? `GPS ±${Math.round(fix.accuracy)} m` : null].filter(Boolean).join(' · ');
-  const address = error || place?.mensagem || (place?.distancia !== undefined ? `está a ${distanceLabel(place.distancia)}` : 'A confirmar a sua posição');
+  const distance = place?.distancia !== undefined ? `está a ${distanceLabel(place.distancia)}` : '';
+  const address = error || place?.mensagem || [place?.local_morada, distance].filter(Boolean).join(' · ') || 'A confirmar a sua posição';
 
   return (
     <View

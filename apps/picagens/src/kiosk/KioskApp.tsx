@@ -12,7 +12,7 @@ import { ApiError, KioskConfig, NetworkError, api } from './api';
 import { TopBar } from './TopBar';
 import { useVw } from '../components/ui';
 import { ADMIN_SESSION_SECONDS, CONFIG_REFRESH_MS, PHOTO_RETENTION_DAYS_DEFAULT, QUEUE_RETRY_MS } from '../config';
-import { QueueStatus, clearQueue, enqueuePunch, flushQueue, queueStatus } from './queue';
+import { QueueStatus, clearQueue, enqueuePunch, flushQueue, purgeExpiredQueue, queueStatus } from './queue';
 import { AdminScreen, CameraTestScreen, ScreenSettingsScreen } from './screens/AdminScreens';
 import { DoneInfo, DoneScreen } from './screens/DoneScreen';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
@@ -94,6 +94,7 @@ export function KioskApp({ onLeave }: Props) {
   // Arranque: token, configuração guardada e preferências do ecrã.
   useEffect(() => {
     (async () => {
+      await purgeExpiredQueue();
       const [savedToken, cached, savedSettings] = await Promise.all([getToken(), getCachedConfig(), getScreenSettings()]);
       setSettings(savedSettings);
       setConfig(cached);
