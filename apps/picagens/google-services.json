@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "188306347776",
+    "project_id": "picagens-8a131",
+    "storage_bucket": "picagens-8a131.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:188306347776:android:362e9aa361a5cf6d9505e5",
+        "android_client_info": {
+          "package_name": "pt.picagens.colaborador"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAF_Q44rKDjE14XbGu8ra_2ByrsOJblJsk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
