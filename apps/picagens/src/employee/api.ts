@@ -88,6 +88,18 @@ export interface MonthRecords {
   mes_seguinte: { ano: number; mes: number };
   horas_mes: string;
   dias: { data: string; horas: string; completo: boolean; picagens: DayPunch[] }[];
+  /** Períodos fechados por confirmar (visto do trabalhador, registo ACT). `alterado` = mudou depois do último visto. */
+  vistos_pendentes: Visto[];
+  declaracao_visto: string;
+}
+
+export interface Visto {
+  inicio: string;
+  fim: string;
+  hash: string;
+  minutos: number;
+  estado: 'por_confirmar' | 'alterado';
+  dias?: { data: string; minutos: number; periodos: string[]; observacoes: string[] }[];
 }
 
 export type RequestState = 'pendente' | 'aprovada' | 'rejeitada';
@@ -115,11 +127,6 @@ export interface Contract {
   documento_id: string | null;
 }
 
-export interface Photos {
-  retencao_dias: number;
-  fotos: { id: string; tipo: PunchType; rotulo: string; data: string; hora: string; apaga_em: string }[];
-}
-
 const request = createClient(EMPLOYEE_API_URL);
 const sendForm = createFormClient(EMPLOYEE_API_URL);
 
@@ -132,12 +139,12 @@ export const employeeApi = {
   checkPlace: (token: string, lat: number, lon: number) => request<PlaceCheck>('POST', '/verificar-local', { lat, lon }, token),
   punch: (token: string, payload: PunchPayload) => request<{ tipo: PunchType; hora: string }>('POST', '/picar', payload, token),
   records: (token: string, ano: number, mes: number) => request<MonthRecords>('GET', `/registos?ano=${ano}&mes=${mes}`, undefined, token),
+  confirmVisto: (token: string, visto: Visto) =>
+    request<{ mensagem: string }>('POST', '/registos/visto', { inicio: visto.inicio, fim: visto.fim, hash: visto.hash, confirmo: true }, token),
   requests: (token: string) => request<Requests>('GET', '/pedidos', undefined, token),
   requestVacation: (token: string, data_inicio: string, data_fim: string, tipo_ferias_id?: string) =>
     request<{ id: string; mensagem: string }>('POST', '/pedidos/ferias', { data_inicio, data_fim, tipo_ferias_id }, token),
   requestSickLeave: (token: string, form: FormData) => sendForm<{ id: string; mensagem: string }>('/pedidos/baixa', form, token),
-  photos: (token: string) => request<Photos>('GET', '/fotos', undefined, token),
-  photoUrl: (id: string) => `${EMPLOYEE_API_URL}/fotos/${encodeURIComponent(id)}`,
   documents: (token: string) => request<Documents>('GET', '/documentos', undefined, token),
   documentUrl: (id: string) => `${EMPLOYEE_API_URL}/documentos/${encodeURIComponent(id)}`,
   contract: (token: string, id: string) => request<Contract & { ok: boolean }>('GET', `/contratos/${encodeURIComponent(id)}`, undefined, token),

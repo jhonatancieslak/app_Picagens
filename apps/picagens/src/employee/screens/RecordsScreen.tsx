@@ -7,8 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
-import { MonthRecords, employeeApi } from '../api';
-import { Card, Chip, Header, Muted, Row, Section } from '../ui';
+import { MonthRecords, Visto, employeeApi } from '../api';
+import { Button, Card, Chip, ErrorText, Header, Muted, Row, Section } from '../ui';
 import { formatHours, parseHours } from './TodayScreen';
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -49,6 +49,7 @@ export function RecordsScreen({ token, onAuthError }: { token: string; onAuthErr
   const [weekDays, setWeekDays] = useState<Record<string, Day>>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -94,6 +95,15 @@ export function RecordsScreen({ token, onAuthError }: { token: string; onAuthErr
       refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.action]} />}
     >
       <Header subtitle={`Semana ${number} · ${range}`} title="Registos" />
+      {done ? (
+        <View style={{ backgroundColor: colors.okSoft, borderRadius: 14, padding: 12 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ok }}>{done}</Text>
+        </View>
+      ) : null}
+      {(data?.vistos_pendentes ?? []).map((visto) => (
+        <VistoCard key={`${visto.inicio}-${visto.fim}`} token={token} visto={visto} declaration={data!.declaracao_visto} onAuthError={onAuthError}
+          onConfirmed={(text) => { setDone(text); load(); }} />
+      ))}
 
       <Card>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingTop: 14, paddingHorizontal: 14 }}>
@@ -170,5 +180,75 @@ function MonthArrow({ label, accessibilityLabel, onPress, disabled }: { label: s
       style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}>
       <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{label}</Text>
     </Pressable>
+  );
+}
+
+const shortDate = (text: string) => {
+  const [, month, day] = text.split('-').map(Number);
+  return `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}`;
+};
+
+/** Confirmação das horas de um período fechado (visto do trabalhador, guardado para o registo ACT). Mostra os dias
+ * como a PWA; o servidor só aceita se o registo ainda for o que o colaborador viu (hash). */
+function VistoCard({ token, visto, declaration, onConfirmed, onAuthError }: {
+  token: string; visto: Visto; declaration: string; onConfirmed: (text: string) => void; onAuthError: (error: unknown) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const period = visto.inicio === visto.fim ? shortDate(visto.inicio) : `${shortDate(visto.inicio)}–${shortDate(visto.fim)}`;
+
+  async function confirm() {
+    setBusy(true);
+    setError('');
+    try {
+      const result = await employeeApi.confirmVisto(token, visto);
+      onConfirmed(result.mensagem);
+    } catch (exc) {
+      if (!onAuthError(exc)) setError(exc instanceof NetworkError ? 'Sem rede. Tente quando houver ligação.' : exc instanceof ApiError ? exc.message : 'Não foi possível confirmar.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 4, borderLeftColor: colors.action, borderRadius: 18, padding: 14, gap: 10 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Confirmar horas {period}</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink2 }}>Visto do trabalhador, guardado no registo de tempos (ACT)</Text>
+        </View>
+        <Text style={{ fontFamily: fonts.display, fontSize: 18, color: colors.ink }}>{formatHours(visto.minutos)}</Text>
+      </View>
+      {visto.estado === 'alterado' ? (
+        <View style={{ backgroundColor: colors.warnSoft, borderRadius: 10, padding: 10 }}>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.warn }}>O registo mudou depois do seu último visto (ex.: correção aprovada). Reveja e confirme de novo.</Text>
+        </View>
+      ) : null}
+      {!open ? (
+        <Button primary title="Rever e confirmar" onPress={() => setOpen(true)} />
+      ) : (
+        <>
+          {(visto.dias ?? []).map((day) => (
+            <View key={day.data} style={{ borderTopWidth: 1, borderColor: colors.line, paddingTop: 6 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.ink }}>{dayLabel(day.data)}</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink2 }}>
+                {day.periodos.join(', ') || 'Sem picagens'}{day.observacoes.length ? ` · ${day.observacoes.join('; ')}` : ''}
+              </Text>
+            </View>
+          ))}
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={() => setChecked(!checked)} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 4 }}>
+            <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: checked ? colors.action : colors.line, backgroundColor: checked ? colors.action : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+              {checked ? <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, fontSize: 13 }}>✓</Text> : null}
+            </View>
+            <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.ink }}>{declaration}</Text>
+          </Pressable>
+          <Muted size={12}>Se algo estiver errado, não confirme: peça a correção ao gestor (ou em "Pedir registo em falta" na página da empresa).</Muted>
+          <ErrorText>{error}</ErrorText>
+          <Button primary title={busy ? 'A confirmar…' : 'Confirmar'} busy={busy} disabled={!checked} onPress={confirm} />
+        </>
+      )}
+    </View>
   );
 }
