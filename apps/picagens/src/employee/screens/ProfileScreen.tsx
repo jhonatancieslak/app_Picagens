@@ -1,25 +1,32 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Perfil (protótipo v6), aberto pelo avatar de Hoje: os avisos (saída em falta, visto do mês, contrato por assinar),
-// dados da sessão, definições (manter sessão, fotos do tablet, RGPD), terminar sessão e a versão da app.
+// Perfil (protótipo v6), aberto pelo avatar de Hoje: foto de perfil (2.3.0, WebP no servidor), os avisos (saída em
+// falta, visto do mês, contrato por assinar), dados da sessão, definições (manter sessão, lembretes para picar, RGPD),
+// terminar sessão e a versão da app. Sem texto sobre as fotos do tablet (pedido do Jhonatan, doc 49 §14).
 import * as Application from 'expo-application';
+import * as ImagePicker from 'expo-image-picker';
 import { ReactNode, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CheckSquareIcon, ClockIcon, PenIcon } from '../../components/icons';
 import { colors, fonts } from '../../theme';
-import { Me, Notice } from '../api';
+import { ApiError } from '../../http';
+import { Me, Notice, employeeApi } from '../api';
 import { getKeepSession, saveKeepSession } from '../storage';
-import { Avatar, BackLink, Button, Card, Chip, Muted, Row, Section, Toggle } from '../ui';
+import { Avatar, AvatarPhoto, BackLink, Button, Card, Chip, ErrorText, Muted, Row, Section, Toggle } from '../ui';
 
 const NOTICE_STYLE: Record<Notice['tipo'], { bg: string; fg: string; icon: (color: string) => ReactNode; action: string }> = {
-  saida_em_falta: { bg: colors.warnSoft, fg: colors.warn, icon: (c) => <ClockIcon size={18} color={c} />, action: 'Corrigir' },
+  saida_em_falta: { bg: colors.warnSoft, fg: colors.warnInk, icon: (c) => <ClockIcon size={18} color={c} />, action: 'Corrigir' },
   visto: { bg: colors.actionSoft, fg: colors.action, icon: (c) => <CheckSquareIcon size={18} color={c} />, action: 'Ver' },
   contrato: { bg: colors.infoSoft, fg: colors.info, icon: (c) => <PenIcon size={18} color={c} />, action: 'Assinar' },
 };
 
 interface Props {
+  token: string;
   me: Me;
+  photo: AvatarPhoto | null;
+  onMeChange: (me: Me) => void;
+  onAuthError: (error: unknown) => boolean;
   notices: Notice[];
   pending: number;
   onBack: () => void;
@@ -28,10 +35,61 @@ interface Props {
   onInfo: (title: string, text: string) => void;
 }
 
-export function ProfileScreen({ me, notices, pending, onBack, onNotice, onLogout, onInfo }: Props) {
+const PHOTO_OPTIONS: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true };
+
+export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, notices, pending, onBack, onNotice, onLogout, onInfo }: Props) {
   const insets = useSafeAreaInsets();
   const [confirming, setConfirming] = useState(false);
   const [keep, setKeep] = useState(true);
+  const [choosingPhoto, setChoosingPhoto] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  const reminders = me.opcoes.lembretes_picagem !== false;
+
+  async function changePhoto(camera: boolean) {
+    setError('');
+    try {
+      if (camera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) {
+        setError('Sem acesso à câmara. Permita nas definições do Android.');
+        return;
+      }
+      const result = camera ? await ImagePicker.launchCameraAsync(PHOTO_OPTIONS) : await ImagePicker.launchImageLibraryAsync(PHOTO_OPTIONS);
+      const base64 = !result.canceled ? result.assets[0]?.base64 : null;
+      if (!base64) return;
+      setBusy(true);
+      const { foto_versao } = await employeeApi.uploadProfilePhoto(token, base64);
+      onMeChange({ ...me, colaborador: { ...me.colaborador, foto_versao } });
+      setChoosingPhoto(false);
+    } catch (exc) {
+      if (!onAuthError(exc)) setError(exc instanceof ApiError ? exc.message : 'Não foi possível guardar a foto. Tente de novo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removePhoto() {
+    setError('');
+    setBusy(true);
+    try {
+      await employeeApi.deleteProfilePhoto(token);
+      onMeChange({ ...me, colaborador: { ...me.colaborador, foto_versao: null } });
+      setChoosingPhoto(false);
+    } catch (exc) {
+      if (!onAuthError(exc)) setError('Não foi possível remover a foto. Tente de novo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function changeReminders(value: boolean) {
+    onMeChange({ ...me, opcoes: { ...me.opcoes, lembretes_picagem: value } });
+    try {
+      await employeeApi.setReminders(token, value);
+    } catch (exc) {
+      onMeChange({ ...me, opcoes: { ...me.opcoes, lembretes_picagem: !value } });
+      if (!onAuthError(exc)) setError('Sem ligação: não foi possível mudar os lembretes.');
+    }
+  }
 
   useEffect(() => {
     getKeepSession().then(setKeep);
@@ -42,11 +100,24 @@ export function ProfileScreen({ me, notices, pending, onBack, onNotice, onLogout
       <BackLink label="Hoje" onPress={onBack} />
       <View style={{ alignItems: 'center', gap: 6, paddingTop: 8, paddingBottom: 4 }}>
         <View style={{ borderWidth: 4, borderColor: '#fff', borderRadius: 60, elevation: 4 }}>
-          <Avatar name={me.colaborador.nome} count={0} size={96} />
+          <Avatar name={me.colaborador.nome} count={0} size={96} photo={photo} onPress={() => setChoosingPhoto(!choosingPhoto)} />
         </View>
+        <Pressable accessibilityRole="button" onPress={() => setChoosingPhoto(!choosingPhoto)} hitSlop={10} style={{ minHeight: 48, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.action }}>{photo ? 'Alterar foto' : 'Pôr uma foto'}</Text>
+        </Pressable>
         <Text style={{ fontFamily: fonts.display, fontSize: 22, color: colors.ink, marginTop: 6, textAlign: 'center' }}>{me.colaborador.nome}</Text>
         <Muted size={13} center>{me.empresa.nome}{me.local ? ` · ${me.local}` : ''}</Muted>
       </View>
+
+      {choosingPhoto ? (
+        <Card style={{ gap: 8, padding: 14 }}>
+          <Button primary title="Tirar foto" busy={busy} onPress={() => changePhoto(true)} />
+          <Button ghost title="Escolher da galeria" onPress={() => changePhoto(false)} />
+          {photo ? <Button ghost danger title="Remover foto" onPress={removePhoto} /> : null}
+          <Muted size={12.5}>A foto aparece no seu perfil e na ficha da empresa. Pode removê-la quando quiser.</Muted>
+        </Card>
+      ) : null}
+      {error ? <ErrorText>{error}</ErrorText> : null}
 
       <Section title="Avisos" count={notices.length} />
       {notices.length ? (
@@ -80,12 +151,7 @@ export function ProfileScreen({ me, notices, pending, onBack, onNotice, onLogout
       <Section title="Definições" />
       <Card>
         <Toggle flat title="Manter sessão neste telemóvel" subtitle="Desligue em telemóveis partilhados" value={keep} onChange={(value) => { setKeep(value); saveKeepSession(value); }} />
-        <Row
-          title="Fotos das picagens no tablet"
-          subtitle="Guardadas 30 dias, cifradas. Só o gestor vê, para rever."
-          right={<Text style={{ color: colors.ink3 }}>›</Text>}
-          onPress={() => onInfo('Fotos no tablet da obra', 'Confirmam que foi mesmo você a picar. Sem reconhecimento facial. Só o gestor as vê, para rever uma picagem; apagadas aos 30 dias.')}
-        />
+        <Toggle flat title="Lembretes para picar" subtitle="Aviso uns minutos antes da entrada e da saída" value={reminders} onChange={changeReminders} />
         <Row
           title="Os meus dados (RGPD)"
           subtitle="Ver e pedir cópia dos seus dados"

@@ -7,7 +7,8 @@ import type { LicenseState } from '../kiosk/api';
 export type PunchType = 'entrada' | 'saida' | 'pausa_inicio' | 'pausa_fim';
 
 export interface Me {
-  colaborador: { id: string; nome: string };
+  /** foto_versao muda quando a foto de perfil muda (servidor 2.3.0); null = sem foto. */
+  colaborador: { id: string; nome: string; foto_versao?: number | null };
   empresa: { slug: string; nome: string };
   local: string | null;
   versao_minima: string;
@@ -15,7 +16,7 @@ export interface Me {
   versao_atual?: string;
   url_atualizacao?: string;
   licenca: { estado: LicenseState; ate: string | null };
-  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean };
+  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean };
 }
 
 /** Empresa encontrada pelo código de 6 algarismos (doc 49): confirma-se antes de pedir NIF e PIN. */
@@ -57,6 +58,7 @@ export interface Dashboard {
   avisos: Notice[];
   avisos_total: number;
   picagens_hoje: DayPunch[];
+  mensagens_nao_lidas?: number;
 }
 
 export interface PlaceCheck {
@@ -78,6 +80,8 @@ export interface PunchPayload {
   loc_idade_ms?: number;
   offline_em?: string;
   colaborador_id?: string;
+  /** Android: posição de uma app de GPS falso (Location.mocked). O servidor marca-a e recusa-a com bloqueio. */
+  simulado?: boolean;
 }
 
 export interface MonthRecords {
@@ -127,6 +131,23 @@ export interface Contract {
   documento_id: string | null;
 }
 
+export interface Message {
+  id: string;
+  titulo: string;
+  texto: string;
+  de: string;
+  data: string;
+  lida: boolean;
+}
+
+export interface CorrectionPayload {
+  picagem_id?: string;
+  tipo: PunchType;
+  /** Hora local no formato do servidor: AAAA-MM-DDTHH:MM. */
+  data_hora: string;
+  motivo: string;
+}
+
 const request = createClient(EMPLOYEE_API_URL);
 const sendForm = createFormClient(EMPLOYEE_API_URL);
 
@@ -151,4 +172,15 @@ export const employeeApi = {
   contractCode: (token: string, id: string) => request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/codigo`, {}, token),
   signContract: (token: string, id: string, nome: string, codigo: string) =>
     request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/assinar`, { nome, codigo, li_e_aceito: true }, token),
+  requestCorrection: (token: string, payload: CorrectionPayload) =>
+    request<{ id: string; mensagem: string }>('POST', '/registos/correcao', payload, token),
+  messages: (token: string) => request<{ nao_lidas: number; mensagens: Message[] }>('GET', '/mensagens', undefined, token),
+  readMessage: (token: string, id: string) => request<{ ok: boolean }>('POST', `/mensagens/${encodeURIComponent(id)}/lida`, {}, token),
+  profilePhotoUrl: (version: number) => `${EMPLOYEE_API_URL}/perfil/foto?v=${version}`,
+  uploadProfilePhoto: (token: string, foto: string) => request<{ foto_versao: number }>('POST', '/perfil/foto', { foto }, token),
+  deleteProfilePhoto: (token: string) => request<{ ok: boolean }>('DELETE', '/perfil/foto', undefined, token),
+  setReminders: (token: string, ativo: boolean) => request<{ lembretes_picagem: boolean }>('POST', '/perfil/lembretes', { ativo }, token),
+  registerPush: (token: string, pushToken: string, plataforma: 'android' | 'ios') =>
+    request<{ ok: boolean }>('POST', '/notificacoes/registar', { token: pushToken, plataforma }, token),
+  unregisterPush: (token: string, pushToken: string) => request<{ ok: boolean }>('POST', '/notificacoes/remover', { token: pushToken }, token),
 };

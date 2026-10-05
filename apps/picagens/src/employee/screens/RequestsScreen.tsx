@@ -7,12 +7,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CameraIcon, MedicalIcon, OkIcon, SunIcon } from '../../components/icons';
+import { CameraIcon, MedicalIcon, SunIcon } from '../../components/icons';
+import { Illustration } from '../../components/Illustration';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { RequestState, Requests, employeeApi } from '../api';
 import { holidayName, holidaysBetween, workingDays } from '../holidays';
-import { BackLink, Button, Card, Chip, ChipTone, ErrorText, Field, Header, HeroOk, Muted, Row, Title } from '../ui';
+import { BackLink, Button, Card, Chip, ChipTone, ErrorText, Field, Header, Muted, Row, Title, Toggle } from '../ui';
 
 const MONTHS_LONG = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -104,10 +105,15 @@ export function RequestsScreen({ token, onAuthError }: { token: string; onAuthEr
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={container}>
         {view.name === 'sent' ? (
-          <HeroOk icon={<OkIcon size={44} color={colors.ok} />} title="Pedido enviado" text="O gestor recebeu uma notificação. Avisamos aqui quando houver decisão." />
+          <View style={{ alignItems: 'center', gap: 6, paddingTop: 8 }}>
+            <Illustration name="sent" width={200} />
+            <Text style={{ fontFamily: fonts.display, fontSize: 24, color: colors.ink }}>Pedido enviado</Text>
+            <Muted size={14} center>O gestor recebeu uma notificação. Avisamos no telemóvel quando houver decisão.</Muted>
+          </View>
         ) : (
           <>
             <BackLink label="Pedidos" onPress={() => setView({ name: 'main' })} />
+            <Illustration name={item.state === 'aprovada' ? 'approved' : 'review'} width={170} />
             <Title size={24}>{item.kind === 'ferias' ? 'Férias' : 'Baixa médica'} {span(item.start, item.end)}</Title>
           </>
         )}
@@ -364,7 +370,20 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
   const [month, setMonth] = useState(new Date((from ?? today).getFullYear(), (from ?? today).getMonth(), 1));
   const [note, setNote] = useState('');
   const [photo, setPhoto] = useState<ImagePicker.ImagePickerAsset | null>(null);
+  /** Baixa ainda sem data de fim (o certificado só diz o início): segue sem data_fim. */
+  const [noEnd, setNoEnd] = useState(false);
   const [sending, setSending] = useState(false);
+
+  // Se o Android fechou a app enquanto a câmara estava aberta (pouca memória), a foto tirada fica pendente:
+  // recupera-a ao voltar, em vez de a perder (causa provável das baixas que não saíam na 2.2.0, doc 53 §3).
+  useEffect(() => {
+    ImagePicker.getPendingResultAsync().then((result) => {
+      if (result && 'assets' in result && !result.canceled && result.assets?.[0]) {
+        setKind('baixa');
+        setPhoto(result.assets[0]);
+      }
+    }).catch(() => undefined);
+  }, []);
   const [error, setError] = useState('');
   const classes = useMemo(() => dayClasses(all), [all]);
   const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate());
@@ -386,14 +405,19 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
   }
 
   async function takePhoto(camera: boolean) {
-    // A galeria usa o seletor de fotos do Android (não precisa de permissão); só a câmara pede.
-    if (camera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) {
-      setError('Sem acesso à câmara. Permita nas definições do Android.');
-      return;
+    setError('');
+    try {
+      // A galeria usa o seletor de fotos do Android (não precisa de permissão); só a câmara pede.
+      if (camera && !(await ImagePicker.requestCameraPermissionsAsync()).granted) {
+        setError('Sem acesso à câmara. Permita nas definições do Android ou escolha uma foto da galeria.');
+        return;
+      }
+      const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6 };
+      const result = camera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
+      if (!result.canceled && result.assets[0]) setPhoto(result.assets[0]);
+    } catch {
+      setError(camera ? 'Não foi possível abrir a câmara. Tente "Escolher" para usar uma foto da galeria.' : 'Não foi possível abrir a galeria. Tente de novo.');
     }
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.6 };
-    const result = camera ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options);
-    if (!result.canceled && result.assets[0]) setPhoto(result.assets[0]);
   }
 
   async function send() {
@@ -407,7 +431,7 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
       } else {
         const form = new FormData();
         form.append('data_inicio', iso(start));
-        form.append('data_fim', iso(end));
+        if (!noEnd) form.append('data_fim', iso(end));
         if (note.trim()) form.append('motivo', note.trim());
         form.append('documento', { uri: photo!.uri, name: photo!.fileName ?? 'baixa.jpg', type: photo!.mimeType ?? 'image/jpeg' } as unknown as Blob);
         id = (await employeeApi.requestSickLeave(token, form)).id;
@@ -423,6 +447,10 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
   const days = start && end ? workingDays(start, end) : 0;
   const holidays = start && end ? holidaysBetween(start, end).filter((h) => h.date.getDay() !== 0 && h.date.getDay() !== 6) : [];
   const ready = Boolean(start && end) && (kind === 'ferias' ? days > 0 : Boolean(photo));
+  const missing = !start ? 'Escolha a data no calendário.'
+    : kind === 'ferias' && days <= 0 ? 'Escolha dias úteis (sem fins de semana nem feriados).'
+    : kind === 'baixa' && !photo ? 'Falta a foto do certificado de baixa.'
+    : '';
 
   return (
     <>
@@ -461,6 +489,7 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
 
       {kind === 'baixa' ? (
         <>
+          <Toggle flat title="Ainda não sei a data de fim" subtitle="O gestor acrescenta-a quando souber" value={noEnd} onChange={setNoEnd} />
           <Field label="Nota para o gestor (opcional)" value={note} onChangeText={setNote} placeholder="Ex.: consulta e repouso" />
           <View style={{ gap: 4 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.ink2 }}>Foto do certificado</Text>
@@ -481,6 +510,7 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
 
       <ErrorText>{error}</ErrorText>
       <Button primary title={sending ? 'A enviar…' : 'Enviar pedido'} busy={sending} disabled={!ready} onPress={send} />
+      {!ready && missing ? <Muted size={13} center>{missing}</Muted> : null}
     </>
   );
 }

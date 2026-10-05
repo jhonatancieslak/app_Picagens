@@ -16,7 +16,7 @@ export class NetworkError extends Error {}
 export const appVersion = Application.nativeApplicationVersion ?? '0.0.0';
 
 export function createClient(baseUrl: string) {
-  return async function request<T>(method: 'GET' | 'POST', path: string, body?: unknown, token?: string | null): Promise<T> {
+  return async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, token?: string | null): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     let response: Response;

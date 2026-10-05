@@ -1,5 +1,5 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Ligar o tablet (doc 49 §9): chave de ativação criada no painel (Gestão do App › Computadores e tablets),
+// Ligar o tablet (doc 49 §9): chave de ativação criada no painel (Picagem e app, ex-Gestão do App › Computadores e tablets),
 // escrita, colada ou lida pelo QR. Passos: 1 Chave → 2 Confirmar (empresa e local, sem gastar a chave) →
 // 3 Câmara. No canto, "Sou colaborador" volta à entrada do telemóvel.
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
@@ -173,7 +173,7 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
                 </View>
                 <View style={{ flex: 1, gap: vw(0.5) }}>
                   <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.7), color: colors.ink }}>Onde está a chave?</Text>
-                  <Paragraph>O gestor gera-a no painel da empresa: Sistema › Gestão do App › Computadores e tablets › Tablet de quiosque.</Paragraph>
+                  <Paragraph>O gestor gera-a no painel da empresa: Empresa › Picagem e app › Computadores e tablets › Tablet de quiosque.</Paragraph>
                 </View>
               </View>
               <Paragraph>Aparece como texto e como QR, e pode ser enviada por email. Serve uma só vez e expira em 7 dias.</Paragraph>

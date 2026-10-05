@@ -1,7 +1,7 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Peças do modo colaborador (telemóvel, vertical). Medidas e cores do protótipo v6 aprovado (doc 49).
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Pressable, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, Animated, Image, Pressable, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Logo } from '../components/ui';
@@ -19,7 +19,7 @@ export type ChipTone = 'ok' | 'warn' | 'danger' | 'neutral' | 'info' | 'action' 
 
 const CHIP_COLORS: Record<ChipTone, { bg: string; fg: string }> = {
   ok: { bg: colors.okSoft, fg: colors.ok },
-  warn: { bg: colors.warnSoft, fg: colors.warn },
+  warn: { bg: colors.warnSoft, fg: colors.warnInk },
   danger: { bg: colors.dangerSoft, fg: colors.danger },
   neutral: { bg: '#EEF1F5', fg: colors.ink2 },
   info: { bg: colors.infoSoft, fg: colors.info },
@@ -237,12 +237,19 @@ export function PadField({ label, value, placeholder, active, error, onPress }: 
 }
 
 /** Avatar com iniciais e contador vermelho de avisos. */
-export function Avatar({ name, count, onPress, size = 38 }: { name: string; count: number; onPress?: () => void; size?: number }) {
+/** Foto de perfil pedida ao servidor com a sessão (RN Image aceita cabeçalhos no Android). */
+export interface AvatarPhoto {
+  uri: string;
+  headers: Record<string, string>;
+}
+
+export function Avatar({ name, count, onPress, size = 38, photo }: { name: string; count: number; onPress?: () => void; size?: number; photo?: AvatarPhoto | null }) {
   const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join('');
   return (
     <Pressable accessibilityRole="button" accessibilityLabel={count ? `Perfil, ${count} avisos` : 'Perfil'} onPress={onPress} disabled={!onPress} hitSlop={8}>
-      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: size * 0.34, color: colors.action }}>{initials}</Text>
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+        {photo ? <Image source={photo} style={{ width: size, height: size }} accessibilityIgnoresInvertColors />
+          : <Text style={{ fontFamily: fonts.bodyBold, fontSize: size * 0.34, color: colors.action }}>{initials}</Text>}
       </View>
       {count ? (
         <View style={{ position: 'absolute', top: -5, right: -6, minWidth: 19, height: 19, paddingHorizontal: 5, borderRadius: 10, backgroundColor: colors.danger, borderWidth: 2, borderColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>

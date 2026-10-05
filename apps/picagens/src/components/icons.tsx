@@ -258,3 +258,10 @@ export const EntryDoorIcon = ({ size, color }: IconProps) => (
     <Path d="M14 4h5v16h-5M4 12h11M11 8l4 4-4 4" />
   </Svg>
 );
+
+export const BellIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+    <Path d="M6 9a6 6 0 1 1 12 0c0 5 2 6.5 2 6.5H4S6 14 6 9z" />
+    <Path d="M10 19.5a2 2 0 0 0 4 0" />
+  </Svg>
+);

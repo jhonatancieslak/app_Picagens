@@ -2,6 +2,7 @@
 // Modo colaborador da app Picagens (telemóvel pessoal, vertical), protótipo v6 aprovado (doc 49): abertura com o
 // logótipo, entrada (código da empresa + NIF + PIN, ou link do email), separadores Hoje / Registos / Pedidos /
 // Documentos e Perfil pelo avatar. Sessão de 180 dias renovada a cada abertura; 401 → sai.
+// 2.3.0 (doc 49 §14): notificações (registo ao entrar, tocar abre o ecrã), caixa de Mensagens pelo sino, foto de perfil.
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
@@ -11,21 +12,23 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon } from '../components/icons';
 import { QUEUE_RETRY_MS } from '../config';
-import { ApiError } from '../http';
+import { ApiError, appVersion } from '../http';
 import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
 import { colors, fonts } from '../theme';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
 import { Dashboard, Me, Notice, Session, employeeApi } from './api';
+import { PushScreen, onPushOpened, onPushReceived, registerForPush, unregisterPush } from './push';
 import { clearEmployeeQueue, flushEmployeeQueue, pendingEmployeePunches } from './queue';
 import { DocumentsScreen } from './screens/DocumentsScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
+import { MessagesScreen } from './screens/MessagesScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
 import { TodayScreen } from './screens/TodayScreen';
 import { clearSession, getCachedMe, getEmployeeToken, saveSession } from './storage';
-import { FadeIn, useToast } from './ui';
+import { AvatarPhoto, FadeIn, useToast } from './ui';
 
 type Tab = 'today' | 'records' | 'requests' | 'documents';
 
@@ -38,6 +41,8 @@ const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
 
 const SPLASH_MS = 1300;
 
+const TAB_OF_PUSH: Record<Exclude<PushScreen, 'mensagens'>, Tab> = { hoje: 'today', registos: 'records', pedidos: 'requests', documentos: 'documents' };
+
 const sessionToMe = ({ token: _token, validade_dias: _days, ...me }: Session & { ok?: boolean }): Me => me;
 
 export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
@@ -49,6 +54,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [tab, setTab] = useState<Tab>('today');
   const [profile, setProfile] = useState(false);
+  const [messages, setMessages] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
@@ -62,14 +68,16 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   }, []);
 
   const logout = useCallback(async () => {
+    if (token) await unregisterPush(token);
     clearEmployeeQueue();
     await clearSession();
     setMe(null);
     setDashboard(null);
     setTab('today');
     setProfile(false);
+    setMessages(false);
     setToken(null);
-  }, []);
+  }, [token]);
 
   /** 401 = sessão revogada no painel; 426 = versão antiga. Devolve true se o erro foi tratado. */
   const onAuthError = useCallback((error: unknown) => {
@@ -123,6 +131,30 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     })();
   }, [startSession, onAuthError]);
 
+  // Notificações: regista este telemóvel quando há sessão (pede autorização uma vez).
+  useEffect(() => {
+    if (token) registerForPush(token);
+  }, [token]);
+
+  const openPush = useCallback((screen: PushScreen) => {
+    setProfile(false);
+    setContract(null);
+    if (screen === 'mensagens') {
+      setMessages(true);
+    } else {
+      setMessages(false);
+      setTab(TAB_OF_PUSH[screen]);
+    }
+  }, []);
+
+  useEffect(() => onPushOpened(openPush), [openPush]);
+  useEffect(() => onPushReceived(() => { refreshDashboard(); }), [refreshDashboard]);
+
+  const changeMe = useCallback(async (next: Me) => {
+    setMe(next);
+    if (token) await saveSession(token, next);
+  }, [token]);
+
   // Link de ativação aberto a partir do email (com a app fechada ou aberta).
   useEffect(() => {
     Linking.getInitialURL().then((url) => url && parseActivationLink(url) && setLink(url));
@@ -148,6 +180,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   // "Voltar" do Android: Perfil e contrato voltam atrás; outros separadores voltam a Hoje; em Hoje sai da app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (messages) { setMessages(false); return true; }
       if (profile) { setProfile(false); return true; }
       if (contract) { setContract(null); return true; }
       if (tab === 'today') return false;
@@ -155,10 +188,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract]);
+  }, [tab, profile, contract, messages]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
+    setMessages(false);
     if (notice.acao === 'contrato' && notice.id) {
       setContract(notice.id);
       setTab('documents');
@@ -205,7 +239,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
 
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
-  const screenKey = profile ? 'profile' : tab;
+  const overlay = messages ? 'messages' : profile ? 'profile' : null;
+  const screenKey = overlay ?? tab;
+  const photo: AvatarPhoto | null = me.colaborador.foto_versao
+    ? { uri: employeeApi.profilePhotoUrl(me.colaborador.foto_versao), headers: { Authorization: `Bearer ${token}`, 'X-App-Versao': appVersion } }
+    : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -213,9 +251,16 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       {toast.node}
       <View style={{ flex: 1 }}>
         <FadeIn deps={screenKey}>
-          {profile ? (
+          {messages ? (
+            <MessagesScreen token={token} onBack={() => setMessages(false)} onRead={refreshDashboard} onAuthError={onAuthError} />
+          ) : null}
+          {!messages && profile ? (
             <ProfileScreen
+              token={token}
               me={me}
+              photo={photo}
+              onMeChange={changeMe}
+              onAuthError={onAuthError}
               notices={notices}
               pending={pending}
               onBack={() => setProfile(false)}
@@ -224,7 +269,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onInfo={(title, text) => toast.show({ tone: 'ok', title, text })}
             />
           ) : null}
-          {!profile && tab === 'today' ? (
+          {!overlay && tab === 'today' ? (
             <TodayScreen
               token={token}
               me={me}
@@ -232,6 +277,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               online={online}
               pending={pending}
               notices={dashboard?.avisos_total ?? 0}
+              urgent={notices[0] ?? null}
+              onNotice={openNotice}
+              unreadMessages={dashboard?.mensagens_nao_lidas ?? 0}
+              onMessages={() => setMessages(true)}
+              photo={photo}
               onRefresh={refreshDashboard}
               onProfile={() => setProfile(true)}
               onQueued={() => setPending(pendingEmployeePunches())}
@@ -239,9 +289,9 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               toast={toast.show}
             />
           ) : null}
-          {!profile && tab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
-          {!profile && tab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
-          {!profile && tab === 'documents' ? (
+          {!overlay && tab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && tab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && tab === 'documents' ? (
             <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
           ) : null}
         </FadeIn>
@@ -251,7 +301,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
         <Pressable
           accessibilityRole="button"
           onPress={() => Linking.openURL(me.url_atualizacao || DEFAULT_UPDATE_URL)}
-          style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + (profile ? 14 : 86), zIndex: 4, elevation: 7, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.actionSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}
+          style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + (overlay ? 14 : 86), zIndex: 4, elevation: 7, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.actionSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}
         >
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.action }}>Nova versão disponível · {me.versao_atual}</Text>
@@ -260,7 +310,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.action }}>Atualizar ›</Text>
         </Pressable>
       ) : null}
-      {!profile ? (
+      {!overlay ? (
         <View
           style={{
             position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 14, flexDirection: 'row',

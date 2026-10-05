@@ -1,21 +1,24 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // "Hoje" (protótipo v6): logótipo, data · local, saudação e avatar com avisos; cartão do dia com o anel de horas
-// à volta do botão de picar, linha das picagens e o mapa do local (raio da obra, a sua posição e a distância).
-// A posição só é lida neste ecrã e no toque de picar. O servidor decide o tipo e repete as regras (doc 43 §3).
+// à volta do botão de picar, linha das picagens e o mapa centrado na sua posição (raio da obra, distância, morada).
+// A posição só é lida com este ecrã aberto (atualiza-se a cada ~20 s) e no toque de picar, nunca em segundo plano.
+// 2.3.0 (doc 49 §14, doc 52): longe da obra com bloqueio o botão avisa antes do toque; vibra ao registar; GPS falso
+// segue marcado para o servidor; sino das mensagens; aviso urgente no topo. O servidor decide o tipo (doc 43 §3).
+import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AppState, Animated, Easing, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import { CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
+import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
-import { Dashboard, DayPunch, Me, PlaceCheck, PunchPayload, employeeApi } from '../api';
-import { FIX_ERROR_MESSAGES, Fix, readPosition } from '../location';
+import { Dashboard, DayPunch, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
+import { FIX_ERROR_MESSAGES, Fix, addressOf, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
-import { Avatar, Button, Chip, ChipTone, Header } from '../ui';
+import { Avatar, AvatarPhoto, Button, Chip, ChipTone, Header } from '../ui';
 
 const RING_SIZE = 172;
 const RING_RADIUS = 78;
@@ -24,6 +27,17 @@ const RING_INSET = 18;
 const WORKDAY_MINUTES = 8 * 60;
 const PUNCH_FEEDBACK_MS = 1100;
 const TIMELINE_SLOTS = 4;
+/** Volta a perguntar ao servidor se está no local quando se moveu isto (ou passou este tempo). */
+const RECHECK_METERS = 15;
+const RECHECK_MS = 60 * 1000;
+const ADDRESS_METERS = 30;
+
+const metersBetween = (a: Fix, b: Fix) => {
+  const rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return Math.hypot(x, y) * 6_371_000;
+};
 
 const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -66,6 +80,12 @@ interface Props {
   online: boolean;
   pending: number;
   notices: number;
+  /** Primeiro aviso urgente (saída em falta, horas por confirmar, contrato): mostrado no topo. */
+  urgent: Notice | null;
+  onNotice: (notice: Notice) => void;
+  unreadMessages: number;
+  onMessages: () => void;
+  photo: AvatarPhoto | null;
   onRefresh: () => Promise<void>;
   onProfile: () => void;
   onQueued: () => void;
@@ -73,13 +93,34 @@ interface Props {
   toast: (message: { tone: 'ok' | 'queued' | 'err'; title: string; text?: string; icon?: React.ReactNode }) => void;
 }
 
-export function TodayScreen({ token, me, dashboard, online, pending, notices, onRefresh, onProfile, onQueued, onAuthError, toast }: Props) {
+export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, unreadMessages, onMessages, photo, onRefresh, onProfile, onQueued, onAuthError, toast }: Props) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
   const [place, setPlace] = useState<PlaceCheck | null>(null);
   const [fix, setFix] = useState<Fix | null>(null);
   const [fixError, setFixError] = useState<'' | 'denied' | 'disabled' | 'unavailable'>('');
+  const [address, setAddress] = useState<string | null>(null);
+  const lastCheck = useRef<{ fix: Fix; at: number } | null>(null);
+  const lastAddress = useRef<Fix | null>(null);
+
+  /** Nova posição: mapa, morada (se andou ADDRESS_METERS) e, se andou ou passou tempo, "está no local?". */
+  const applyFix = useCallback(async (next: Fix, force = false) => {
+    setFixError('');
+    setFix(next);
+    if (!lastAddress.current || metersBetween(lastAddress.current, next) > ADDRESS_METERS) {
+      lastAddress.current = next;
+      addressOf(next).then(setAddress);
+    }
+    const previous = lastCheck.current;
+    if (!online || (!force && previous && metersBetween(previous.fix, next) < RECHECK_METERS && Date.now() - previous.at < RECHECK_MS)) return;
+    lastCheck.current = { fix: next, at: Date.now() };
+    try {
+      setPlace(await employeeApi.checkPlace(token, next.lat, next.lon));
+    } catch (error) {
+      onAuthError(error);
+    }
+  }, [online, token, onAuthError]);
 
   const locate = useCallback(async () => {
     const result = await readPosition();
@@ -87,21 +128,30 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
       setFixError(result.error);
       return null;
     }
-    setFixError('');
-    setFix(result.fix);
-    if (online) {
-      try {
-        setPlace(await employeeApi.checkPlace(token, result.fix.lat, result.fix.lon));
-      } catch (error) {
-        onAuthError(error);
-      }
-    }
+    await applyFix(result.fix, true);
     return result.fix;
-  }, [online, token, onAuthError]);
+  }, [applyFix]);
 
   useEffect(() => {
     locate();
   }, [locate]);
+
+  // Só com a app aberta neste ecrã: segue a posição; em segundo plano para (AppState) e nunca corre.
+  useEffect(() => {
+    let stop: () => void = () => undefined;
+    let active = true;
+    const start = async () => {
+      stop();
+      stop = await watchPosition((next) => active && applyFix(next));
+    };
+    start();
+    const subscription = AppState.addEventListener('change', (appState) => (appState === 'active' ? start() : stop()));
+    return () => {
+      active = false;
+      stop();
+      subscription.remove();
+    };
+  }, [applyFix]);
 
   const next = dashboard?.proximo_tipo ?? 'entrada';
   const isExit = next === 'saida';
@@ -123,10 +173,13 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
     setTimeout(() => setState('idle'), PUNCH_FEEDBACK_MS);
   }
 
+  const blocked = place?.dentro === false && place.bloqueio;
+
   async function punch() {
     if (state !== 'idle') return;
-    if (place?.dentro === false && place.bloqueio) {
-      toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: `Está a ${distanceLabel(place.distancia ?? 0)} do local`, text: 'A empresa só aceita picagens dentro do local. Aproxime-se e tente de novo.' });
+    if (blocked) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: `Está a ${distanceLabel(place?.distancia ?? 0)} do local`, text: 'A empresa só aceita picagens dentro do local. Aproxime-se e tente de novo.' });
       return;
     }
     setState('locating');
@@ -136,7 +189,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
       const taken = position.fix;
       setFix(taken);
       setFixError('');
-      payload = { lat: taken.lat, lon: taken.lon, precisao: Math.round(taken.accuracy), loc_idade_ms: Math.max(0, Date.now() - taken.takenAt) };
+      payload = { lat: taken.lat, lon: taken.lon, precisao: Math.round(taken.accuracy), loc_idade_ms: Math.max(0, Date.now() - taken.takenAt), simulado: taken.mocked };
     } else if (me.opcoes.localizacao_obrigatoria) {
       setState('idle');
       setFixError(position.error);
@@ -147,6 +200,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
     const label = LABELS[next] ?? 'Picagem';
 
     const queue = () => {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       enqueueEmployeePunch(payload);
       onQueued();
       finish('queued');
@@ -158,12 +212,14 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
     try {
       const result = await employeeApi.punch(token, payload);
       finish('done');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const where = place?.dentro === true ? `Dentro do local${fix ? ` · ±${Math.round(fix.accuracy)} m` : ''}` : place?.dentro === false ? 'Fora do local' : undefined;
       toast({ tone: 'ok', icon: <OkIcon size={26} color="#fff" />, title: `${LABELS[result.tipo] ?? 'Picagem'} registada às ${result.hora}`, text: where });
       await onRefresh();
     } catch (error) {
       if (error instanceof NetworkError) return queue();
       setState('idle');
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       if (!onAuthError(error)) {
         toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: 'Picagem não registada', text: error instanceof ApiError ? error.message : 'Tente de novo.' });
       }
@@ -186,9 +242,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
     );
   }
 
-  const buttonColor = state === 'done' ? colors.ok : state === 'queued' ? colors.warn : isExit ? colors.ink : colors.action;
-  const buttonIcon = state === 'done' ? <OkIcon size={34} color="#fff" /> : state === 'queued' ? <CloudSavedIcon size={34} color="#fff" /> : isExit ? <ExitDoorIcon size={34} color="#fff" /> : <EntryDoorIcon size={34} color="#fff" />;
-  const buttonText = { idle: LABELS[next] ?? 'Picar', locating: 'GPS…', sending: 'A enviar…', done: 'Feito', queued: 'Guardada' }[state];
+  const buttonColor = state === 'done' ? colors.ok : state === 'queued' ? colors.warn : blocked ? colors.ink3 : isExit ? colors.ink : colors.action;
+  const buttonIcon = state === 'done' ? <OkIcon size={34} color="#fff" /> : state === 'queued' ? <CloudSavedIcon size={34} color="#fff" /> : blocked && state === 'idle' ? <PinIcon size={34} color="#fff" /> : isExit ? <ExitDoorIcon size={34} color="#fff" /> : <EntryDoorIcon size={34} color="#fff" />;
+  const buttonText = { idle: blocked ? 'Longe' : LABELS[next] ?? 'Picar', locating: 'GPS…', sending: 'A enviar…', done: 'Feito', queued: 'Guardada' }[state];
 
   return (
     <ScrollView
@@ -201,8 +257,34 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
         subtitle={`${shortDate(now)}${me.local ? ` · ${me.local}` : ''}`}
         title="Hoje"
         greeting={<>{greeting(now.getHours())}, <Text style={{ fontFamily: fonts.bodyBold, color: colors.ink }}>{firstNames}</Text>. {mood}</>}
-        right={<Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} />}
+        right={(
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <Pressable accessibilityRole="button" accessibilityLabel={unreadMessages ? `Mensagens, ${unreadMessages} por ler` : 'Mensagens'} onPress={onMessages} hitSlop={8}
+              style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+              <BellIcon size={20} color={colors.ink2} />
+              {unreadMessages ? (
+                <View style={{ position: 'absolute', top: -4, right: -5, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.action, borderWidth: 2, borderColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10, color: '#fff' }}>{unreadMessages}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} photo={photo} />
+          </View>
+        )}
       />
+
+      {urgent ? (
+        <Pressable accessibilityRole="button" onPress={() => onNotice(urgent)}
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, padding: 12, borderRadius: 16, backgroundColor: urgent.tipo === 'saida_em_falta' ? colors.warnSoft : colors.actionSoft, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: urgent.tipo === 'saida_em_falta' ? colors.warnInk : colors.action }}>{urgent.titulo}</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: urgent.tipo === 'saida_em_falta' ? colors.warnInk : colors.action }}>{urgent.detalhe}</Text>
+          </View>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: urgent.tipo === 'saida_em_falta' ? colors.warnInk : colors.action }}>
+            {urgent.acao === 'contrato' ? 'Assinar ›' : urgent.acao === 'correcao' ? 'Corrigir ›' : 'Ver ›'}
+          </Text>
+        </Pressable>
+      ) : null}
 
       <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 24, padding: 16, gap: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
@@ -241,7 +323,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
                 {dayClosed ? 'dia fechado' : left > 0 ? `faltam ${Math.floor(left / 60)}h${String(left % 60).padStart(2, '0')}` : 'dia completo'}
               </Text>
             </View>
-            <Chip tone={status.tone} label={status.label} />
+            <Chip tone={blocked ? 'danger' : status.tone} label={blocked ? `A ${distanceLabel(place?.distancia ?? 0)} da obra` : status.label} />
             {pending ? <Chip tone="warn" label={`${pending} por enviar`} /> : null}
           </View>
         </View>
@@ -277,7 +359,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, on
           </View>
         </View>
       ) : (
-        <PlaceMap place={place} fix={fix} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
+        <PlaceMap place={place} fix={fix} address={address} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
       )}
     </ScrollView>
   );
@@ -299,9 +381,9 @@ function worldPixel(lat: number, lon: number, zoom: number) {
   return { x: ((lon + 180) / 360) * scale, y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale };
 }
 
-/** Mapa real (protótipo v6): mosaicos do OpenStreetMap através da cache de picagens.pt/mapa, a obra ao centro com o
- * raio à escala e a sua posição exata (ponto a pulsar). O zoom ajusta-se para caberem o raio e a sua distância. */
-function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null; fix: Fix | null; error: string; onRecenter: () => void }) {
+/** Mapa real: mosaicos do OpenStreetMap através da cache de picagens.pt/mapa, **centrado na sua posição** (ponto a
+ * pulsar, 2.3.0) com a obra e o raio à escala; o zoom ajusta-se para caberem os dois. Sem posição, centra na obra. */
+function PlaceMap({ place, fix, address: currentAddress, error, onRecenter }: { place: PlaceCheck | null; fix: Fix | null; address: string | null; error: string; onRecenter: () => void }) {
   const [width, setWidth] = useState(340);
   const pulse = useRef(new Animated.Value(0)).current;
 
@@ -313,7 +395,7 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
 
   const radiusMeters = place?.raio ?? 0;
   const site = place?.local_lat !== undefined && place?.local_lon !== undefined ? { lat: place.local_lat, lon: place.local_lon } : null;
-  const center = site ?? (fix ? { lat: fix.lat, lon: fix.lon } : null);
+  const center = fix ? { lat: fix.lat, lon: fix.lon } : site;
   let zoom = MAX_ZOOM - 1;
   let tiles: { key: string; uri: string; left: number; top: number }[] = [];
   let user: { x: number; y: number } | null = null;
@@ -341,7 +423,11 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
       }
     }
     if (site) {
-      sitePx = { x: width / 2, y: MAP_HEIGHT / 2 };
+      const s = worldPixel(site.lat, site.lon, zoom);
+      sitePx = {
+        x: Math.min(Math.max(s.x - left, EDGE_PX), width - EDGE_PX),
+        y: Math.min(Math.max(s.y - top, EDGE_PX), MAP_HEIGHT - EDGE_PX),
+      };
       radiusPx = Math.max(radiusMeters / metersPerPixel(zoom), 6);
     }
     if (fix) {
@@ -362,8 +448,10 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
   const tagDetails = [radiusMeters ? `raio ${radiusMeters} m` : null, fix ? `GPS ±${Math.round(fix.accuracy)} m` : null].filter(Boolean).join(' · ');
   const distance = place?.distancia !== undefined ? `está a ${distanceLabel(place.distancia)}` : '';
   const address = error || place?.mensagem || [place?.local_morada, distance].filter(Boolean).join(' · ') || 'A confirmar a sua posição';
+  const here = !error && currentAddress ? `Está em ${currentAddress}` : null;
 
   return (
+    <View style={{ gap: 6 }}>
     <View
       accessibilityLabel={`Mapa: ${chip.label}${place?.distancia !== undefined ? `, a ${distanceLabel(place.distancia)}` : ''}`}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
@@ -413,6 +501,13 @@ function PlaceMap({ place, fix, error, onRecenter }: { place: PlaceCheck | null;
           {tagDetails ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink2 }}>{tagDetails}</Text> : null}
         </View>
       </View>
+    </View>
+    {here ? (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 }}>
+        <PinIcon size={14} color={colors.brand} />
+        <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 12.5, color: colors.ink2 }} numberOfLines={1}>{here}</Text>
+      </View>
+    ) : null}
     </View>
   );
 }

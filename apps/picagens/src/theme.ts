@@ -16,6 +16,8 @@ export const colors = {
   pending: '#0E7490',
   warn: '#B86E00',
   warnSoft: '#FFF3DC',
+  /** Texto âmbar sobre warnSoft: #B86E00 dava 3,6:1 (abaixo de WCAG AA); este dá 6,5:1 (doc 52 §3 n.º 5). */
+  warnInk: '#92400E',
   danger: '#C62828',
   dangerSoft: '#FDECEC',
   info: '#0B7FA6',

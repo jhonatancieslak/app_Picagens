@@ -8,11 +8,12 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { DocumentIcon, MailIcon, OkIcon, PenIcon } from '../../components/icons';
+import { DocumentIcon, MailIcon, PenIcon } from '../../components/icons';
 import { ApiError, NetworkError, appVersion } from '../../http';
+import { Illustration } from '../../components/Illustration';
 import { colors, fonts } from '../../theme';
 import { Contract, Documents, Me, employeeApi } from '../api';
-import { BackLink, Button, Card, Chip, ErrorText, Field, Header, HeroOk, Muted, NumPad, OtpCells, Row, Title, applyKey } from '../ui';
+import { BackLink, Button, Card, Chip, ErrorText, Field, Header, Muted, NumPad, OtpCells, Row, Title, applyKey } from '../ui';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const CODE_LENGTH = 6;
@@ -116,7 +117,12 @@ export function DocumentsScreen({ token, me, openContract, onContractClosed, onA
       ))}
       {error ? <ErrorText>{error}</ErrorText> : null}
       {loading && !data ? <ActivityIndicator color={colors.action} /> : null}
-      {data && !docs.length && !pending.length ? <Muted>Ainda não há documentos para si.</Muted> : null}
+      {data && !docs.length && !pending.length ? (
+        <View style={{ alignItems: 'center', gap: 8, paddingTop: 16 }}>
+          <Illustration name="documents" width={190} />
+          <Muted center>Ainda não há documentos para si.</Muted>
+        </View>
+      ) : null}
       {docs.length ? (
         <Card>
           {docs.map((doc, index) => {
@@ -203,7 +209,11 @@ function ContractFlow({ token, me, id, onClose, onAuthError }: { token: string; 
   if (step === 'done') {
     return (
       <>
-        <HeroOk icon={<OkIcon size={44} color={colors.ok} />} title="Contrato assinado" text="A cópia final com as duas assinaturas está em Documentos e foi enviada para o seu email." />
+        <View style={{ alignItems: 'center', gap: 6, paddingTop: 8 }}>
+          <Illustration name="signed" width={200} />
+          <Text style={{ fontFamily: fonts.display, fontSize: 24, color: colors.ink }}>Contrato assinado</Text>
+          <Muted size={14} center>A cópia final com as duas assinaturas está em Documentos e foi enviada para o seu email.</Muted>
+        </View>
         <View style={{ flexDirection: 'row', gap: 8 }}>
           <Summary label="Assinado em" value={signedAt} />
           <Summary label="Código de verificação" value={contract.codigo_verificacao ?? '—'} />

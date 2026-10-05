@@ -2,7 +2,7 @@
   "expo": {
     "name": "Picagens",
     "slug": "picagens",
-    "version": "2.2.0",
+    "version": "2.3.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "pt.picagens.colaborador",
-      "versionCode": 4,
+      "versionCode": 5,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -88,6 +88,13 @@
           "cameraPermission": "A Picagens usa a câmara para a foto do certificado de baixa médica e, no modo quiosque, para a foto de confirmação de cada picagem.",
           "photosPermission": "A Picagens abre as suas fotos só para escolher a foto do certificado de baixa médica.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2563EB"
         }
       ]
     ],

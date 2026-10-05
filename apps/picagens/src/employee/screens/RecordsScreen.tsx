@@ -1,14 +1,15 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // "Registos" (protótipo v6): semana atual com o total e uma barra por dia (cheia = 8 h, âmbar = dia sem saída),
-// depois os dias do mês com as horas ou o que falta corrigir. Mês anterior/seguinte em baixo.
+// depois os dias do mês com as horas ou o que falta corrigir. Mês anterior/seguinte em baixo. Tocar num dia abre o
+// pedido de correção (2.3.0: na 2.2.0 o "Corrigir" não fazia nada, doc 53 §3); o gestor aprova no painel.
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
-import { MonthRecords, Visto, employeeApi } from '../api';
-import { Button, Card, Chip, ErrorText, Header, Muted, Row, Section } from '../ui';
+import { MonthRecords, PunchType, Visto, employeeApi } from '../api';
+import { Button, Card, Chip, ErrorText, Field, Header, Muted, Row, Section } from '../ui';
 import { formatHours, parseHours } from './TodayScreen';
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
@@ -39,6 +40,59 @@ function weekOf(date: Date) {
 
 type Day = MonthRecords['dias'][number];
 
+const CORRECTION_TYPES: { value: PunchType; label: string }[] = [
+  { value: 'entrada', label: 'Entrada' },
+  { value: 'saida', label: 'Saída' },
+  { value: 'pausa_inicio', label: 'Pausa' },
+  { value: 'pausa_fim', label: 'Fim pausa' },
+];
+const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+/** Pedido de correção de um dia: tipo, hora certa e motivo (o gestor aprova em Picagens › Pedidos de correção). */
+function CorrectionCard({ token, day, onClose, onSent, onAuthError }: { token: string; day: Day; onClose: () => void; onSent: (message: string) => void; onAuthError: (error: unknown) => boolean }) {
+  const [type, setType] = useState<PunchType>(day.completo ? 'entrada' : 'saida');
+  const [time, setTime] = useState('');
+  const [reason, setReason] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+
+  async function send() {
+    const match = TIME_RE.exec(time.trim());
+    if (!match) return setError('Escreva a hora certa no formato 18:00.');
+    if (!reason.trim()) return setError('Diga o motivo (ex.: esqueci-me de picar a saída).');
+    setSending(true);
+    setError('');
+    try {
+      const hora = `${match[1].padStart(2, '0')}:${match[2]}`;
+      const result = await employeeApi.requestCorrection(token, { tipo: type, data_hora: `${day.data}T${hora}`, motivo: reason.trim() });
+      onSent(result.mensagem);
+    } catch (exc) {
+      if (!onAuthError(exc)) setError(exc instanceof ApiError ? exc.message : exc instanceof NetworkError ? 'Sem rede. Tente quando tiver ligação.' : 'Tente de novo.');
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <Card style={{ padding: 14, gap: 10, borderColor: colors.action }}>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Pedir correção · {dayLabel(day.data)}</Text>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+        {CORRECTION_TYPES.map(({ value, label }) => (
+          <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: type === value }} onPress={() => setType(value)}
+            style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', borderColor: type === value ? colors.action : colors.line, backgroundColor: type === value ? colors.actionSoft : colors.surface }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: type === value ? colors.action : colors.ink2 }}>{label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Field label="Hora certa" value={time} onChangeText={setTime} placeholder="18:00" keyboardType="numbers-and-punctuation" maxLength={5} />
+      <Field label="Motivo" value={reason} onChangeText={setReason} placeholder="Ex.: esqueci-me de picar a saída" maxLength={300} />
+      {error ? <ErrorText>{error}</ErrorText> : null}
+      <Button primary title={sending ? 'A enviar…' : 'Enviar pedido'} busy={sending} onPress={send} />
+      <Button ghost title="Cancelar" onPress={onClose} />
+    </Card>
+  );
+}
+
 export function RecordsScreen({ token, onAuthError }: { token: string; onAuthError: (error: unknown) => boolean }) {
   const insets = useSafeAreaInsets();
   const today = new Date();
@@ -50,6 +104,7 @@ export function RecordsScreen({ token, onAuthError }: { token: string; onAuthErr
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState('');
+  const [correcting, setCorrecting] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -153,12 +208,21 @@ export function RecordsScreen({ token, onAuthError }: { token: string; onAuthErr
             const subtitle = !day.completo
               ? `${first ?? '--:--'} → ${isToday ? 'em curso' : 'sem saída'}`
               : `${first ?? '--:--'} → ${last?.hora ?? '--:--'}${day.picagens.some((p) => p.fora_do_local) ? ' · fora do local' : ''}${day.picagens.some((p) => p.correcao_pendente) ? ' · correção pedida' : ''}`;
+            if (correcting === day.data) {
+              return (
+                <View key={day.data} style={{ padding: 8 }}>
+                  <CorrectionCard token={token} day={day} onClose={() => setCorrecting(null)} onAuthError={onAuthError}
+                    onSent={(message) => { setCorrecting(null); setDone(message); load(); }} />
+                </View>
+              );
+            }
             return (
               <Row
                 key={day.data}
                 first={index === 0}
                 title={dayLabel(day.data)}
                 subtitle={subtitle}
+                onPress={isToday ? undefined : () => { setDone(''); setCorrecting(day.data); }}
                 right={isToday && !day.completo ? <Chip tone="action" label="Hoje" />
                   : !day.completo ? <Chip tone="warn" label="Corrigir" />
                   : <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14.5, color: colors.ink }}>{formatHours(parseHours(day.horas))}</Text>}
@@ -168,7 +232,7 @@ export function RecordsScreen({ token, onAuthError }: { token: string; onAuthErr
         </Card>
       ) : null}
       {days.some((day) => !day.completo && day.data !== iso(today)) ? (
-        <Muted size={12.5}>Dias sem saída: peça a correção ao gestor ou na página da empresa.</Muted>
+        <Muted size={12.5}>Dias sem saída: toque no dia para pedir a correção.</Muted>
       ) : null}
     </ScrollView>
   );
