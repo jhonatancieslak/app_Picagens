@@ -2,7 +2,7 @@
   "expo": {
     "name": "Picagens",
     "slug": "picagens",
-    "version": "2.3.1",
+    "version": "2.3.2",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "pt.picagens.colaborador",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",

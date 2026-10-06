@@ -184,6 +184,8 @@ export const employeeApi = {
     request<{ id: string; mensagem: string }>('POST', '/registos/correcao', payload, token),
   messages: (token: string) => request<{ nao_lidas: number; mensagens: Message[] }>('GET', '/mensagens', undefined, token),
   readMessage: (token: string, id: string) => request<{ ok: boolean }>('POST', `/mensagens/${encodeURIComponent(id)}/lida`, {}, token),
+  readAllMessages: (token: string) => request<{ marcadas: number }>('POST', '/mensagens/lidas', {}, token),
+  deleteMessage: (token: string, id: string) => request<{ ok: boolean }>('DELETE', `/mensagens/${encodeURIComponent(id)}`, undefined, token),
   profilePhoto: (token: string, version: number) => request<{ foto: string }>('GET', `/perfil/foto?formato=base64&v=${version}`, undefined, token),
   uploadProfilePhoto: (token: string, foto: string) => request<{ foto_versao: number }>('POST', '/perfil/foto', { foto }, token),
   deleteProfilePhoto: (token: string) => request<{ ok: boolean }>('DELETE', '/perfil/foto', undefined, token),
