@@ -7,7 +7,7 @@ import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import { PHOTO_JPEG_QUALITY, PHOTO_WIDTH_PX } from '../config';
 
-function removeQuietly(uri: string) {
+export function removeQuietly(uri: string) {
   try {
     const file = new File(uri);
     if (file.exists) file.delete();

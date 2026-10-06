@@ -18,6 +18,11 @@ export const CONFIG_REFRESH_MS = 10 * 60 * 1000;
 export const QUEUE_RETRY_MS = 60 * 1000;
 export const ADMIN_SESSION_SECONDS = 15 * 60;
 export const REQUEST_TIMEOUT_MS = 20 * 1000;
+/** Envios com foto em base64 (certificado de baixa): mais tempo em redes móveis lentas. */
+export const UPLOAD_TIMEOUT_MS = 90 * 1000;
+/** Certificado de baixa: lado maior e qualidade JPEG antes de enviar (legível, ~300-600 KB). */
+export const SICK_LEAVE_PHOTO_MAX_PX = 1600;
+export const SICK_LEAVE_JPEG_QUALITY = 0.7;
 export const PHOTO_RETENTION_DAYS_DEFAULT = 30;
 /** Prazo em que o servidor ainda aceita uma picagem feita sem rede (picagem_service.py). */
 export const OFFLINE_MAX_HOURS = 48;

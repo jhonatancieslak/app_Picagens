@@ -12,7 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon } from '../components/icons';
 import { QUEUE_RETRY_MS } from '../config';
-import { ApiError, appVersion } from '../http';
+import { ApiError } from '../http';
 import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
 import { colors, fonts } from '../theme';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
@@ -61,6 +61,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [updateRequired, setUpdateRequired] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const [locationIntro, setLocationIntro] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), SPLASH_MS);
@@ -168,6 +169,20 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     return () => subscription.remove();
   }, [refreshDashboard]);
 
+  // Foto de perfil em base64 (data URI), pedida com a sessão sempre que muda de versão.
+  const photoVersion = me?.colaborador.foto_versao ?? null;
+  useEffect(() => {
+    if (!token || !photoVersion) {
+      setPhotoUri(null);
+      return;
+    }
+    let active = true;
+    employeeApi.profilePhoto(token, photoVersion)
+      .then(({ foto }) => { if (active) setPhotoUri(foto); })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, [token, photoVersion]);
+
   useEffect(() => NetInfo.addEventListener((state) => setOnline(Boolean(state.isConnected && state.isInternetReachable !== false))), []);
 
   useEffect(() => {
@@ -241,9 +256,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const updateAvailable = isNewer(me.versao_atual);
   const overlay = messages ? 'messages' : profile ? 'profile' : null;
   const screenKey = overlay ?? tab;
-  const photo: AvatarPhoto | null = me.colaborador.foto_versao
-    ? { uri: employeeApi.profilePhotoUrl(me.colaborador.foto_versao), headers: { Authorization: `Bearer ${token}`, 'X-App-Versao': appVersion } }
-    : null;
+  const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>

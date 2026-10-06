@@ -13,6 +13,7 @@ import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { RequestState, Requests, employeeApi } from '../api';
 import { holidayName, holidaysBetween, workingDays } from '../holidays';
+import { sickLeavePhotoBase64 } from '../photo';
 import { BackLink, Button, Card, Chip, ChipTone, ErrorText, Field, Header, Muted, Row, Title, Toggle } from '../ui';
 
 const MONTHS_LONG = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -429,12 +430,20 @@ function NewRequest({ token, data, all, from, onBack, onSent, onAuthError }: {
       if (kind === 'ferias') {
         id = (await employeeApi.requestVacation(token, iso(start), iso(end), data?.tipos_ferias[0]?.id)).id;
       } else {
-        const form = new FormData();
-        form.append('data_inicio', iso(start));
-        if (!noEnd) form.append('data_fim', iso(end));
-        if (note.trim()) form.append('motivo', note.trim());
-        form.append('documento', { uri: photo!.uri, name: photo!.fileName ?? 'baixa.jpg', type: photo!.mimeType ?? 'image/jpeg' } as unknown as Blob);
-        id = (await employeeApi.requestSickLeave(token, form)).id;
+        let documento: string;
+        try {
+          documento = await sickLeavePhotoBase64(photo!);
+        } catch {
+          setError('Não foi possível ler a foto. Tire outra ou escolha da galeria.');
+          return;
+        }
+        id = (await employeeApi.requestSickLeave(token, {
+          data_inicio: iso(start),
+          ...(noEnd ? {} : { data_fim: iso(end) }),
+          ...(note.trim() ? { motivo: note.trim() } : {}),
+          documento,
+          documento_nome: 'baixa.jpg',
+        })).id;
       }
       onSent({ id, kind, start, end, state: 'pendente' });
     } catch (exc) {

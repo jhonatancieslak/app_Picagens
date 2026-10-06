@@ -1,7 +1,7 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Cliente da API do colaborador (/api/v1/mobile, doc 43 §3). Mesmas regras da PWA no servidor.
-import { EMPLOYEE_API_URL } from '../config';
-import { createClient, createFormClient } from '../http';
+import { EMPLOYEE_API_URL, UPLOAD_TIMEOUT_MS } from '../config';
+import { createClient } from '../http';
 import type { LicenseState } from '../kiosk/api';
 
 export type PunchType = 'entrada' | 'saida' | 'pausa_inicio' | 'pausa_fim';
@@ -148,8 +148,16 @@ export interface CorrectionPayload {
   motivo: string;
 }
 
+/** Baixa médica (2.3.1+): foto do certificado em base64 no JSON (o multipart falhava no Android antes de sair). */
+export interface SickLeaveBody {
+  data_inicio: string;
+  data_fim?: string;
+  motivo?: string;
+  documento: string;
+  documento_nome: string;
+}
+
 const request = createClient(EMPLOYEE_API_URL);
-const sendForm = createFormClient(EMPLOYEE_API_URL);
 
 export const employeeApi = {
   activate: (empresa: string, token: string) => request<Session>('POST', '/sessao/ativar', { empresa, token }),
@@ -165,7 +173,7 @@ export const employeeApi = {
   requests: (token: string) => request<Requests>('GET', '/pedidos', undefined, token),
   requestVacation: (token: string, data_inicio: string, data_fim: string, tipo_ferias_id?: string) =>
     request<{ id: string; mensagem: string }>('POST', '/pedidos/ferias', { data_inicio, data_fim, tipo_ferias_id }, token),
-  requestSickLeave: (token: string, form: FormData) => sendForm<{ id: string; mensagem: string }>('/pedidos/baixa', form, token),
+  requestSickLeave: (token: string, body: SickLeaveBody) => request<{ id: string; mensagem: string }>('POST', '/pedidos/baixa', body, token, UPLOAD_TIMEOUT_MS),
   documents: (token: string) => request<Documents>('GET', '/documentos', undefined, token),
   documentUrl: (id: string) => `${EMPLOYEE_API_URL}/documentos/${encodeURIComponent(id)}`,
   contract: (token: string, id: string) => request<Contract & { ok: boolean }>('GET', `/contratos/${encodeURIComponent(id)}`, undefined, token),
@@ -176,7 +184,7 @@ export const employeeApi = {
     request<{ id: string; mensagem: string }>('POST', '/registos/correcao', payload, token),
   messages: (token: string) => request<{ nao_lidas: number; mensagens: Message[] }>('GET', '/mensagens', undefined, token),
   readMessage: (token: string, id: string) => request<{ ok: boolean }>('POST', `/mensagens/${encodeURIComponent(id)}/lida`, {}, token),
-  profilePhotoUrl: (version: number) => `${EMPLOYEE_API_URL}/perfil/foto?v=${version}`,
+  profilePhoto: (token: string, version: number) => request<{ foto: string }>('GET', `/perfil/foto?formato=base64&v=${version}`, undefined, token),
   uploadProfilePhoto: (token: string, foto: string) => request<{ foto_versao: number }>('POST', '/perfil/foto', { foto }, token),
   deleteProfilePhoto: (token: string) => request<{ ok: boolean }>('DELETE', '/perfil/foto', undefined, token),
   setReminders: (token: string, ativo: boolean) => request<{ lembretes_picagem: boolean }>('POST', '/perfil/lembretes', { ativo }, token),

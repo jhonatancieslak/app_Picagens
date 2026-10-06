@@ -237,10 +237,9 @@ export function PadField({ label, value, placeholder, active, error, onPress }: 
 }
 
 /** Avatar com iniciais e contador vermelho de avisos. */
-/** Foto de perfil pedida ao servidor com a sessão (RN Image aceita cabeçalhos no Android). */
+/** Foto de perfil como data URI: o <Image> do Android não enviava o cabeçalho Authorization (401 na 2.3.0). */
 export interface AvatarPhoto {
   uri: string;
-  headers: Record<string, string>;
 }
 
 export function Avatar({ name, count, onPress, size = 38, photo }: { name: string; count: number; onPress?: () => void; size?: number; photo?: AvatarPhoto | null }) {
