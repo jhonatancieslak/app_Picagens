@@ -15,7 +15,8 @@ export interface KioskConfig {
   local_morada?: string | null;
   cor: string;
   logo_url: string;
-  foto: { retencao_dias: number; lado_maximo_px: number };
+  /** ativa=false (servidor ≥ 13/10/2026): a empresa desligou a foto em Gestão do App, pica-se só com o PIN. */
+  foto: { ativa?: boolean; retencao_dias: number; lado_maximo_px: number };
   fuso: string;
   agora: string;
   licenca: { estado: LicenseState; ate: string | null };
@@ -40,6 +41,8 @@ export interface PunchResult {
   hora: string;
   offline: boolean;
   foto: boolean;
+  /** false = a empresa não usa foto no quiosque (não é "registada sem foto"). */
+  foto_pedida?: boolean;
 }
 
 export interface PunchRequest {

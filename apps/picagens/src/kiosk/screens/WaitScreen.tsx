@@ -1,5 +1,5 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Ecrã de espera: relógio grande, um só botão (PIN) e o aviso da foto de confirmação.
+// Ecrã de espera: relógio grande, um só botão (PIN) e o aviso da foto de confirmação (só se a empresa a usar).
 import * as Application from 'expo-application';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
@@ -28,13 +28,15 @@ interface Props {
   tabletName: string;
   place: string | null;
   address: string | null;
+  /** A empresa usa a foto de confirmação (Gestão do App). */
+  photo: boolean;
   onPin: () => void;
   onInfo: () => void;
   dimmed: boolean;
   onWake: () => void;
 }
 
-export function WaitScreen({ tabletName, place, address, onPin, onInfo, dimmed, onWake }: Props) {
+export function WaitScreen({ tabletName, place, address, photo, onPin, onInfo, dimmed, onWake }: Props) {
   const vw = useVw();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -61,7 +63,8 @@ export function WaitScreen({ tabletName, place, address, onPin, onInfo, dimmed, 
         ) : null}
       </View>
       <View style={{ flex: 1, justifyContent: 'center', paddingLeft: vw(1), paddingRight: vw(4), gap: vw(1.5) }}>
-        <BigButton primary title="Picar com PIN" subtitle="Código de 4 dígitos, depois uma foto rápida" icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
+        <BigButton primary title="Picar com PIN" subtitle={photo ? 'Código de 4 dígitos, depois uma foto rápida' : 'Código de 4 dígitos'} icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
+        {photo ? (
         <View style={{ flexDirection: 'row', gap: vw(1.1), backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.6), padding: vw(1.4) }}>
           <CameraIcon size={vw(2.4)} color={colors.action} />
           <View style={{ flex: 1, gap: vw(0.4) }}>
@@ -72,6 +75,7 @@ export function WaitScreen({ tabletName, place, address, onPin, onInfo, dimmed, 
             <LinkButton title="Saber mais" onPress={onInfo} />
           </View>
         </View>
+        ) : null}
         <Text style={{ textAlign: 'center', fontFamily: fonts.body, fontSize: vw(1.3), color: colors.ink3 }}>O nome de quem picou só aparece por 5 segundos.</Text>
       </View>
       <Text style={{ position: 'absolute', left: vw(4), bottom: vw(2.4), fontFamily: fonts.bodyMedium, fontSize: vw(1.2), color: colors.ink3 }}>

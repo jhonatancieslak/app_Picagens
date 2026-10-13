@@ -1,6 +1,6 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Modo quiosque da app Picagens: tablet partilhado à entrada da obra. Picagem com PIN + foto de confirmação
-// (sem reconhecimento facial), fila offline, administração com código e estado da licença.
+// (sem reconhecimento facial; a empresa pode desligar a foto, 2.3.3), fila offline, administração com código e estado da licença.
 // Fluxo e decisões: doc 44 §14 (UI) e doc 43 §4 (API) no repo picagens-saas-v2.
 import NetInfo from '@react-native-community/netinfo';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -192,11 +192,12 @@ export function KioskApp({ onLeave }: Props) {
     if (!online) return queueOffline(photo);
     try {
       const result = await api.punch(token, { pin: pin.current, foto: photo });
+      const ok = result.foto || result.foto_pedida === false;
       finishPunch({
-        kind: result.foto ? 'ok' : 'no_photo',
+        kind: ok ? 'ok' : 'no_photo',
         name: result.nome,
         label: `${result.rotulo} · ${result.hora}`,
-        message: result.foto ? 'Registada. Bom trabalho!' : 'Registada sem foto. Fica marcada para o gestor rever.',
+        message: ok ? 'Registada. Bom trabalho!' : 'Registada sem foto. Fica marcada para o gestor rever.',
         photoSaved: result.foto,
       });
     } catch (error) {
@@ -211,6 +212,7 @@ export function KioskApp({ onLeave }: Props) {
       finishPunch({ kind: 'refused', label: 'Não foi possível registar', message: error instanceof ApiError ? error.message : 'Tente de novo.', photoSaved: false });
     } finally {
       pin.current = '';
+      setPadBusy(false);
     }
   }
 
@@ -241,6 +243,7 @@ export function KioskApp({ onLeave }: Props) {
   }
 
   const license = config.licenca?.estado ?? 'ativa';
+  const photoOn = config.foto?.ativa !== false;
   const inAdmin = ['admin', 'camera', 'screenSettings'].includes(screen);
   const dimmed = settings.dimAtNight && isNight(clock) && Date.now() - wokeAt > WAKE_MS;
 
@@ -252,7 +255,7 @@ export function KioskApp({ onLeave }: Props) {
     <Shell>
       {screen !== 'done' ? <TopBar company={config.empresa} place={config.local} online={online} onAdmin={inAdmin ? undefined : () => openPad('adminCode')} /> : null}
       {screen === 'wait' ? (
-        <WaitScreen tabletName={config.tablet} place={config.local} address={config.local_morada ?? null} onPin={() => openPad('pin')} onInfo={() => setScreen('info')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
+        <WaitScreen tabletName={config.tablet} place={config.local} photo={photoOn} address={config.local_morada ?? null} onPin={() => openPad('pin')} onInfo={() => setScreen('info')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
       ) : null}
       {screen === 'pin' || screen === 'adminCode' ? (
         <PadScreen
@@ -265,7 +268,9 @@ export function KioskApp({ onLeave }: Props) {
             if (screen === 'adminCode') return submitAdminCode(code);
             pin.current = code;
             setPadError('');
-            setScreen('photo');
+            if (photoOn) return setScreen('photo');
+            setPadBusy(true);
+            return submitPhoto(null);
           }}
         />
       ) : null}
