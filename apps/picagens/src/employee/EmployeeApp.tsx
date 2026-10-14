@@ -3,6 +3,7 @@
 // logótipo, entrada (código da empresa + NIF + PIN, ou link do email), separadores Hoje / Registos / Pedidos /
 // Documentos e Perfil pelo avatar. Sessão de 180 dias renovada a cada abertura; 401 → sai.
 // 2.3.0 (doc 49 §14): notificações (registo ao entrar, tocar abre o ecrã), caixa de Mensagens pelo sino, foto de perfil.
+// 2.4.0 (doc 62): 5.º separador Equipa só para chefes de equipa (PIN pedido de novo a cada 12 h, prova só em memória).
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Linking, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon } from '../components/icons';
+import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon, TeamIcon } from '../components/icons';
 import { QUEUE_RETRY_MS } from '../config';
 import { ApiError } from '../http';
 import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
@@ -26,11 +27,12 @@ import { MessagesScreen } from './screens/MessagesScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
+import { TeamPin, TeamScreen } from './screens/TeamScreen';
 import { TodayScreen } from './screens/TodayScreen';
 import { clearSession, getCachedMe, getEmployeeToken, saveSession } from './storage';
 import { AvatarPhoto, FadeIn, useToast } from './ui';
 
-type Tab = 'today' | 'records' | 'requests' | 'documents';
+type Tab = 'today' | 'records' | 'requests' | 'documents' | 'team';
 
 const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
   { key: 'today', label: 'Hoje', Icon: ClockIcon },
@@ -39,9 +41,11 @@ const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
   { key: 'documents', label: 'Documentos', Icon: DocumentIcon },
 ];
 
+const TEAM_TAB = { key: 'team' as Tab, label: 'Equipa', Icon: TeamIcon };
+
 const SPLASH_MS = 1300;
 
-const TAB_OF_PUSH: Record<Exclude<PushScreen, 'mensagens'>, Tab> = { hoje: 'today', registos: 'records', pedidos: 'requests', documentos: 'documents' };
+const TAB_OF_PUSH: Record<Exclude<PushScreen, 'mensagens'>, Tab> = { hoje: 'today', registos: 'records', pedidos: 'requests', documentos: 'documents', equipa: 'team' };
 
 const sessionToMe = ({ token: _token, validade_dias: _days, ...me }: Session & { ok?: boolean }): Me => me;
 
@@ -62,6 +66,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [link, setLink] = useState<string | null>(null);
   const [locationIntro, setLocationIntro] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [teamPin, setTeamPin] = useState<TeamPin | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), SPLASH_MS);
@@ -77,6 +82,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setTab('today');
     setProfile(false);
     setMessages(false);
+    setTeamPin(null);
     setToken(null);
   }, [token]);
 
@@ -252,10 +258,14 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     );
   }
 
+  const teams = me.chefe?.equipas ?? [];
+  const tabs = teams.length ? [...TABS, TEAM_TAB] : TABS;
+  // Deixou de ser chefe (ou notificação "equipa" para quem não chefia): volta a Hoje.
+  const activeTab: Tab = tab === 'team' && !teams.length ? 'today' : tab;
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
   const overlay = messages ? 'messages' : profile ? 'profile' : null;
-  const screenKey = overlay ?? tab;
+  const screenKey = overlay ?? activeTab;
   const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
 
   return (
@@ -282,7 +292,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onInfo={(title, text) => toast.show({ tone: 'ok', title, text })}
             />
           ) : null}
-          {!overlay && tab === 'today' ? (
+          {!overlay && activeTab === 'today' ? (
             <TodayScreen
               token={token}
               me={me}
@@ -302,10 +312,13 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               toast={toast.show}
             />
           ) : null}
-          {!overlay && tab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
-          {!overlay && tab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
-          {!overlay && tab === 'documents' ? (
+          {!overlay && activeTab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && activeTab === 'documents' ? (
             <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
+          ) : null}
+          {!overlay && activeTab === 'team' ? (
+            <TeamScreen token={token} teams={teams} pin={teamPin} onPin={setTeamPin} onAuthError={onAuthError} toast={toast.show} />
           ) : null}
         </FadeIn>
       </View>
@@ -318,7 +331,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
         >
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.action }}>Nova versão disponível · {me.versao_atual}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.action }}>Toque para descarregar e instalar por cima. A sessão mantém-se.</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.action }}>Toque para atualizar. A sessão mantém-se.</Text>
           </View>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.action }}>Atualizar ›</Text>
         </Pressable>
@@ -331,8 +344,8 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
             shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
           }}
         >
-          {TABS.map(({ key, label, Icon }) => {
-            const active = tab === key;
+          {tabs.map(({ key, label, Icon }) => {
+            const active = activeTab === key;
             return (
               <Pressable
                 key={key}

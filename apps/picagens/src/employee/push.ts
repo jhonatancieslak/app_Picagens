@@ -1,7 +1,7 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Notificações da app (2.3.0, doc 49 §14): pede autorização depois de entrar, regista o token Expo no servidor
 // (/notificacoes/registar) e diz que ecrã abrir quando se toca numa notificação (data.ecra enviado pelo servidor:
-// hoje, registos, pedidos, documentos, mensagens). No Android o Expo usa o FCM: sem o projeto Firebase ligado ao
+// hoje, registos, pedidos, documentos, mensagens; equipa = avisos do chefe, 2.4.0). No Android o Expo usa o FCM: sem o projeto Firebase ligado ao
 // EAS, getExpoPushTokenAsync falha e a app continua a funcionar sem notificações.
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
@@ -10,10 +10,10 @@ import { Platform } from 'react-native';
 
 import { employeeApi } from './api';
 
-export type PushScreen = 'hoje' | 'registos' | 'pedidos' | 'documentos' | 'mensagens';
+export type PushScreen = 'hoje' | 'registos' | 'pedidos' | 'documentos' | 'mensagens' | 'equipa';
 
 const PUSH_TOKEN_KEY = 'push_token_expo';
-const SCREENS: PushScreen[] = ['hoje', 'registos', 'pedidos', 'documentos', 'mensagens'];
+const SCREENS: PushScreen[] = ['hoje', 'registos', 'pedidos', 'documentos', 'mensagens', 'equipa'];
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({ shouldShowBanner: true, shouldShowList: true, shouldPlaySound: true, shouldSetBadge: false }),

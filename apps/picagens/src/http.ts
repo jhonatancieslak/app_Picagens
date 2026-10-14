@@ -6,7 +6,8 @@ import * as Application from 'expo-application';
 import { REQUEST_TIMEOUT_MS } from './config';
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) {
+  /** `data` = corpo JSON do erro (ex.: pin_necessario nas rotas do chefe de equipa). */
+  constructor(public status: number, message: string, public data: Record<string, unknown> = {}) {
     super(message);
   }
 }
@@ -16,7 +17,7 @@ export class NetworkError extends Error {}
 export const appVersion = Application.nativeApplicationVersion ?? '0.0.0';
 
 export function createClient(baseUrl: string) {
-  return async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, token?: string | null, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
+  return async function request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, token?: string | null, timeoutMs = REQUEST_TIMEOUT_MS, extraHeaders: Record<string, string> = {}): Promise<T> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
@@ -28,6 +29,7 @@ export function createClient(baseUrl: string) {
           'Content-Type': 'application/json',
           'X-App-Versao': appVersion,
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...extraHeaders,
         },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
@@ -38,7 +40,7 @@ export function createClient(baseUrl: string) {
     }
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) {
-      throw new ApiError(response.status, data.erro || 'Não foi possível concluir o pedido.');
+      throw new ApiError(response.status, data.erro || 'Não foi possível concluir o pedido.', data);
     }
     return data as T;
   };

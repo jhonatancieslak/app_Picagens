@@ -11,6 +11,8 @@ export interface Me {
   colaborador: { id: string; nome: string; foto_versao?: number | null };
   empresa: { slug: string; nome: string };
   local: string | null;
+  /** Chefe de equipa (servidor 14/10, doc 62): null para quem não chefia; com equipas aparece o separador Equipa. */
+  chefe?: { equipas: TeamRef[] } | null;
   versao_minima: string;
   /** Versão mais recente publicada e o link do APK (servidor ≥ 05/10/2026); a app mostra "Nova versão disponível". */
   versao_atual?: string;
@@ -157,7 +159,69 @@ export interface SickLeaveBody {
   documento_nome: string;
 }
 
+// ── Chefe de equipa (doc 62, 2.4.0): só presença e faltas da equipa, nunca saldos, horas, fotos ou GPS ──
+
+export interface TeamRef {
+  id: string;
+  nome: string;
+  local: string | null;
+}
+
+export type MemberState = 'a_trabalhar' | 'saiu' | 'em_falta_entrada' | 'em_falta_saida' | 'correcao_pendente' | 'ausente' | 'folga' | 'por_comecar';
+
+export interface TeamToday {
+  equipa: TeamRef;
+  equipas: TeamRef[];
+  resumo: { a_trabalhar: number; em_falta: number; ausentes: number };
+  membros: { id: string; nome: string; iniciais: string; estado: MemberState; hora: string | null; horario: string | null; motivo: string | null }[];
+}
+
+export type MissingType = 'entrada' | 'saida';
+
+export interface TeamMissing {
+  equipa: TeamRef;
+  dias: number;
+  faltas: { colaborador_id: string; nome: string; iniciais: string; data: string; tipo: MissingType; horario: string }[];
+}
+
+export type OpinionSense = 'favoravel' | 'desfavoravel';
+
+export interface TeamRequests {
+  equipa: TeamRef;
+  pedidos: {
+    tipo: 'ferias' | 'baixa'; id: string; colaborador_id: string; nome: string; iniciais: string;
+    data_inicio: string | null; data_fim: string | null; tipo_ferias: string | null;
+    parecer: { sentido: OpinionSense; nota: string | null } | null;
+  }[];
+  correcoes: { id: string; colaborador_id: string; nome: string; iniciais: string; data: string; tipo: MissingType; hora: string; estado: RequestState }[];
+}
+
+/** Códigos por dia: P picou · X falta · C correção · F férias · B baixa · H feriado · - folga · null = ainda não. */
+export interface TeamMap {
+  equipa: TeamRef;
+  ano: number;
+  mes: number;
+  num_dias: number;
+  membros: { id: string; nome: string; iniciais: string; dias: (string | null)[]; faltas: number }[];
+}
+
+export interface TeamCorrection {
+  colaborador_id: string;
+  data: string;
+  tipo: MissingType;
+  hora: string;
+  motivo: string;
+  nota?: string;
+}
+
 const request = createClient(EMPLOYEE_API_URL);
+
+/** Cabeçalho com a prova do PIN do separador Equipa (válida 12 h, /equipa/confirmar-pin). */
+const teamHeaders = (pinToken: string) => ({ 'X-Equipa-Token': pinToken });
+const teamQuery = (equipa?: string | null, extra = '') => {
+  const params = [equipa ? `equipa=${encodeURIComponent(equipa)}` : '', extra].filter(Boolean).join('&');
+  return params ? `?${params}` : '';
+};
 
 export const employeeApi = {
   activate: (empresa: string, token: string) => request<Session>('POST', '/sessao/ativar', { empresa, token }),
@@ -193,4 +257,20 @@ export const employeeApi = {
   registerPush: (token: string, pushToken: string, plataforma: 'android' | 'ios') =>
     request<{ ok: boolean }>('POST', '/notificacoes/registar', { token: pushToken, plataforma }, token),
   unregisterPush: (token: string, pushToken: string) => request<{ ok: boolean }>('POST', '/notificacoes/remover', { token: pushToken }, token),
+};
+
+export const teamApi = {
+  confirmPin: (token: string, pin: string) => request<{ token: string; validade_horas: number }>('POST', '/equipa/confirmar-pin', { pin }, token),
+  today: (token: string, pinToken: string, equipa?: string | null) =>
+    request<TeamToday>('GET', `/equipa/hoje${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
+  missing: (token: string, pinToken: string, equipa?: string | null) =>
+    request<TeamMissing>('GET', `/equipa/faltas${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
+  requests: (token: string, pinToken: string, equipa?: string | null) =>
+    request<TeamRequests>('GET', `/equipa/pedidos${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
+  map: (token: string, pinToken: string, equipa: string | null, ano?: number, mes?: number) =>
+    request<TeamMap>('GET', `/equipa/mapa${teamQuery(equipa, ano && mes ? `ano=${ano}&mes=${mes}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
+  propose: (token: string, pinToken: string, body: TeamCorrection) =>
+    request<{ id: string; mensagem: string }>('POST', '/equipa/correcoes', body, token, undefined, teamHeaders(pinToken)),
+  opinion: (token: string, pinToken: string, tipo: 'ferias' | 'baixa', id: string, sentido: OpinionSense) =>
+    request<{ mensagem: string }>('POST', `/equipa/pedidos/${tipo}/${encodeURIComponent(id)}/parecer`, { sentido }, token, undefined, teamHeaders(pinToken)),
 };

@@ -16,5 +16,5 @@ export function isNewer(latest: string | undefined | null, current = appVersion)
   return false;
 }
 
-/** Link do APK quando não vem do servidor (o mesmo de Gestão do App › App Picagens). */
-export const DEFAULT_UPDATE_URL = 'https://picagens.pt/downloads/android/picagens.apk';
+/** Quando o servidor não manda link: a página da app na Google Play (o APK fora da loja foi retirado a 07/10). */
+export const DEFAULT_UPDATE_URL = 'market://details?id=pt.picagens.colaborador';
