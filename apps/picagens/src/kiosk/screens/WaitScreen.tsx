@@ -61,6 +61,11 @@ export function WaitScreen({ tabletName, place, address, photo, onPin, onInfo, d
             {address ? <Text style={{ fontFamily: fonts.body, fontSize: vw(1.5), color: colors.ink2 }}>{address}</Text> : null}
           </View>
         ) : null}
+        {/* 2.5.0 (canvas 26): o PIN não se cria no tablet (aparelho partilhado); vê-se na app ou no link do email. */}
+        <View style={{ marginTop: vw(1.6), alignSelf: 'flex-start', maxWidth: '92%', backgroundColor: colors.actionSoft, borderRadius: vw(1.6), padding: vw(1.4), gap: vw(0.3) }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.6), color: colors.ink }}>Não sabe o seu PIN?</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: vw(1.45), color: colors.ink2 }}>Abra a app ou o link que recebeu por email e toque em «Ver o meu PIN».</Text>
+        </View>
       </View>
       <View style={{ flex: 1, justifyContent: 'center', paddingLeft: vw(1), paddingRight: vw(4), gap: vw(1.5) }}>
         <BigButton primary title="Picar com PIN" subtitle={photo ? 'Código de 4 dígitos, depois uma foto rápida' : 'Código de 4 dígitos'} icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />

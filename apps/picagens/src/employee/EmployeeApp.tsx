@@ -4,6 +4,7 @@
 // Documentos e Perfil pelo avatar. Sessão de 180 dias renovada a cada abertura; 401 → sai.
 // 2.3.0 (doc 49 §14): notificações (registo ao entrar, tocar abre o ecrã), caixa de Mensagens pelo sino, foto de perfil.
 // 2.4.0 (doc 62): 5.º separador Equipa só para chefes de equipa (PIN pedido de novo a cada 12 h, prova só em memória).
+// 2.5.0 (canvas 26/28): «Ver o meu PIN» em Hoje (ecrã por cima) e «Esqueci o PIN» na entrada.
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
@@ -24,6 +25,7 @@ import { DocumentsScreen } from './screens/DocumentsScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
+import { PinScreen } from './screens/PinScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
@@ -59,6 +61,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [tab, setTab] = useState<Tab>('today');
   const [profile, setProfile] = useState(false);
   const [messages, setMessages] = useState(false);
+  const [pinScreen, setPinScreen] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
@@ -82,6 +85,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setTab('today');
     setProfile(false);
     setMessages(false);
+    setPinScreen(false);
     setTeamPin(null);
     setToken(null);
   }, [token]);
@@ -144,6 +148,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   }, [token]);
 
   const openPush = useCallback((screen: PushScreen) => {
+    setPinScreen(false);
     setProfile(false);
     setContract(null);
     if (screen === 'mensagens') {
@@ -201,6 +206,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   // "Voltar" do Android: Perfil e contrato voltam atrás; outros separadores voltam a Hoje; em Hoje sai da app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pinScreen) { setPinScreen(false); return true; }
       if (messages) { setMessages(false); return true; }
       if (profile) { setProfile(false); return true; }
       if (contract) { setContract(null); return true; }
@@ -209,7 +215,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract, messages]);
+  }, [tab, profile, contract, messages, pinScreen]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
@@ -264,7 +270,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const activeTab: Tab = tab === 'team' && !teams.length ? 'today' : tab;
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
-  const overlay = messages ? 'messages' : profile ? 'profile' : null;
+  const overlay = pinScreen ? 'pin' : messages ? 'messages' : profile ? 'profile' : null;
   const screenKey = overlay ?? activeTab;
   const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
 
@@ -274,10 +280,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       {toast.node}
       <View style={{ flex: 1 }}>
         <FadeIn deps={screenKey}>
-          {messages ? (
+          {pinScreen ? <PinScreen token={token} onBack={() => setPinScreen(false)} onAuthError={onAuthError} /> : null}
+          {!pinScreen && messages ? (
             <MessagesScreen token={token} onBack={() => setMessages(false)} onRead={refreshDashboard} onAuthError={onAuthError} />
           ) : null}
-          {!messages && profile ? (
+          {!pinScreen && !messages && profile ? (
             <ProfileScreen
               token={token}
               me={me}
@@ -309,6 +316,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onProfile={() => setProfile(true)}
               onQueued={() => setPending(pendingEmployeePunches())}
               onAuthError={onAuthError}
+              onPin={() => setPinScreen(true)}
               toast={toast.show}
             />
           ) : null}

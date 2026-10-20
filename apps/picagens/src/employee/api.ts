@@ -18,7 +18,8 @@ export interface Me {
   versao_atual?: string;
   url_atualizacao?: string;
   licenca: { estado: LicenseState; ate: string | null };
-  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean };
+  /** ver_pin (servidor 20/10): a empresa tem tablet ou PC de picagem ativo → cartão «PIN de picagem» em Hoje. */
+  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean; ver_pin?: boolean };
 }
 
 /** Empresa encontrada pelo código de 6 algarismos (doc 49): confirma-se antes de pedir NIF e PIN. */
@@ -31,6 +32,18 @@ export interface Company {
 export interface Session extends Me {
   token: string;
   validade_dias: number;
+}
+
+/** «Esqueci-me do PIN» (servidor 20/10): o 1.º passo responde igual exista ou não o NIF (não revela quem trabalha lá). */
+export interface PinCodeRequest {
+  token: string;
+  mensagem: string;
+  validade_minutos: number;
+}
+
+/** 2.º passo certo: sessão nova + o PIN novo, a mostrar uma vez (nunca guardar). */
+export interface PinReset extends Session {
+  pin: string;
 }
 
 export interface Notice {
@@ -228,6 +241,9 @@ export const employeeApi = {
   company: (codigo: string) => request<Company>('POST', '/empresa', { codigo }),
   login: (codigo: string, nif: string, pin: string) => request<Session>('POST', '/sessao/entrar', { codigo, nif, pin }),
   renew: (token: string) => request<Session>('POST', '/sessao/renovar', {}, token),
+  pinRequestCode: (codigo: string, nif: string) => request<PinCodeRequest>('POST', '/pin/pedir-codigo', { codigo, nif }),
+  pinConfirm: (codigo: string, token: string, codigo_email: string) => request<PinReset>('POST', '/pin/confirmar', { codigo, token, codigo_email }),
+  newPin: (token: string) => request<{ pin: string; restantes_hoje: number }>('POST', '/eu/pin', {}, token),
   dashboard: (token: string) => request<Dashboard>('GET', '/painel', undefined, token),
   checkPlace: (token: string, lat: number, lon: number) => request<PlaceCheck>('POST', '/verificar-local', { lat, lon }, token),
   punch: (token: string, payload: PunchPayload) => request<{ tipo: PunchType; hora: string }>('POST', '/picar', payload, token),
