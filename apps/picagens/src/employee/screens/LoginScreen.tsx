@@ -350,12 +350,18 @@ function Need({ children }: { children: ReactNode }) {
   return <Text style={{ fontFamily: fonts.body, fontSize: 13.5, color: colors.ink2 }}>• {children}</Text>;
 }
 
-/** Ecrã de abertura com o logótipo (".splash"), 1,3 s. */
+/** Ecrã de abertura com o logótipo (".splash"), 1,3 s. 2.5.1: «desenvolvido por» Cieslak Sistemas, discreto (30 %),
+ * só aqui (canvas A1 n.º 1, aprovado 22/10). */
 export function Splash() {
   return (
     <Pressable style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
       <Logo height={45} />
       <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink3 }}>A abrir…</Text>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 34, alignItems: 'center', gap: 6 }}>
+        <Text style={{ fontFamily: fonts.body, fontSize: 10.5, color: colors.ink3, opacity: 0.8 }}>desenvolvido por</Text>
+        <Image source={require('../../../assets/logo-cieslak.png')} style={{ height: 22, width: 22 * (297 / 86), opacity: 0.3 }}
+          resizeMode="contain" accessibilityLabel="Cieslak Sistemas" />
+      </View>
     </Pressable>
   );
 }
