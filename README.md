@@ -25,7 +25,10 @@ API e decisões: repo `picagens-saas-v2`, `/var/www/picagens/levantamento/`: doc
 - Rosto (desde 27/10, doc 77 §9.11): só quando a empresa o liga; modelo calculado e comparado no aparelho
   (`src/face/engine.ts`, MobileFaceNet Apache-2.0), servidor guarda só o modelo cifrado, nunca fotografias.
 
-## Build de release (servidor, sem EAS)
+## Build de release (servidor, sem EAS) — NÃO USAR
+
+> Desde 27/10 os builds fazem-se **só no EAS (nuvem)**: o servidor é partilhado por várias apps em produção.
+> Os passos abaixo ficam só como registo.
 
 Ferramentas em `/opt/android-build` (JDK 17 + Android SDK). Chave de envio em `/root/.picagens-android/`
 (fora do repo; a chave final fica com a Google — Play App Signing).
