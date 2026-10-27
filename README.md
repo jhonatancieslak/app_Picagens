@@ -22,7 +22,8 @@ API e decisões: repo `picagens-saas-v2`, `/var/www/picagens/levantamento/`: doc
   nativas vão para `app.json` ou para um config plugin em `plugins/`.
 - Dependências sempre com `npx expo install <pacote>` (versões compatíveis com o SDK).
 - Antes de dar uma tarefa por feita: `npx tsc --noEmit` e `npx expo-doctor`.
-- Nada de reconhecimento facial nem comparação de fotos (dado biométrico, RGPD art. 9.º).
+- Rosto (desde 27/10, doc 77 §9.11): só quando a empresa o liga; modelo calculado e comparado no aparelho
+  (`src/face/engine.ts`, MobileFaceNet Apache-2.0), servidor guarda só o modelo cifrado, nunca fotografias.
 
 ## Build de release (servidor, sem EAS)
 

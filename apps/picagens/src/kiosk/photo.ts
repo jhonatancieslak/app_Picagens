@@ -1,6 +1,6 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Foto de confirmação: reduzida a 640 px em JPEG, devolvida em base64 e o ficheiro original da câmara
-// apagado logo. Sem reconhecimento facial: a foto só segue para o servidor como prova (doc 44 §14).
+// apagado logo. A foto segue para o servidor só como prova; o rosto, quando ligado, compara-se no tablet (src/face).
 import type { CameraView } from 'expo-camera';
 import { File } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';

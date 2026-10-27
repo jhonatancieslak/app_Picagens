@@ -7,7 +7,7 @@
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Animated, Easing, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AppState, Animated, Easing, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
@@ -15,9 +15,10 @@ import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, KeyIcon, OkIcon,
 import { Logo } from '../../components/ui';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
-import { Dashboard, DayPunch, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
+import { Dashboard, DayPunch, FaceStatus, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
 import { FIX_ERROR_MESSAGES, Fix, addressOf, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
+import { FaceCheckScreen } from './FaceCheckScreen';
 import { Avatar, AvatarPhoto, Button, Chip, ChipTone, Header } from '../ui';
 
 const RING_SIZE = 172;
@@ -99,6 +100,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
+  // Confirmação do rosto em curso: guarda quem espera pelo resultado (punch).
+  const [faceWaiter, setFaceWaiter] = useState<((status: FaceStatus) => void) | null>(null);
+  const checkFace = () => new Promise<FaceStatus>((resolve) => setFaceWaiter(() => resolve));
   const [place, setPlace] = useState<PlaceCheck | null>(null);
   const [fix, setFix] = useState<Fix | null>(null);
   const [fixError, setFixError] = useState<'' | 'denied' | 'disabled' | 'unavailable'>('');
@@ -186,6 +190,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: `Está a ${distanceLabel(place?.distancia ?? 0)} do local`, text: 'A empresa só aceita picagens dentro do local. Aproxime-se e tente de novo.' });
       return;
     }
+    // Empresa com rosto: confirma antes de picar (no telemóvel, também sem rede).
+    const faceStatus = me.opcoes.rosto && me.opcoes.rosto_registado ? await checkFace() : undefined;
+    setFaceWaiter(null);
     setState('locating');
     const position = await readPosition();
     let payload: PunchPayload = {};
@@ -201,6 +208,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       return;
     }
     payload.colaborador_id = me.colaborador.id;
+    if (faceStatus) payload.rosto = faceStatus;
     const label = LABELS[next] ?? 'Picagem';
 
     const queue = () => {
@@ -378,6 +386,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       ) : (
         <PlaceMap place={place} fix={fix} address={address} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
       )}
+      <Modal visible={Boolean(faceWaiter)} animationType="fade" onRequestClose={() => faceWaiter?.('nao_verificado')}>
+        {faceWaiter ? <FaceCheckScreen token={token} onResult={faceWaiter} /> : null}
+      </Modal>
     </ScrollView>
   );
 }

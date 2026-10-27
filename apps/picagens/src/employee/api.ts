@@ -98,7 +98,11 @@ export interface PunchPayload {
   colaborador_id?: string;
   /** Android: posição de uma app de GPS falso (Location.mocked). O servidor marca-a e recusa-a com bloqueio. */
   simulado?: boolean;
+  /** Rosto (servidor 27/10): resultado da comparação feita no telemóvel; sem isto o servidor marca «não verificado». */
+  rosto?: FaceStatus;
 }
+
+export type FaceStatus = 'confirmado' | 'nao_confirmado' | 'nao_verificado';
 
 export interface MonthRecords {
   ano: number;
@@ -271,6 +275,7 @@ export const employeeApi = {
   uploadProfilePhoto: (token: string, foto: string) => request<{ foto_versao: number }>('POST', '/perfil/foto', { foto }, token),
   deleteProfilePhoto: (token: string) => request<{ ok: boolean }>('DELETE', '/perfil/foto', undefined, token),
   saveFace: (token: string, modelo: string, versao: string) => request<{ ok: boolean }>('POST', '/rosto', { modelo, versao }, token),
+  face: (token: string) => request<{ rosto: { modelo: string; versao: string } | null }>('GET', '/rosto', undefined, token),
   setReminders: (token: string, ativo: boolean) => request<{ lembretes_picagem: boolean }>('POST', '/perfil/lembretes', { ativo }, token),
   registerPush: (token: string, pushToken: string, plataforma: 'android' | 'ios') =>
     request<{ ok: boolean }>('POST', '/notificacoes/registar', { token: pushToken, plataforma }, token),

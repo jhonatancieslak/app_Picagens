@@ -30,13 +30,15 @@ interface Props {
   address: string | null;
   /** A empresa usa a foto de confirmação (Gestão do App). */
   photo: boolean;
+  /** A empresa ligou o rosto (servidor 27/10): o tablet compara a câmara com o rosto registado de quem pica. */
+  face?: boolean;
   onPin: () => void;
   onInfo: () => void;
   dimmed: boolean;
   onWake: () => void;
 }
 
-export function WaitScreen({ tabletName, place, address, photo, onPin, onInfo, dimmed, onWake }: Props) {
+export function WaitScreen({ tabletName, place, address, photo, face = false, onPin, onInfo, dimmed, onWake }: Props) {
   const vw = useVw();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -68,14 +70,14 @@ export function WaitScreen({ tabletName, place, address, photo, onPin, onInfo, d
         </View>
       </View>
       <View style={{ flex: 1, justifyContent: 'center', paddingLeft: vw(1), paddingRight: vw(4), gap: vw(1.5) }}>
-        <BigButton primary title="Picar com PIN" subtitle={photo ? 'Código de 4 dígitos, depois uma foto rápida' : 'Código de 4 dígitos'} icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
-        {photo ? (
+        <BigButton primary title="Picar com PIN" subtitle={photo || face ? 'Código de 4 dígitos, depois olhar para a câmara' : 'Código de 4 dígitos'} icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
+        {photo || face ? (
         <View style={{ flexDirection: 'row', gap: vw(1.1), backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.6), padding: vw(1.4) }}>
           <CameraIcon size={vw(2.4)} color={colors.action} />
           <View style={{ flex: 1, gap: vw(0.4) }}>
             <Text style={{ fontFamily: fonts.body, fontSize: vw(1.4), color: colors.ink2 }}>
-              Ao picar, o tablet tira uma foto para confirmar que foi mesmo você.{' '}
-              <Text style={{ fontFamily: fonts.bodyBold }}>Não fazemos reconhecimento facial.</Text>
+              {face ? 'Ao picar, o tablet confirma o seu rosto aqui mesmo. ' : 'Ao picar, o tablet tira uma foto para confirmar que foi mesmo você. '}
+              <Text style={{ fontFamily: fonts.bodyBold }}>{face ? 'Não guardamos fotografias do rosto.' : 'Não fazemos reconhecimento facial.'}</Text>
             </Text>
             <LinkButton title="Saber mais" onPress={onInfo} />
           </View>

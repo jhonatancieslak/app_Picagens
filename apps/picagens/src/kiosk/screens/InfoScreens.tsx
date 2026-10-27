@@ -7,11 +7,13 @@ import { BigButton, Heading, LinkButton, Logo, Paragraph, useVw } from '../../co
 import { DEFAULT_UPDATE_URL } from '../../update';
 import { colors, fonts } from '../../theme';
 
-export function PhotoInfoScreen({ company, retentionDays, onBack }: { company: string; retentionDays: number; onBack: () => void }) {
+export function PhotoInfoScreen({ company, retentionDays, face = false, onBack }: { company: string; retentionDays: number; face?: boolean; onBack: () => void }) {
   const vw = useVw();
   const rows: [string, string][] = [
     ['Para quê', 'Confirmar que quem picou é o dono do PIN. Evita picagens feitas por colegas.'],
-    ['Reconhecimento facial', 'Não. A foto não é analisada por nenhum programa. Ninguém lê o seu rosto.'],
+    ['Reconhecimento facial', face
+      ? 'Sim, só para confirmar a picagem. O tablet compara o rosto com um código cifrado registado por si; a fotografia não é guardada para isso e nada sai do tablet além do resultado.'
+      : 'Não. A foto não é analisada por nenhum programa. Ninguém lê o seu rosto.'],
     ['Quem vê', 'Só o gestor da empresa, quando precisa de rever uma picagem. Não aparece no tablet.'],
     ['Quanto tempo', `${retentionDays} dias, guardada cifrada, depois é apagada. As horas da picagem ficam guardadas 5 anos, como manda a lei.`],
     ['Responsável', `${company} (a sua entidade empregadora). Picagens.pt trata os dados por conta dela.`],

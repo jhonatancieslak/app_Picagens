@@ -8,10 +8,11 @@ import { useEffect, useRef, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FACE_SAMPLES, FaceEngineUnavailable, computeFaceTemplate } from '../../face/engine';
+import { FACE_SAMPLES, FaceEngineUnavailable, FaceNotUsable, computeFaceTemplate } from '../../face/engine';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { employeeApi } from '../api';
+import { saveFaceTemplate } from '../storage';
 import { Button, Card, ErrorText, Fact, Muted, Title } from '../ui';
 
 type Phase = 'intro' | 'camera' | 'saving' | 'error';
@@ -65,11 +66,12 @@ export function FaceEnrollScreen({ token, company, onDone, onLater }: Props) {
         setPhase('saving');
         const template = await computeFaceTemplate(uris);
         await employeeApi.saveFace(token, template.modelo, template.versao);
+        await saveFaceTemplate(template);
         onDone();
       } catch (failure) {
         if (!active) return;
         setError(
-          failure instanceof FaceEngineUnavailable ? failure.message
+          failure instanceof FaceEngineUnavailable || failure instanceof FaceNotUsable ? failure.message
             : failure instanceof NetworkError ? 'Sem ligação. O rosto é guardado quando houver rede; tente de novo.'
               : failure instanceof ApiError ? failure.message
                 : 'Não foi possível ler o rosto. Procure boa luz e olhe de frente para a câmara.',

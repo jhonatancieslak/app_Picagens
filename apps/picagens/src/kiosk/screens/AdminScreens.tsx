@@ -1,6 +1,6 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Administração do tablet (código de administrador, 15 min): testar câmara, picagens por enviar,
-// ecrã e bloqueio, sair. Não há rostos nem reconhecimento facial (doc 44 §14).
+// ecrã e bloqueio, sair. O rosto (quando a empresa o liga) compara-se em src/face, nunca aqui.
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { ReactNode, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';

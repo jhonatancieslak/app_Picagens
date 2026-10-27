@@ -17,6 +17,8 @@ export interface KioskConfig {
   logo_url: string;
   /** ativa=false (servidor ≥ 13/10/2026): a empresa desligou a foto em Gestão do App, pica-se só com o PIN. */
   foto: { ativa?: boolean; retencao_dias: number; lado_maximo_px: number };
+  /** rosto (servidor 27/10): a empresa ligou o rosto; o tablet compara a câmara com o modelo de quem digitou o PIN. */
+  rosto?: boolean;
   fuso: string;
   agora: string;
   licenca: { estado: LicenseState; ate: string | null };
@@ -49,6 +51,7 @@ export interface PunchRequest {
   pin: string;
   foto?: string | null;
   offline_em?: string;
+  rosto?: 'confirmado' | 'nao_confirmado' | 'nao_verificado';
 }
 
 const request = createClient(KIOSK_API_URL);
@@ -59,6 +62,7 @@ export const api = {
   /** Só lê: empresa, local e nome do tablet antes de gastar a chave (doc 49 §9). */
   verify: (chave: string) => request<KeyCheck>('POST', '/ativar/verificar', { chave }),
   config: (token: string) => request<KioskConfig>('GET', '/config', undefined, token),
+  face: (token: string, pin: string) => request<{ rosto: { modelo: string; versao: string } | null }>('POST', '/rosto', { pin }, token),
   punch: (token: string, payload: PunchRequest) => request<PunchResult>('POST', '/picar', payload, token),
   adminLogin: (token: string, pinAdmin: string) =>
     request<{ admin_token: string; validade_minutos: number }>('POST', '/admin/entrar', { pin_admin: pinAdmin }, token),
