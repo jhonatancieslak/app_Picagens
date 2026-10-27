@@ -31,7 +31,7 @@ import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
 import { TeamPin, TeamScreen } from './screens/TeamScreen';
 import { TodayScreen } from './screens/TodayScreen';
-import { clearSession, getCachedMe, getEmployeeToken, saveSession } from './storage';
+import { clearSession, getCachedDashboard, getCachedMe, getEmployeeToken, saveCachedDashboard, saveSession } from './storage';
 import { AvatarPhoto, FadeIn, useToast } from './ui';
 
 type Tab = 'today' | 'records' | 'requests' | 'documents' | 'team';
@@ -116,7 +116,9 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const refreshDashboard = useCallback(async () => {
     if (!token) return;
     try {
-      setDashboard(await employeeApi.dashboard(token));
+      const fresh = await employeeApi.dashboard(token);
+      setDashboard(fresh);
+      saveCachedDashboard(fresh);
     } catch (error) {
       onAuthError(error);
     }
@@ -134,6 +136,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     (async () => {
       const [savedToken, cachedMe] = await Promise.all([getEmployeeToken(), getCachedMe()]);
       setMe(cachedMe);
+      setDashboard((current) => current ?? getCachedDashboard());
       setPending(pendingEmployeePunches());
       setToken(savedToken && cachedMe ? savedToken : null);
       if (savedToken && cachedMe) {

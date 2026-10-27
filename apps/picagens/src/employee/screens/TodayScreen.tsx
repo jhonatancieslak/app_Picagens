@@ -155,7 +155,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     };
   }, [applyFix]);
 
-  const next = dashboard?.proximo_tipo ?? 'entrada';
+  // Cada picagem na fila ainda não está no «Hoje» do servidor: um número ímpar delas troca entrada/saída.
+  const lastKnown = dashboard?.proximo_tipo ?? 'entrada';
+  const next = pending % 2 ? (lastKnown === 'saida' ? 'entrada' : 'saida') : lastKnown;
   const isExit = next === 'saida';
   const minutes = parseHours(dashboard?.horas_hoje ?? '0h00');
   const progress = Math.min(minutes / WORKDAY_MINUTES, 1);
@@ -301,13 +303,13 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Picar ${(LABELS[next] ?? '').toLowerCase()}`}
-              accessibilityState={{ busy: state !== 'idle', disabled: !dashboard }}
-              disabled={state !== 'idle' || !dashboard}
+              accessibilityState={{ busy: state !== 'idle', disabled: online && !dashboard }}
+              disabled={state !== 'idle' || (online && !dashboard)}
               onPress={punch}
               style={({ pressed }) => ({
                 position: 'absolute', top: RING_INSET, left: RING_INSET, right: RING_INSET, bottom: RING_INSET,
                 borderRadius: RING_SIZE, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: buttonColor,
-                opacity: !dashboard ? 0.45 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
+                opacity: online && !dashboard ? 0.45 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
                 shadowColor: colors.action, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 10 }, elevation: 6,
               })}
             >
