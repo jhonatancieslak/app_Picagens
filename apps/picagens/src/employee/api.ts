@@ -18,8 +18,9 @@ export interface Me {
   versao_atual?: string;
   url_atualizacao?: string;
   licenca: { estado: LicenseState; ate: string | null };
+  /** rosto / rosto_registado (servidor 27/10): a empresa ligou o rosto; sem registo a app abre no ecrã do rosto. */
   /** ver_pin (servidor 20/10): a empresa tem tablet ou PC de picagem ativo → cartão «PIN de picagem» em Hoje. */
-  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean; ver_pin?: boolean };
+  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean; ver_pin?: boolean; rosto?: boolean; rosto_registado?: boolean };
 }
 
 /** Empresa encontrada pelo código de 6 algarismos (doc 49): confirma-se antes de pedir NIF e PIN. */
@@ -269,6 +270,7 @@ export const employeeApi = {
   profilePhoto: (token: string, version: number) => request<{ foto: string }>('GET', `/perfil/foto?formato=base64&v=${version}`, undefined, token),
   uploadProfilePhoto: (token: string, foto: string) => request<{ foto_versao: number }>('POST', '/perfil/foto', { foto }, token),
   deleteProfilePhoto: (token: string) => request<{ ok: boolean }>('DELETE', '/perfil/foto', undefined, token),
+  saveFace: (token: string, modelo: string, versao: string) => request<{ ok: boolean }>('POST', '/rosto', { modelo, versao }, token),
   setReminders: (token: string, ativo: boolean) => request<{ lembretes_picagem: boolean }>('POST', '/perfil/lembretes', { ativo }, token),
   registerPush: (token: string, pushToken: string, plataforma: 'android' | 'ios') =>
     request<{ ok: boolean }>('POST', '/notificacoes/registar', { token: pushToken, plataforma }, token),
