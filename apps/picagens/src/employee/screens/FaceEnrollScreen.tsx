@@ -1,25 +1,41 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Registo do rosto (doc 77 §9.11). Aparece ao abrir a app quando a empresa ligou o rosto e o colaborador ainda não o
-// registou, também a quem já usava a app antes de a empresa o ligar. Primeiro explica (o que se guarda e onde), depois
-// a câmara da frente tira FACE_SAMPLES fotos que nunca saem do telemóvel: só o modelo cifrado vai para o servidor.
+// Registo do rosto (doc 77 §9.11; canvas «Registo do rosto», aprovado 28/10). Aparece ao abrir a app quando a empresa
+// ligou o rosto e o colaborador ainda não o registou. Primeiro explica, depois a câmara da frente guia 5 passos
+// (frente, esquerda, direita, cima, baixo) e uma última foto de frente. Só as fotos de frente fazem o código do rosto;
+// os movimentos provam que é uma pessoa. As fotos nunca saem do telemóvel: só o código cifrado vai para o servidor.
 // "Agora não" deixa usar a app nesta abertura; na seguinte volta a pedir.
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useEffect, useRef, useState } from 'react';
+import { useCameraPermissions } from 'expo-camera';
+import { useCallback, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path } from 'react-native-svg';
 
-import { FACE_SAMPLES, FaceEngineUnavailable, FaceNotUsable, computeFaceTemplate } from '../../face/engine';
+import { FaceCapture, FaceStep } from '../../face/FaceCapture';
+import { FaceEngineUnavailable, FaceNotUsable, computeFaceTemplate } from '../../face/engine';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { employeeApi } from '../api';
 import { saveFaceTemplate } from '../storage';
 import { Button, Card, ErrorText, Fact, Muted, Title } from '../ui';
 
-type Phase = 'intro' | 'camera' | 'saving' | 'error';
+type Phase = 'intro' | 'camera' | 'saving' | 'done' | 'error';
 
-const SAMPLE_INTERVAL_MS = 700;
-const OVAL_WIDTH = 210;
-const OVAL_HEIGHT = 270;
+const ENROLL_STEPS: FaceStep[] = [
+  { kind: 'front', photos: 2, label: 'Frente', title: 'Rosto encontrado. Olhe de frente', detail: 'Fique quieto um momento.' },
+  { kind: 'move', move: 'esquerda', label: 'Esquerda', title: 'Vire devagar a cabeça para a esquerda', detail: 'Sem mexer o telemóvel. Avança sozinho.' },
+  { kind: 'move', move: 'direita', label: 'Direita', title: 'Agora para a direita', detail: 'Devagar, até avançar.' },
+  { kind: 'move', move: 'cima', label: 'Cima', title: 'Levante um pouco o queixo', detail: 'Olhe para cima, sem sair do oval.' },
+  { kind: 'move', move: 'baixo', label: 'Baixo', title: 'E agora para baixo', detail: 'Depois olhe de frente outra vez.' },
+  { kind: 'front', photos: 1, label: 'Fim', title: 'Olhe de frente outra vez', detail: 'Última foto.', hidden: true },
+];
+
+const STEP_ICONS = [
+  { label: 'Frente', path: 'M12 3a5 5 0 1 0 0 10a5 5 0 1 0 0-10zM4 21c1.5-4 4.5-6 8-6s6.5 2 8 6' },
+  { label: 'Esquerda', path: 'M15 18l-6-6l6-6' },
+  { label: 'Direita', path: 'M9 6l6 6l-6 6' },
+  { label: 'Cima', path: 'M6 15l6-6l6 6' },
+  { label: 'Baixo', path: 'M6 9l6 6l6-6' },
+];
 
 interface Props {
   token: string;
@@ -30,11 +46,8 @@ interface Props {
 
 export function FaceEnrollScreen({ token, company, onDone, onLater }: Props) {
   const insets = useSafeAreaInsets();
-  const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>('intro');
-  const [ready, setReady] = useState(false);
-  const [taken, setTaken] = useState(0);
   const [error, setError] = useState('');
 
   async function start() {
@@ -44,59 +57,52 @@ export function FaceEnrollScreen({ token, company, onDone, onLater }: Props) {
       setPhase('error');
       return;
     }
-    setTaken(0);
-    setReady(false);
     setPhase('camera');
   }
 
-  // Câmara pronta: tira as fotos seguidas, calcula o modelo no telemóvel e envia só o modelo.
-  useEffect(() => {
-    if (phase !== 'camera' || !ready || !camera.current) return;
-    let active = true;
-    (async () => {
-      const uris: string[] = [];
-      try {
-        for (let i = 0; i < FACE_SAMPLES && active; i += 1) {
-          await new Promise((resolve) => setTimeout(resolve, SAMPLE_INTERVAL_MS));
-          const picture = await camera.current?.takePictureAsync({ quality: 0.7, shutterSound: false });
-          if (picture?.uri) uris.push(picture.uri);
-          setTaken(i + 1);
-        }
-        if (!active) return;
-        setPhase('saving');
-        const template = await computeFaceTemplate(uris);
-        await employeeApi.saveFace(token, template.modelo, template.versao);
-        await saveFaceTemplate(template);
-        onDone();
-      } catch (failure) {
-        if (!active) return;
-        setError(
-          failure instanceof FaceEngineUnavailable || failure instanceof FaceNotUsable ? failure.message
-            : failure instanceof NetworkError ? 'Sem ligação. O rosto é guardado quando houver rede; tente de novo.'
-              : failure instanceof ApiError ? failure.message
-                : 'Não foi possível ler o rosto. Procure boa luz e olhe de frente para a câmara.',
-        );
-        setPhase('error');
-      }
-    })();
-    return () => { active = false; };
-  }, [phase, ready, token, onDone]);
+  const fail = useCallback((message: string) => {
+    setError(message);
+    setPhase('error');
+  }, []);
 
-  if (phase === 'camera' || phase === 'saving') {
+  // Fotos de frente → código do rosto no telemóvel → só o código vai para o servidor.
+  const save = useCallback(async (frontPhotos: string[]) => {
+    setPhase('saving');
+    try {
+      const template = await computeFaceTemplate(frontPhotos);
+      await employeeApi.saveFace(token, template.modelo, template.versao);
+      await saveFaceTemplate(template);
+      setPhase('done');
+    } catch (failure) {
+      fail(
+        failure instanceof FaceEngineUnavailable || failure instanceof FaceNotUsable ? failure.message
+          : failure instanceof NetworkError ? 'Sem ligação. O rosto é guardado quando houver rede; tente de novo.'
+            : failure instanceof ApiError ? failure.message
+              : 'Não foi possível ler o rosto. Procure boa luz e olhe de frente para a câmara.',
+      );
+    }
+  }, [token, fail]);
+
+  if (phase === 'camera') {
+    return <FaceCapture steps={ENROLL_STEPS} onComplete={save} onError={fail} onCancel={() => setPhase('intro')} />;
+  }
+
+  if (phase === 'saving' || phase === 'done') {
+    const saving = phase === 'saving';
     return (
-      <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <CameraView ref={camera} style={{ flex: 1 }} facing="front" onCameraReady={() => setReady(true)} />
-        <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{ width: OVAL_WIDTH, height: OVAL_HEIGHT, borderRadius: OVAL_WIDTH, borderWidth: 4, borderColor: phase === 'saving' ? colors.ok : '#fff' }} />
+      <View style={{ flex: 1, backgroundColor: colors.bg, paddingHorizontal: 16, paddingBottom: insets.bottom + 20, alignItems: 'center', gap: 14 }}>
+        <View style={{ flex: 1 }} />
+        <View style={{ width: 112, height: 112, borderRadius: 56, backgroundColor: saving ? colors.actionSoft : colors.okSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={56} height={56} viewBox="0 0 24 24" fill="none" stroke={saving ? colors.action : colors.ok} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <Path d={saving ? 'M12 3a9 9 0 1 0 9 9' : 'M5 12.5l4.5 4.5L19 7.5'} />
+          </Svg>
         </View>
-        <View style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 28, gap: 6, alignItems: 'center' }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 17, color: '#fff', textAlign: 'center' }}>
-            {phase === 'saving' ? 'A guardar…' : 'Olhe de frente, com o rosto dentro do oval'}
-          </Text>
-          <Text style={{ fontFamily: fonts.body, fontSize: 14, color: '#fff', opacity: 0.85 }}>
-            {phase === 'saving' ? 'Só o código cifrado sai do telemóvel.' : `${taken} de ${FACE_SAMPLES}`}
-          </Text>
-        </View>
+        <Text style={{ fontFamily: fonts.display, fontSize: 28, color: colors.ink, textAlign: 'center' }}>{saving ? 'A guardar…' : 'Rosto registado'}</Text>
+        <Muted size={15} center>
+          {saving ? 'Só o código cifrado sai do telemóvel.' : 'A partir de agora, quando picar, a app confirma que é mesmo você. Demora 2 segundos.'}
+        </Muted>
+        <View style={{ flex: 1 }} />
+        {saving ? null : <View style={{ alignSelf: 'stretch' }}><Button primary title="Continuar" onPress={onDone} /></View>}
       </View>
     );
   }
@@ -104,11 +110,26 @@ export function FaceEnrollScreen({ token, company, onDone, onLater }: Props) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 16, paddingTop: insets.top + 30, paddingBottom: insets.bottom + 20, gap: 14 }}>
       <Title>Registar o rosto</Title>
-      <Muted size={14.5}>A {company} pede que confirme o rosto quando pica. Faz-se uma vez e demora uns segundos.</Muted>
+      <Muted size={14.5}>A {company} pede que confirme o rosto quando pica. Faz-se uma vez e demora uns 15 segundos.</Muted>
+      <Card>
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink2, marginBottom: 12 }}>VAI-LHE SER PEDIDO</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+          {STEP_ICONS.map((item) => (
+            <View key={item.label} style={{ alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <Svg width={26} height={26} viewBox="0 0 24 24" fill="none" stroke={colors.action} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <Path d={item.path} />
+                </Svg>
+              </View>
+              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink }}>{item.label}</Text>
+            </View>
+          ))}
+        </View>
+      </Card>
       <Card>
         <Fact title="Não guardamos fotografias">As fotos ficam só no telemóvel e são apagadas logo a seguir.</Fact>
         <Fact title="Só um código cifrado" divider>Do código não se consegue refazer a cara.</Fact>
-        <Fact title="Só para confirmar a picagem" divider>Comparado no próprio telemóvel ou tablet, e apagado quando sair da empresa.</Fact>
+        <Fact title="Os movimentos provam que é mesmo você" divider>Assim ninguém pica com uma fotografia sua.</Fact>
       </Card>
       {phase === 'error' ? <ErrorText>{error}</ErrorText> : null}
       <View style={{ flex: 1 }} />

@@ -66,6 +66,31 @@ export async function computeFaceTemplate(photoUris: string[]): Promise<FaceTemp
   }
 }
 
+/** Posição da cabeça numa foto (graus, ML Kit): yaw > 0 = virada para a esquerda da pessoa (foto da câmara da frente
+ *  sem espelho), pitch > 0 = a olhar para cima. null = nenhum rosto, mais de um, ou longe da câmara. Não apaga a foto. */
+export interface FacePose {
+  yaw: number;
+  pitch: number;
+}
+
+const POSE_WIDTH_PX = 480; // só para medir a posição: mais pequena = mais rápida
+
+export async function facePose(uri: string): Promise<FacePose | null> {
+  const small = await (await ImageManipulator.manipulate(uri).resize({ width: POSE_WIDTH_PX, height: null }).renderAsync())
+    .saveAsync({ format: SaveFormat.JPEG, compress: 0.8 });
+  try {
+    const faces = await FaceDetection.detect(small.uri, { performanceMode: 'fast', minFaceSize: MIN_FACE_RATIO });
+    if (faces.length !== 1 || faces[0].frame.width < small.width * MIN_FACE_RATIO) return null;
+    return { yaw: faces[0].rotationY, pitch: faces[0].rotationX };
+  } finally {
+    removeQuietly(small.uri);
+  }
+}
+
+export function removePhoto(uri: string) {
+  removeQuietly(uri);
+}
+
 /** Compara uma foto (ficheiro) com o modelo guardado. Apaga a foto. */
 export async function matchesFaceTemplate(photoUri: string, saved: FaceTemplate): Promise<boolean> {
   if (saved.versao !== FACE_ENGINE_VERSION) return false;

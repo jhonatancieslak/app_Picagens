@@ -1,23 +1,37 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Confirmação do rosto ao picar (doc 77 §9.11): câmara da frente, uma foto que não sai do telemóvel, comparada com o
-// modelo guardado no próprio telemóvel (funciona sem rede). A picagem conta sempre; o resultado vai com ela e o RH vê
-// «Rosto não confirmado» no Livro de ponto. Telemóvel novo sem modelo guardado: pede-o ao servidor uma vez.
-import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+// Confirmação do rosto ao picar (doc 77 §9.11; canvas aprovado 28/10): câmara da frente, uma foto de frente comparada
+// com o modelo guardado no próprio telemóvel (funciona sem rede) e um movimento ao acaso, prova de que não é uma
+// fotografia. As fotos não saem do telemóvel. A picagem conta sempre; o resultado vai com ela e o RH vê «Rosto não
+// confirmado» no Livro de ponto. Telemóvel novo sem modelo guardado: pede-o ao servidor uma vez.
+import { useCameraPermissions } from 'expo-camera';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FaceEngineUnavailable, FaceNotUsable, FaceTemplate, matchesFaceTemplate } from '../../face/engine';
+import { FaceCapture, FaceMove, FaceStep } from '../../face/FaceCapture';
+import { FaceEngineUnavailable, FaceNotUsable, FaceTemplate, matchesFaceTemplate, removePhoto } from '../../face/engine';
 import { colors, fonts } from '../../theme';
 import { FaceStatus, employeeApi } from '../api';
 import { getFaceTemplate, saveFaceTemplate } from '../storage';
 import { Button } from '../ui';
 
-const CAPTURE_DELAY_MS = 700;
-const OVAL_WIDTH = 210;
-const OVAL_HEIGHT = 270;
-
 type Phase = 'loading' | 'camera' | 'checking' | 'failed';
+
+// Um movimento ao acaso por picagem (canvas, aprovado 28/10): quem tenta com uma fotografia não sabe qual vai sair.
+const CHECK_MOVES: { move: FaceMove; label: string; title: string }[] = [
+  { move: 'esquerda', label: 'Esquerda', title: 'Vire a cabeça para a esquerda' },
+  { move: 'direita', label: 'Direita', title: 'Vire a cabeça para a direita' },
+  { move: 'cima', label: 'Cima', title: 'Levante um pouco o queixo' },
+  { move: 'baixo', label: 'Baixo', title: 'Baixe um pouco o queixo' },
+];
+
+function checkSteps(): FaceStep[] {
+  const pick = CHECK_MOVES[Math.floor(Math.random() * CHECK_MOVES.length)];
+  return [
+    { kind: 'front', photos: 1, label: 'Frente', title: 'Olhe de frente', detail: 'Confirmação rápida do rosto.' },
+    { kind: 'move', move: pick.move, label: pick.label, title: pick.title, detail: 'O movimento muda em cada picagem.' },
+  ];
+}
 
 async function savedTemplate(token: string): Promise<FaceTemplate | null> {
   const local = await getFaceTemplate();
@@ -33,13 +47,11 @@ async function savedTemplate(token: string): Promise<FaceTemplate | null> {
 
 export function FaceCheckScreen({ token, onResult }: { token: string; onResult: (status: FaceStatus) => void }) {
   const insets = useSafeAreaInsets();
-  const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [phase, setPhase] = useState<Phase>('loading');
-  const [ready, setReady] = useState(false);
   const [message, setMessage] = useState('');
   const [failedStatus, setFailedStatus] = useState<FaceStatus>('nao_verificado');
-  const [attempt, setAttempt] = useState(0);
+  const [steps, setSteps] = useState<FaceStep[]>(checkSteps);
   const template = useRef<FaceTemplate | null>(null);
 
   useEffect(() => {
@@ -58,26 +70,29 @@ export function FaceCheckScreen({ token, onResult }: { token: string; onResult: 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (phase !== 'camera' || !ready || !camera.current || !template.current) return;
-    let active = true;
-    (async () => {
-      try {
-        await new Promise((resolve) => setTimeout(resolve, CAPTURE_DELAY_MS));
-        const picture = await camera.current?.takePictureAsync({ quality: 0.7, shutterSound: false });
-        if (!active || !picture?.uri || !template.current) return;
-        setPhase('checking');
-        if (await matchesFaceTemplate(picture.uri, template.current)) return onResult('confirmado');
-        setFailedStatus('nao_confirmado');
-        setMessage('O rosto não corresponde ao registado. Tente de novo, com boa luz.');
-      } catch (failure) {
-        setFailedStatus('nao_verificado');
-        setMessage(failure instanceof FaceNotUsable || failure instanceof FaceEngineUnavailable ? failure.message : 'Não foi possível ler o rosto.');
-      }
-      if (active) setPhase('failed');
-    })();
-    return () => { active = false; };
-  }, [phase, ready, attempt, onResult]);
+  const fail = useCallback((text: string, status: FaceStatus = 'nao_verificado') => {
+    setFailedStatus(status);
+    setMessage(text);
+    setPhase('failed');
+  }, []);
+
+  // A foto de frente compara-se com o modelo guardado; o movimento já foi confirmado pela câmara.
+  const check = useCallback(async (frontPhotos: string[]) => {
+    const [photo, ...extra] = frontPhotos;
+    extra.forEach(removePhoto);
+    if (!photo || !template.current) return fail('Não foi possível ler o rosto.');
+    setPhase('checking');
+    try {
+      if (await matchesFaceTemplate(photo, template.current)) return onResult('confirmado');
+      fail('O rosto não corresponde ao registado. Tente de novo, com boa luz.', 'nao_confirmado');
+    } catch (failure) {
+      fail(failure instanceof FaceNotUsable || failure instanceof FaceEngineUnavailable ? failure.message : 'Não foi possível ler o rosto.');
+    }
+  }, [fail, onResult]);
+
+  if (phase === 'camera') {
+    return <FaceCapture steps={steps} onComplete={check} onError={fail} onCancel={() => fail('Confirmação cancelada.')} />;
+  }
 
   if (phase === 'failed') {
     return (
@@ -85,21 +100,16 @@ export function FaceCheckScreen({ token, onResult }: { token: string; onResult: 
         <Text style={{ fontFamily: fonts.display, fontSize: 24, color: colors.ink }}>Rosto não confirmado</Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 15, color: colors.ink2 }}>{message}</Text>
         <View style={{ flex: 1 }} />
-        {permission?.granted ? <Button primary title="Tentar outra vez" onPress={() => { setReady(false); setAttempt((n) => n + 1); setPhase('camera'); }} /> : null}
+        {permission?.granted ? <Button primary title="Tentar outra vez" onPress={() => { setSteps(checkSteps()); setPhase('camera'); }} /> : null}
         <Button link title="Picar sem confirmar (o RH é avisado)" onPress={() => onResult(failedStatus)} />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
-      {phase === 'loading' ? null : <CameraView key={attempt} ref={camera} style={{ flex: 1 }} facing="front" onCameraReady={() => setReady(true)} />}
-      <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: OVAL_WIDTH, height: OVAL_HEIGHT, borderRadius: OVAL_WIDTH, borderWidth: 4, borderColor: phase === 'checking' ? colors.ok : '#fff' }} />
-      </View>
-      <Text style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 32, fontFamily: fonts.bodyBold, fontSize: 17, color: '#fff', textAlign: 'center' }}>
-        {phase === 'checking' ? 'A confirmar…' : 'Olhe para a câmara'}
-      </Text>
+    <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+      <ActivityIndicator color={colors.action} size="large" />
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{phase === 'checking' ? 'A confirmar…' : 'A preparar a câmara…'}</Text>
     </View>
   );
 }
