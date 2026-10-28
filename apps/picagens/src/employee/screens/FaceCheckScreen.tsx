@@ -1,37 +1,29 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Confirmação do rosto ao picar (doc 77 §9.11; canvas aprovado 28/10): câmara da frente, uma foto de frente comparada
-// com o modelo guardado no próprio telemóvel (funciona sem rede) e um movimento ao acaso, prova de que não é uma
-// fotografia. As fotos não saem do telemóvel. A picagem conta sempre; o resultado vai com ela e o RH vê «Rosto não
+// Confirmação do rosto ao picar (doc 77 §9.11): câmara da frente, uma foto de frente comparada com o modelo guardado
+// no próprio telemóvel (funciona sem rede); sem movimentos (decisão do Jhonatan 28/10: ao picar só reconhece e
+// confirma; os movimentos ficam no registo). As fotos não saem do telemóvel. A picagem conta sempre; o resultado vai com ela e o RH vê «Rosto não
 // confirmado» no Livro de ponto. Telemóvel novo sem modelo guardado: pede-o ao servidor uma vez.
 import { useCameraPermissions } from 'expo-camera';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { FaceCapture, FaceMove, FaceStep } from '../../face/FaceCapture';
+import Svg, { Path } from 'react-native-svg';
+
+import { FaceCapture, FaceStep } from '../../face/FaceCapture';
 import { FaceEngineUnavailable, FaceNotUsable, FaceTemplate, matchesFaceTemplate, removePhoto } from '../../face/engine';
 import { colors, fonts } from '../../theme';
 import { FaceStatus, employeeApi } from '../api';
 import { getFaceTemplate, saveFaceTemplate } from '../storage';
 import { Button } from '../ui';
 
-type Phase = 'loading' | 'camera' | 'checking' | 'failed';
+type Phase = 'loading' | 'camera' | 'checking' | 'confirmed' | 'failed';
 
-// Um movimento ao acaso por picagem (canvas, aprovado 28/10): quem tenta com uma fotografia não sabe qual vai sair.
-const CHECK_MOVES: { move: FaceMove; label: string; title: string }[] = [
-  { move: 'esquerda', label: 'Esquerda', title: 'Vire a cabeça para a esquerda' },
-  { move: 'direita', label: 'Direita', title: 'Vire a cabeça para a direita' },
-  { move: 'cima', label: 'Cima', title: 'Levante um pouco o queixo' },
-  { move: 'baixo', label: 'Baixo', title: 'Baixe um pouco o queixo' },
+const CHECK_STEPS: FaceStep[] = [
+  { kind: 'front', photos: 1, label: 'Frente', title: 'A reconhecer…', detail: 'Mantenha o rosto dentro do oval.' },
 ];
-
-function checkSteps(): FaceStep[] {
-  const pick = CHECK_MOVES[Math.floor(Math.random() * CHECK_MOVES.length)];
-  return [
-    { kind: 'front', photos: 1, label: 'Frente', title: 'Olhe de frente', detail: 'Confirmação rápida do rosto.' },
-    { kind: 'move', move: pick.move, label: pick.label, title: pick.title, detail: 'O movimento muda em cada picagem.' },
-  ];
-}
+/** Tempo do «Rosto confirmado» no ecrã antes de seguir para a picagem. */
+const CONFIRMED_PAUSE_MS = 900;
 
 async function savedTemplate(token: string): Promise<FaceTemplate | null> {
   const local = await getFaceTemplate();
@@ -51,7 +43,7 @@ export function FaceCheckScreen({ token, onResult }: { token: string; onResult: 
   const [phase, setPhase] = useState<Phase>('loading');
   const [message, setMessage] = useState('');
   const [failedStatus, setFailedStatus] = useState<FaceStatus>('nao_verificado');
-  const [steps, setSteps] = useState<FaceStep[]>(checkSteps);
+  const [attempt, setAttempt] = useState(0);
   const template = useRef<FaceTemplate | null>(null);
 
   useEffect(() => {
@@ -83,7 +75,11 @@ export function FaceCheckScreen({ token, onResult }: { token: string; onResult: 
     if (!photo || !template.current) return fail('Não foi possível ler o rosto.');
     setPhase('checking');
     try {
-      if (await matchesFaceTemplate(photo, template.current)) return onResult('confirmado');
+      if (await matchesFaceTemplate(photo, template.current)) {
+        setPhase('confirmed');
+        setTimeout(() => onResult('confirmado'), CONFIRMED_PAUSE_MS);
+        return;
+      }
       fail('O rosto não corresponde ao registado. Tente de novo, com boa luz.', 'nao_confirmado');
     } catch (failure) {
       fail(failure instanceof FaceNotUsable || failure instanceof FaceEngineUnavailable ? failure.message : 'Não foi possível ler o rosto.');
@@ -91,7 +87,20 @@ export function FaceCheckScreen({ token, onResult }: { token: string; onResult: 
   }, [fail, onResult]);
 
   if (phase === 'camera') {
-    return <FaceCapture steps={steps} onComplete={check} onError={fail} onCancel={() => fail('Confirmação cancelada.')} />;
+    return <FaceCapture key={attempt} steps={CHECK_STEPS} autoStart onComplete={check} onError={fail} onCancel={() => fail('Confirmação cancelada.')} />;
+  }
+
+  if (phase === 'confirmed') {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', gap: 14 }}>
+        <View style={{ width: 112, height: 112, borderRadius: 56, backgroundColor: colors.okSoft, alignItems: 'center', justifyContent: 'center' }}>
+          <Svg width={56} height={56} viewBox="0 0 24 24" fill="none" stroke={colors.ok} strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+            <Path d="M5 12.5l4.5 4.5L19 7.5" />
+          </Svg>
+        </View>
+        <Text style={{ fontFamily: fonts.display, fontSize: 26, color: colors.ink }}>Rosto confirmado</Text>
+      </View>
+    );
   }
 
   if (phase === 'failed') {
@@ -100,7 +109,7 @@ export function FaceCheckScreen({ token, onResult }: { token: string; onResult: 
         <Text style={{ fontFamily: fonts.display, fontSize: 24, color: colors.ink }}>Rosto não confirmado</Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 15, color: colors.ink2 }}>{message}</Text>
         <View style={{ flex: 1 }} />
-        {permission?.granted ? <Button primary title="Tentar outra vez" onPress={() => { setSteps(checkSteps()); setPhase('camera'); }} /> : null}
+        {permission?.granted ? <Button primary title="Tentar outra vez" onPress={() => { setAttempt((value) => value + 1); setPhase('camera'); }} /> : null}
         <Button link title="Picar sem confirmar (o RH é avisado)" onPress={() => onResult(failedStatus)} />
       </View>
     );

@@ -86,7 +86,7 @@ export function PhotoScreen({ sending, onPhoto }: Props) {
       <View style={{ flex: 1, alignItems: 'center' }}>
         <View style={{ width: vw(28), aspectRatio: 3 / 4, borderRadius: vw(2.4), overflow: 'hidden', backgroundColor: '#232A35' }}>
           {permission?.granted ? (
-            <CameraView key={attempt} ref={camera} facing="front" style={{ flex: 1 }} onCameraReady={() => setReady(true)} onMountError={() => setPhase('failed')} />
+            <CameraView key={attempt} ref={camera} facing="front" animateShutter={false} style={{ flex: 1 }} onCameraReady={() => setReady(true)} onMountError={() => setPhase('failed')} />
           ) : null}
           <View pointerEvents="none" style={{ position: 'absolute', top: '12%', bottom: '12%', left: '18%', right: '18%', borderRadius: 999, borderWidth: vw(0.5), borderColor: frameColor }} />
           {phase === 'countdown' && ready && count > 0 ? (

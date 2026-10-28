@@ -3,6 +3,8 @@
 // oval; nos passos «frente» guarda fotos para o código do rosto; nos movimentos (esquerda, direita, cima, baixo) só
 // confirma que a cabeça virou, prova de que é uma pessoa e não uma fotografia, e apaga a foto. Usado no registo e na
 // picagem. Cada passo tem um limite de tempo: nunca fica preso.
+// As fotos de medição são silenciosas (sem animação de obturador nem som): para quem está à frente é só a câmara.
+// Sem `autoStart` (registo) a câmara abre parada, com o oval e «Começar»; só mede depois do toque.
 import { CameraView } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
@@ -19,6 +21,7 @@ export type FaceStep =
   | { kind: 'move'; move: FaceMove; label: string; title: string; detail: string };
 
 const STEP_TIMEOUT_MS = 15000;
+const SETTLE_MS = 600; // a câmara acerta a luz e o foco antes da primeira medição
 const FRONT_MAX_DEGREES = 10; // «de frente» para as fotos do código
 const YAW_MIN_DEGREES = 20; // cabeça virada para o lado
 const PITCH_MIN_DEGREES = 15; // queixo para cima ou para baixo
@@ -57,16 +60,19 @@ function isFrontal(pose: FacePose): boolean {
 
 interface Props {
   steps: FaceStep[];
+  /** Começa a medir assim que a câmara está pronta (picagem). Sem isto mostra «Começar» (registo). */
+  autoStart?: boolean;
   /** Fotos de frente (para o código do rosto). Quem recebe apaga-as. */
   onComplete: (frontPhotos: string[]) => void;
   onError: (message: string) => void;
   onCancel: () => void;
 }
 
-export function FaceCapture({ steps, onComplete, onError, onCancel }: Props) {
+export function FaceCapture({ steps, autoStart = false, onComplete, onError, onCancel }: Props) {
   const insets = useSafeAreaInsets();
   const camera = useRef<CameraView>(null);
   const [ready, setReady] = useState(false);
+  const [started, setStarted] = useState(autoStart);
   const [stepIndex, setStepIndex] = useState(0);
   const [faceSeen, setFaceSeen] = useState(false);
   const pulse = useRef(new Animated.Value(0)).current;
@@ -82,10 +88,11 @@ export function FaceCapture({ steps, onComplete, onError, onCancel }: Props) {
 
   // Uma foto de cada vez: mede a posição, avança o passo quando cumprido, guarda só as de frente.
   useEffect(() => {
-    if (!ready || !camera.current) return;
+    if (!ready || !started || !camera.current) return;
     let active = true;
     const kept: string[] = [];
     (async () => {
+      await new Promise((resolve) => setTimeout(resolve, SETTLE_MS));
       for (let index = 0; index < steps.length && active; index += 1) {
         const step = steps[index];
         setStepIndex(index);
@@ -124,20 +131,22 @@ export function FaceCapture({ steps, onComplete, onError, onCancel }: Props) {
       else kept.forEach(removePhoto);
     })();
     return () => { active = false; };
-  }, [ready, steps, onComplete, onError]);
+  }, [ready, started, steps, onComplete, onError]);
 
   const step = steps[stepIndex];
   const visible = steps.filter((item) => !(item.kind === 'front' && item.hidden));
   const doneVisible = steps.slice(0, stepIndex).filter((item) => !(item.kind === 'front' && item.hidden)).length;
-  const searching = !faceSeen && step.kind === 'front';
-  const arrow = step.kind === 'move' ? ARROWS[step.move] : null;
+  const waiting = !started;
+  const searching = started && !faceSeen && step.kind === 'front';
+  const single = visible.length <= 1;
+  const arrow = started && step.kind === 'move' ? ARROWS[step.move] : null;
   const shift = pulse.interpolate({ inputRange: [0, 1], outputRange: [0, 10] });
 
   return (
     <View style={{ flex: 1, backgroundColor: CAMERA_GROUND }}>
-      <CameraView ref={camera} style={{ flex: 1 }} facing="front" onCameraReady={() => setReady(true)} />
+      <CameraView ref={camera} style={{ flex: 1 }} facing="front" animateShutter={false} onCameraReady={() => setReady(true)} />
       <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <View style={{ width: OVAL_WIDTH, height: OVAL_HEIGHT, borderRadius: OVAL_WIDTH, borderWidth: 5, borderStyle: searching ? 'dashed' : 'solid', borderColor: searching ? '#fff' : colors.brand }} />
+        <View style={{ width: OVAL_WIDTH, height: OVAL_HEIGHT, borderRadius: OVAL_WIDTH, borderWidth: 5, borderStyle: waiting || searching ? 'dashed' : 'solid', borderColor: waiting || searching ? '#fff' : colors.brand }} />
       </View>
       {arrow ? (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, alignItems: 'center', justifyContent: 'center' }}>
@@ -164,12 +173,12 @@ export function FaceCapture({ steps, onComplete, onError, onCancel }: Props) {
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: '#fff' }}>Cancelar</Text>
           </Pressable>
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: SOFT_TEXT }}>
-            {searching ? 'À procura do rosto…' : `Passo ${Math.min(doneVisible + 1, visible.length)} de ${visible.length}`}
+            {waiting || single ? '' : searching ? 'À procura do rosto…' : `Passo ${Math.min(doneVisible + 1, visible.length)} de ${visible.length}`}
           </Text>
         </View>
-        <View style={{ flexDirection: 'row', gap: 6 }}>
+        {single ? null : <View style={{ flexDirection: 'row', gap: 6 }}>
           {visible.map((item, index) => {
-            const current = index === doneVisible && !searching;
+            const current = index === doneVisible && started && !searching;
             const color = index < doneVisible ? colors.ok : current ? colors.brand : IDLE_SEGMENT;
             return (
               <View key={item.label} style={{ flex: 1, gap: 6 }}>
@@ -178,15 +187,25 @@ export function FaceCapture({ steps, onComplete, onError, onCancel }: Props) {
               </View>
             );
           })}
-        </View>
+        </View>}
       </View>
-      <View pointerEvents="none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 36, alignItems: 'center', gap: 8 }}>
+      <View pointerEvents="box-none" style={{ position: 'absolute', left: 16, right: 16, bottom: insets.bottom + 28, alignItems: 'center', gap: 8 }}>
         <Text style={{ fontFamily: fonts.display, fontSize: 24, color: '#fff', textAlign: 'center' }}>
-          {searching ? 'Coloque o rosto dentro do oval' : step.title}
+          {waiting ? 'Coloque o rosto dentro do oval' : searching ? (single ? 'Olhe para a câmara' : 'Coloque o rosto dentro do oval') : step.title}
         </Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 15, color: SOFT_TEXT, textAlign: 'center', maxWidth: 320 }}>
-          {searching ? 'Segure o telemóvel à altura dos olhos, com boa luz.' : step.detail}
+          {waiting || searching ? 'Segure o telemóvel à altura dos olhos, com boa luz.' : step.detail}
         </Text>
+        {waiting ? (
+          <Pressable
+            onPress={() => setStarted(true)}
+            disabled={!ready}
+            accessibilityRole="button"
+            style={{ marginTop: 14, alignSelf: 'stretch', minHeight: 52, borderRadius: 14, backgroundColor: ready ? colors.brand : IDLE_SEGMENT, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: CAMERA_GROUND }}>{ready ? 'Começar' : 'A abrir a câmara…'}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
