@@ -6,6 +6,7 @@
 // Passos por foto: orientação corrigida → ML Kit encontra um só rosto, de frente → recorte com margem →
 // 112×112 → MobileFaceNet (assets/models, Apache-2.0) → vetor normalizado. Várias fotos = média normalizada.
 import FaceDetection, { Face } from '@react-native-ml-kit/face-detection';
+import { Asset } from 'expo-asset';
 import { File, Paths } from 'expo-file-system';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as jpeg from 'jpeg-js';
@@ -24,6 +25,8 @@ const FACE_MARGIN = 0.15; // margem à volta do rosto no recorte (o modelo foi t
 const MAX_HEAD_TURN_DEGREES = 20;
 const MIN_FACE_RATIO = 0.2; // rosto com pelo menos 20 % da largura da foto (perto da câmara)
 const WORK_WIDTH_PX = 720; // fotos reduzidas antes da deteção: rápido e suficiente para 112×112
+/** Uma foto leva < 1 s num telemóvel médio; acima disto algo encravou e mostra-se erro em vez de esperar sempre. */
+const PHOTO_TIMEOUT_MS = 15000;
 
 export class FaceEngineUnavailable extends Error {}
 export class FaceNotUsable extends Error {}
@@ -37,7 +40,13 @@ let modelPromise: Promise<TfliteModel> | null = null;
 
 function model(): Promise<TfliteModel> {
   if (!modelPromise) {
-    modelPromise = loadTensorflowModel(require('../../assets/models/mobile_facenet.tflite'), []).catch((error) => {
+    // Em release o require() dá um nome de recurso Android, que o fast-tflite 3.0.1 tenta abrir como URL e fica
+    // pendurado sem erro; o expo-asset copia o modelo para um ficheiro local e passa-se o file:// ao fast-tflite.
+    modelPromise = (async () => {
+      const asset = Asset.fromModule(require('../../assets/models/mobile_facenet.tflite'));
+      await asset.downloadAsync();
+      return loadTensorflowModel({ url: asset.localUri ?? asset.uri }, []);
+    })().catch((error) => {
       modelPromise = null;
       throw new FaceEngineUnavailable(`Não foi possível carregar o reconhecimento do rosto (${String(error)}).`);
     });
@@ -49,7 +58,7 @@ function model(): Promise<TfliteModel> {
 export async function computeFaceTemplate(photoUris: string[]): Promise<FaceTemplate> {
   try {
     const vectors: Float32Array[] = [];
-    for (const uri of photoUris) vectors.push(await embeddingOf(uri));
+    for (const uri of photoUris) vectors.push(await withTimeout(embeddingOf(uri), PHOTO_TIMEOUT_MS));
     if (!vectors.length) throw new FaceNotUsable('Não foi possível ler o rosto. Tente de novo.');
     return { modelo: encode(average(vectors)), versao: FACE_ENGINE_VERSION };
   } finally {
@@ -151,6 +160,14 @@ function encode(vector: Float32Array): string {
 function decode(base64: string): Float32Array {
   const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
   return new Float32Array(bytes.buffer);
+}
+
+function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new FaceEngineUnavailable('O reconhecimento do rosto não respondeu. Tente de novo.')), ms);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
 }
 
 function clamp(value: number, min: number, max: number) {
