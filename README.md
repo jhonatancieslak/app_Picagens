@@ -27,8 +27,10 @@ API e decisões: repo `picagens-saas-v2`, `/var/www/picagens/levantamento/`: doc
 
 ## Build de release (servidor, sem EAS) — NÃO USAR
 
-> Desde 27/10 os builds fazem-se **só no EAS (nuvem)**: o servidor é partilhado por várias apps em produção.
-> Os passos abaixo ficam só como registo.
+> Nunca no servidor (é partilhado por várias apps em produção). Desde 28/10 os builds fazem-se **no PC do Jhonatan**
+> (Windows + WSL2 `Ubuntu-24.04`, `eas build --local`): APK `piloto` para testar e AAB `production` para a Play.
+> Comandos, chave de envio e envio à Play: `/var/www/picagens/levantamento/78-build-app-local-windows.md` §7–10.
+> O EAS na nuvem continua possível quando houver quota. Os passos abaixo ficam só como registo.
 
 Ferramentas em `/opt/android-build` (JDK 17 + Android SDK). Chave de envio em `/root/.picagens-android/`
 (fora do repo; a chave final fica com a Google — Play App Signing).
