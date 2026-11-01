@@ -223,9 +223,24 @@ export interface TeamMap {
   membros: { id: string; nome: string; iniciais: string; dias: (string | null)[]; faltas: number }[];
 }
 
-export interface TeamCorrection {
-  colaborador_id: string;
+/** Picagens de um dia por membro (separador «Picagens», 2.7.0, canvas 45): hora e tipo, sem GPS nem foto. */
+export interface TeamPunches {
+  equipa: TeamRef;
+  dias: number;
   data: string;
+  datas: string[];
+  membros: {
+    colaborador_id: string; nome: string; iniciais: string;
+    picagens: { id: string; tipo: string; hora: string; pendente: boolean; corrigida: boolean }[];
+    faltas: { tipo: MissingType; horario: string }[];
+  }[];
+}
+
+/** Picagem em falta: colaborador_id + data; hora errada / tipo trocado numa picagem que existe: picagem_id. */
+export interface TeamCorrection {
+  colaborador_id?: string;
+  data?: string;
+  picagem_id?: string;
   tipo: MissingType;
   hora: string;
   motivo: string;
@@ -292,6 +307,8 @@ export const teamApi = {
     request<TeamRequests>('GET', `/equipa/pedidos${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
   map: (token: string, pinToken: string, equipa: string | null, ano?: number, mes?: number) =>
     request<TeamMap>('GET', `/equipa/mapa${teamQuery(equipa, ano && mes ? `ano=${ano}&mes=${mes}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
+  punches: (token: string, pinToken: string, equipa?: string | null, data?: string | null) =>
+    request<TeamPunches>('GET', `/equipa/picagens${teamQuery(equipa, data ? `data=${encodeURIComponent(data)}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
   propose: (token: string, pinToken: string, body: TeamCorrection) =>
     request<{ id: string; mensagem: string }>('POST', '/equipa/correcoes', body, token, undefined, teamHeaders(pinToken)),
   opinion: (token: string, pinToken: string, tipo: 'ferias' | 'baixa', id: string, sentido: OpinionSense) =>

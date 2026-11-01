@@ -1,6 +1,7 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // "Equipa" (2.4.0, doc 62, protótipo v7): separador só para chefes de equipa, o mesmo da PWA. Pede o PIN antes de
-// mostrar dados de outras pessoas (prova válida 12 h, só em memória); depois Hoje · Faltas · Pedidos · Mapa.
+// mostrar dados de outras pessoas (prova válida 12 h, só em memória); depois Hoje · Picagens · Faltas · Pedidos · Mapa
+// (Picagens = 2.7.0, canvas 45: corrigir hora errada ou entrada/saída trocada numa picagem que existe).
 // O chefe vê presença e faltas, nunca saldos, horas, fotos ou GPS; propõe correções e dá parecer, o RH decide.
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
@@ -9,12 +10,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import {
-  MemberState, MissingType, OpinionSense, TeamMap, TeamMissing, TeamRef, TeamRequests, TeamToday, teamApi,
+  MemberState, MissingType, OpinionSense, TeamCorrection, TeamMap, TeamMissing, TeamPunches, TeamRef, TeamRequests, TeamToday, teamApi,
 } from '../api';
 import { Button, Card, Chip, ChipTone, ErrorText, Field, Header, Muted, NumPad, OtpCells, Row, ToastMessage, applyKey } from '../ui';
 
 const PIN_LENGTH = 4;
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+const WRONG_BUTTON = 'Picou o botão errado';
 const REASONS = ['Esqueceu-se de picar', 'Telemóvel sem bateria ou sem rede', 'Tablet do local avariado', 'Outro'];
 const NOTE_MAX = 500;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -49,12 +51,13 @@ const MAP_CELL: Record<string, { bg: string; fg: string }> = {
 };
 const MAP_LEGEND: [string, string][] = [['P', 'picou'], ['X', 'falta'], ['C', 'correção'], ['F', 'férias'], ['B', 'baixa'], ['H', 'feriado'], ['-', 'folga']];
 
-type Tab = 'today' | 'missing' | 'requests' | 'map';
+type Tab = 'today' | 'punches' | 'missing' | 'requests' | 'map';
+const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 const TABS: { key: Tab; label: string }[] = [
-  { key: 'today', label: 'Hoje' }, { key: 'missing', label: 'Faltas' }, { key: 'requests', label: 'Pedidos' }, { key: 'map', label: 'Mapa' },
+  { key: 'today', label: 'Hoje' }, { key: 'punches', label: 'Picagens' }, { key: 'missing', label: 'Faltas' }, { key: 'requests', label: 'Pedidos' }, { key: 'map', label: 'Mapa' },
 ];
 
-interface Missing { id: string; nome: string; data: string; tipo: MissingType; hora: string }
+interface Missing { id: string; nome: string; data: string; tipo: MissingType; hora: string; picagem?: string; tipoAtual?: string }
 
 export interface TeamPin { token: string; until: number }
 
@@ -134,6 +137,8 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
   const [missing, setMissing] = useState<TeamMissing | null>(null);
   const [requests, setRequests] = useState<TeamRequests | null>(null);
   const [map, setMap] = useState<TeamMap | null>(null);
+  const [punches, setPunches] = useState<TeamPunches | null>(null);
+  const [day, setDay] = useState<string | null>(null);
   const [month, setMonth] = useState<{ ano: number; mes: number } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -161,6 +166,7 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
     setError('');
     try {
       if (tab === 'today') setToday(await teamApi.today(token, pinToken, team));
+      if (tab === 'punches') setPunches(await teamApi.punches(token, pinToken, team, day));
       if (tab === 'missing') setMissing(await teamApi.missing(token, pinToken, team));
       if (tab === 'requests') setRequests(await teamApi.requests(token, pinToken, team));
       if (tab === 'map') {
@@ -172,7 +178,7 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
     } finally {
       setLoading(false);
     }
-  }, [tab, token, pinToken, team, month, fail]);
+  }, [tab, token, pinToken, team, month, day, fail]);
 
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { load(); }, [load]);
@@ -272,6 +278,64 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
               }) : <Empty text="Ainda não há ninguém nesta equipa. O RH adiciona membros no painel." />}
             </Card>
             <Muted size={12.5} center>Só aparece quem é da sua equipa. Saldos e horas ficam com o RH.</Muted>
+          </>
+        ) : null}
+
+        {tab === 'punches' && punches ? (
+          <>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+              {punches.datas.map((iso) => {
+                const active = iso === punches.data;
+                return (
+                  <Pressable
+                    key={iso}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    accessibilityLabel={`Dia ${datePt(iso)}`}
+                    onPress={() => setDay(iso)}
+                    style={{ minWidth: 46, minHeight: 52, borderRadius: 12, borderWidth: 1, borderColor: active ? colors.ink : colors.line, backgroundColor: active ? colors.ink : colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 }}
+                  >
+                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: active ? '#C9D4E3' : colors.ink2 }}>{WEEKDAYS[new Date(`${iso}T12:00:00`).getDay()]}</Text>
+                    <Text style={{ fontFamily: fonts.display, fontSize: 16, color: active ? '#fff' : colors.ink }}>{iso.slice(8, 10)}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+            <Card>
+              {punches.membros.length ? punches.membros.map((m, index) => {
+                const waiting = m.picagens.some((p) => p.pendente);
+                return (
+                  <View key={m.colaborador_id} style={{ paddingHorizontal: 14, paddingVertical: 12, gap: 6, borderTopWidth: index ? 1 : 0, borderColor: colors.line }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 14.5, color: colors.ink }}>{m.nome}</Text>
+                      {waiting ? <Chip tone="action" label="À espera do RH" /> : null}
+                    </View>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                      {m.picagens.map((p) => (
+                        <TimeButton
+                          key={p.id}
+                          label={p.tipo === 'entrada' ? 'ENT' : p.tipo === 'saida' ? 'SAÍ' : p.tipo}
+                          time={p.hora}
+                          tone={p.pendente ? 'pending' : 'normal'}
+                          onPress={p.pendente ? undefined : () => setFix({ id: m.colaborador_id, nome: m.nome, data: punches.data, tipo: (p.tipo === 'saida' ? 'saida' : 'entrada'), hora: p.hora, picagem: p.id, tipoAtual: p.tipo })}
+                        />
+                      ))}
+                      {m.faltas.map((f) => (
+                        <TimeButton
+                          key={`falta-${f.tipo}`}
+                          label={f.tipo === 'entrada' ? 'ENT' : 'SAÍ'}
+                          time="em falta"
+                          tone="missing"
+                          onPress={() => setFix({ id: m.colaborador_id, nome: m.nome, data: punches.data, tipo: f.tipo, hora: f.horario })}
+                        />
+                      ))}
+                      {!m.picagens.length && !m.faltas.length ? <Muted size={12.5}>Sem picagens neste dia</Muted> : null}
+                    </View>
+                  </View>
+                );
+              }) : <Empty text="Ainda não há ninguém nesta equipa. O RH adiciona membros no painel." />}
+            </Card>
+            <Muted size={12.5} center>Toque numa hora para a corrigir (últimos {punches.dias} dias, definido pela empresa).</Muted>
           </>
         ) : null}
 
@@ -385,7 +449,7 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
           </Card>
         ) : null}
 
-        {loading && !today && !missing && !requests && !map ? <ActivityIndicator color={colors.action} /> : null}
+        {loading && !today && !punches && !missing && !requests && !map ? <ActivityIndicator color={colors.action} /> : null}
       </ScrollView>
 
       <FixSheet
@@ -405,17 +469,21 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
   );
 }
 
-/** Janela de baixo "Corrigir picagem" (protótipo v7): hora, motivo e nota; vai para o RH, que decide. */
+/** Janela de baixo "Corrigir picagem" (protótipo v7; 2.7.0 = também picagem que existe, com «Passa a ser»):
+ * hora, motivo e nota; vai para o RH, que decide. */
 function FixSheet({ fix, onClose, onSend, onPinExpired, onAuthError }: {
   fix: Missing | null;
   onClose: () => void;
-  onSend: (body: { colaborador_id: string; data: string; tipo: MissingType; hora: string; motivo: string; nota?: string }) => Promise<void>;
+  onSend: (body: TeamCorrection) => Promise<void>;
   onPinExpired: () => void;
   onAuthError: (error: unknown) => boolean;
 }) {
   const insets = useSafeAreaInsets();
   const [time, setTime] = useState('');
+  const [kind, setKind] = useState<MissingType>('entrada');
   const [reason, setReason] = useState(REASONS[0]);
+  const existing = Boolean(fix?.picagem);
+  const reasons = existing ? [WRONG_BUTTON, ...REASONS] : REASONS;
   const [note, setNote] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -423,7 +491,8 @@ function FixSheet({ fix, onClose, onSend, onPinExpired, onAuthError }: {
   useEffect(() => {
     if (!fix) return;
     setTime(fix.hora);
-    setReason(REASONS[0]);
+    setKind(fix.tipo);
+    setReason(fix.picagem ? WRONG_BUTTON : REASONS[0]);
     setNote('');
     setError('');
   }, [fix]);
@@ -434,7 +503,10 @@ function FixSheet({ fix, onClose, onSend, onPinExpired, onAuthError }: {
     setBusy(true);
     setError('');
     try {
-      await onSend({ colaborador_id: fix.id, data: fix.data, tipo: fix.tipo, hora: time, motivo: reason, nota: note.trim() || undefined });
+      const nota = note.trim() || undefined;
+      await onSend(fix.picagem
+        ? { picagem_id: fix.picagem, tipo: kind, hora: time, motivo: reason, nota }
+        : { colaborador_id: fix.id, data: fix.data, tipo: fix.tipo, hora: time, motivo: reason, nota });
     } catch (exc) {
       if (needsPin(exc)) { onClose(); onPinExpired(); return; }
       if (!onAuthError(exc)) setError(exc instanceof ApiError ? exc.message : errorText(exc));
@@ -449,12 +521,23 @@ function FixSheet({ fix, onClose, onSend, onPinExpired, onAuthError }: {
         <Pressable accessibilityLabel="Fechar" style={{ flex: 1 }} onPress={onClose} />
         <View style={{ backgroundColor: colors.surface, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 18, paddingBottom: insets.bottom + 18, gap: 12 }}>
           <Text style={{ fontFamily: fonts.display, fontSize: 20, color: colors.ink }}>Corrigir picagem de {fix?.nome}</Text>
-          <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>{fix ? `${datePt(fix.data)} · ${TYPE_LABEL[fix.tipo]} em falta` : ''}</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>{fix ? (fix.picagem
+            ? `${datePt(fix.data)} · ${TYPE_LABEL[fix.tipoAtual as MissingType] ?? fix.tipoAtual} às ${fix.hora}`
+            : `${datePt(fix.data)} · ${TYPE_LABEL[fix.tipo]} em falta`) : ''}</Text>
+          {existing ? (
+            <View style={{ gap: 6 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.ink2 }}>Passa a ser</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pill label="Entrada" active={kind === 'entrada'} onPress={() => setKind('entrada')} />
+                <Pill label="Saída" active={kind === 'saida'} onPress={() => setKind('saida')} />
+              </View>
+            </View>
+          ) : null}
           <Field label="Hora" value={time} onChangeText={(text) => setTime(text.replace(/[^\d:]/g, '').slice(0, 5))} keyboardType="numbers-and-punctuation" placeholder="09:05" maxLength={5} />
           <View style={{ gap: 6 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.ink2 }}>Motivo</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-              {REASONS.map((r) => <Pill key={r} label={r} active={reason === r} onPress={() => setReason(r)} />)}
+              {reasons.map((r) => <Pill key={r} label={r} active={reason === r} onPress={() => setReason(r)} />)}
             </View>
           </View>
           <View style={{ gap: 4 }}>
@@ -471,7 +554,7 @@ function FixSheet({ fix, onClose, onSend, onPinExpired, onAuthError }: {
             />
           </View>
           <ErrorText>{error}</ErrorText>
-          <Muted size={12.5}>Vai para o RH, que decide. A picagem original nunca é alterada.</Muted>
+          <Muted size={12.5}>Vai para o RH, que decide. O que foi picado fica sempre guardado no histórico.</Muted>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <View style={{ flex: 1 }}><Button ghost title="Cancelar" onPress={onClose} /></View>
             <View style={{ flex: 1 }}><Button primary title="Enviar ao RH" busy={busy} onPress={send} /></View>
@@ -496,6 +579,26 @@ function Initials({ text }: { text: string }) {
     <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12.5, color: colors.action }}>{text}</Text>
     </View>
+  );
+}
+
+/** Hora de uma picagem no separador Picagens: toca para corrigir; à espera do RH fica azul e sem toque; em falta, tracejado âmbar. */
+function TimeButton({ label, time, tone, onPress }: { label: string; time: string; tone: 'normal' | 'pending' | 'missing'; onPress?: () => void }) {
+  const look = tone === 'pending' ? { bg: colors.actionSoft, border: '#BFD0FA', fg: colors.action, dash: 'solid' as const }
+    : tone === 'missing' ? { bg: colors.warnSoft, border: '#E9B949', fg: colors.warnInk, dash: 'dashed' as const }
+    : { bg: colors.bg, border: colors.line, fg: colors.ink, dash: 'solid' as const };
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={tone === 'pending' ? `${label} ${time}, à espera do RH` : `Corrigir ${label} ${time}`}
+      disabled={!onPress}
+      onPress={onPress}
+      hitSlop={4}
+      style={({ pressed }) => ({ minHeight: 36, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 10, borderWidth: 1, borderStyle: look.dash, borderColor: look.border, backgroundColor: look.bg, paddingHorizontal: 10, opacity: pressed ? 0.8 : 1 })}
+    >
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10.5, color: colors.ink3 }}>{label}</Text>
+      <Text style={{ fontFamily: fonts.display, fontSize: 14, color: look.fg }}>{time}</Text>
+    </Pressable>
   );
 }
 
