@@ -1,11 +1,12 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Ligar o tablet (doc 49 §9): chave de ativação criada no painel (Picagem e app, ex-Gestão do App › Computadores e tablets),
 // escrita, colada ou lida pelo QR. Passos: 1 Chave → 2 Confirmar (empresa e local, sem gastar a chave) →
-// 3 Câmara. No canto, "Sou colaborador" volta à entrada do telemóvel.
+// 3 Ativar. A câmara só se pede ao carregar em «Ler QR do painel» (nunca na ativação). No canto, "Sou colaborador" volta à entrada do telemóvel.
+// Layout: em coluna quando a largura é pequena (telemóvel em paisagem), com deslocamento vertical para nada ficar cortado.
 import { BarcodeScanningResult, CameraView, useCameraPermissions } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
 import { ReactNode, useRef, useState } from 'react';
-import { Platform, Pressable, Text, TextInput, View } from 'react-native';
+import { Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { ApiError, KeyCheck, NetworkError, api } from '../api';
 import { ClipboardIcon, PhoneIcon, QrIcon } from '../../components/icons';
@@ -13,6 +14,8 @@ import { BigButton, CornerButton, Heading, Logo, Paragraph, useVw } from '../../
 import { colors, fonts } from '../../theme';
 
 const KEY_LENGTH = 12;
+/** Abaixo desta largura (dp) o ecrã de ativação passa a coluna, para caber num telemóvel em paisagem. */
+const NARROW_WIDTH_DP = 700;
 const KEY_IN_TEXT = /([A-Z0-9]{4})-?([A-Z0-9]{4})-?([A-Z0-9]{4})/i;
 
 const formatKey = (value: string) =>
@@ -42,6 +45,8 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
   const [facing, setFacing] = useState<'front' | 'back'>('front');
   const [permission, requestCameraPermission] = useCameraPermissions();
   const scanned = useRef(false);
+  const { width } = useWindowDimensions();
+  const narrow = width < NARROW_WIDTH_DP;
 
   async function verify(value = key) {
     setBusy(true);
@@ -94,7 +99,6 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
       const model = String((Platform.constants as { Model?: string }).Model ?? 'Android');
       const result = await api.activate(key, model);
       setStep(2);
-      if (!permission?.granted) await requestCameraPermission();
       onActivated(result.token);
     } catch (exc) {
       setError(errorText(exc, 'Não foi possível ligar o tablet.'));
@@ -113,8 +117,9 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
   return (
     <View style={{ flex: 1 }}>
       <CornerButton label="Sou colaborador" icon={<PhoneIcon size={16} color={colors.ink2} />} onPress={onBack} top={14} />
-      <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: vw(5), paddingTop: vw(4), gap: vw(4) }}>
-        <View style={{ flex: 1, gap: vw(1.5) }}>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: vw(5), paddingVertical: vw(4) }}>
+      <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', gap: vw(4) }}>
+        <View style={{ flex: narrow ? 0 : 1, gap: vw(1.5) }}>
           <Logo height={vw(4.5)} />
           <Steps current={step} />
           <Heading>Ligar este tablet</Heading>
@@ -139,7 +144,7 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
           </View>
         </View>
 
-        <View style={{ flex: 1.05, gap: vw(1.6) }}>
+        <View style={{ flex: narrow ? 0 : 1.05, gap: vw(1.6) }}>
           {scanning ? (
             <View style={{ gap: vw(1) }}>
               <View style={{ aspectRatio: 4 / 3, borderRadius: vw(1.8), overflow: 'hidden', backgroundColor: '#232A35' }}>
@@ -159,9 +164,9 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
               {found.local_morada ? <Fact label="Morada" value={found.local_morada} /> : null}
               <Fact label="Nome" value={`Tablet “${found.tablet}”`} />
               <Fact label="Acessos" value={found.acessos.limite ? `${found.acessos.em_uso} de ${found.acessos.limite} do plano` : `${found.acessos.em_uso} (plano sem limite)`} />
-              <Paragraph>A seguir o Android pede a câmara: serve só para ler o QR da chave de ativação. Não se tiram fotos nem se reconhece o rosto.</Paragraph>
+              <Paragraph>Não se tiram fotos nem se reconhece o rosto. A câmara só é usada se ler o QR com «Ler QR do painel».</Paragraph>
               <View style={{ flexDirection: 'row', gap: vw(1.2) }}>
-                <BigButton primary small title={busy ? 'A ligar…' : 'Permitir câmara e começar'} onPress={activate} disabled={busy} />
+                <BigButton primary small title={busy ? 'A ligar…' : 'Ligar este tablet'} onPress={activate} disabled={busy} />
                 <BigButton small title="Não é esta empresa" onPress={restart} />
               </View>
             </View>
@@ -181,6 +186,7 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
           )}
         </View>
       </View>
+      </ScrollView>
     </View>
   );
 }
@@ -189,7 +195,7 @@ function Steps({ current }: { current: Step }) {
   const vw = useVw();
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: vw(1) }} accessibilityLabel={`Passo ${current + 1} de 3`}>
-      {['Chave', 'Confirmar', 'Câmara'].map((label, index) => {
+      {['Chave', 'Confirmar', 'Ativar'].map((label, index) => {
         const done = index < current;
         const on = index === current;
         return (
