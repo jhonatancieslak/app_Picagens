@@ -1,8 +1,9 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Sessão do colaborador no armazenamento seguro do Android (Keystore). Chaves separadas das do quiosque.
+import { File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
-import type { Me } from './api';
+import type { Dashboard, Me } from './api';
 
 const TOKEN_KEY = 'employee_token';
 const ME_KEY = 'employee_me';
@@ -35,9 +36,29 @@ export async function saveSession(token: string, me: Me) {
 }
 
 export async function clearSession() {
-  await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(ME_KEY)]);
+  await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(ME_KEY), SecureStore.deleteItemAsync(LEGACY_FACE_KEY)]);
+  if (dashboardFile.exists) dashboardFile.delete();
+}
+
+// Último «Hoje» recebido: a app aberta já sem rede mostra-o e deixa picar (a picagem vai para a fila).
+const dashboardFile = new File(Paths.document, 'hoje_colaborador.json');
+
+export function getCachedDashboard(): Dashboard | null {
+  try {
+    return dashboardFile.exists ? JSON.parse(dashboardFile.textSync()) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveCachedDashboard(dashboard: Dashboard) {
+  if (!dashboardFile.exists) dashboardFile.create();
+  dashboardFile.write(JSON.stringify(dashboard));
 }
 
 /** Último código da empresa usado: depois de terminar sessão não é preciso voltar a escrevê-lo. */
 export const getLastCompanyCode = () => SecureStore.getItemAsync(COMPANY_CODE_KEY);
 export const saveLastCompanyCode = (code: string) => SecureStore.setItemAsync(COMPANY_CODE_KEY, code);
+
+/** Modelo do rosto de versões antigas (até 18/11/2026): apaga-se ao terminar sessão, já não se usa. */
+const LEGACY_FACE_KEY = 'employee_face';

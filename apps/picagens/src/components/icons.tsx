@@ -186,6 +186,15 @@ export const DocumentIcon = ({ size, color }: IconProps) => (
   </Svg>
 );
 
+/** Equipa (chefe, 2.4.0): duas pessoas. */
+export const TeamIcon = ({ size, color }: IconProps) => (
+  <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
+    <Circle cx={9} cy={8} r={3.5} />
+    <Path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5" />
+    <Path d="M16 4.8a3.4 3.4 0 010 6.4M18.5 14.8c1.7.8 2.7 2.5 3 5.2" />
+  </Svg>
+);
+
 export const PenIcon = ({ size, color }: IconProps) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={2}>
     <Path d="M4 20l4-1 11-11-3-3L5 16z" />

@@ -1,39 +1,11 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Informação ao colaborador sobre a foto (RGPD art. 13.º), licença suspensa e versão desatualizada.
+// Licença suspensa e versão desatualizada.
 import { useEffect, useState } from 'react';
-import { Linking, ScrollView, Text, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 
 import { BigButton, Heading, LinkButton, Logo, Paragraph, useVw } from '../../components/ui';
 import { DEFAULT_UPDATE_URL } from '../../update';
 import { colors, fonts } from '../../theme';
-
-export function PhotoInfoScreen({ company, retentionDays, onBack }: { company: string; retentionDays: number; onBack: () => void }) {
-  const vw = useVw();
-  const rows: [string, string][] = [
-    ['Para quê', 'Confirmar que quem picou é o dono do PIN. Evita picagens feitas por colegas.'],
-    ['Reconhecimento facial', 'Não. A foto não é analisada por nenhum programa. Ninguém lê o seu rosto.'],
-    ['Quem vê', 'Só o gestor da empresa, quando precisa de rever uma picagem. Não aparece no tablet.'],
-    ['Quanto tempo', `${retentionDays} dias, guardada cifrada, depois é apagada. As horas da picagem ficam guardadas 5 anos, como manda a lei.`],
-    ['Responsável', `${company} (a sua entidade empregadora). Picagens.pt trata os dados por conta dela.`],
-    ['Os seus direitos', 'Pode pedir para ver as suas fotos e uma cópia dos seus dados ao RH da empresa.'],
-  ];
-  return (
-    <ScrollView contentContainerStyle={{ paddingTop: vw(7.5), paddingHorizontal: vw(5), paddingBottom: vw(3), gap: vw(1.4) }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: vw(1.6) }}>
-        <LinkButton title="‹ Voltar" onPress={onBack} />
-        <Heading>Porque é que o tablet tira uma foto?</Heading>
-      </View>
-      <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.8), padding: vw(2.2), gap: vw(1.1) }}>
-        {rows.map(([label, text]) => (
-          <View key={label} style={{ flexDirection: 'row', gap: vw(2.4) }}>
-            <Text style={{ width: vw(22), fontFamily: fonts.bodyBold, fontSize: vw(1.55), color: colors.ink3 }}>{label}</Text>
-            <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: vw(1.55), color: colors.ink }}>{text}</Text>
-          </View>
-        ))}
-      </View>
-    </ScrollView>
-  );
-}
 
 export function SuspendedScreen({ onAdmin }: { onAdmin: () => void }) {
   const vw = useVw();

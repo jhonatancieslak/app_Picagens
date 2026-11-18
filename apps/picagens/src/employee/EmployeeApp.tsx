@@ -3,6 +3,8 @@
 // logótipo, entrada (código da empresa + NIF + PIN, ou link do email), separadores Hoje / Registos / Pedidos /
 // Documentos e Perfil pelo avatar. Sessão de 180 dias renovada a cada abertura; 401 → sai.
 // 2.3.0 (doc 49 §14): notificações (registo ao entrar, tocar abre o ecrã), caixa de Mensagens pelo sino, foto de perfil.
+// 2.4.0 (doc 62): 5.º separador Equipa só para chefes de equipa (PIN pedido de novo a cada 12 h, prova só em memória).
+// 2.5.0 (canvas 26/28): «Ver o meu PIN» em Hoje (ecrã por cima) e «Esqueci o PIN» na entrada.
 import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
@@ -10,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Linking, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon } from '../components/icons';
+import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon, TeamIcon } from '../components/icons';
 import { QUEUE_RETRY_MS } from '../config';
 import { ApiError } from '../http';
 import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
@@ -23,14 +25,16 @@ import { DocumentsScreen } from './screens/DocumentsScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
+import { PinScreen } from './screens/PinScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
+import { TeamPin, TeamScreen } from './screens/TeamScreen';
 import { TodayScreen } from './screens/TodayScreen';
-import { clearSession, getCachedMe, getEmployeeToken, saveSession } from './storage';
+import { clearSession, getCachedDashboard, getCachedMe, getEmployeeToken, saveCachedDashboard, saveSession } from './storage';
 import { AvatarPhoto, FadeIn, useToast } from './ui';
 
-type Tab = 'today' | 'records' | 'requests' | 'documents';
+type Tab = 'today' | 'records' | 'requests' | 'documents' | 'team';
 
 const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
   { key: 'today', label: 'Hoje', Icon: ClockIcon },
@@ -39,9 +43,11 @@ const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
   { key: 'documents', label: 'Documentos', Icon: DocumentIcon },
 ];
 
+const TEAM_TAB = { key: 'team' as Tab, label: 'Equipa', Icon: TeamIcon };
+
 const SPLASH_MS = 1300;
 
-const TAB_OF_PUSH: Record<Exclude<PushScreen, 'mensagens'>, Tab> = { hoje: 'today', registos: 'records', pedidos: 'requests', documentos: 'documents' };
+const TAB_OF_PUSH: Record<Exclude<PushScreen, 'mensagens'>, Tab> = { hoje: 'today', registos: 'records', pedidos: 'requests', documentos: 'documents', equipa: 'team' };
 
 const sessionToMe = ({ token: _token, validade_dias: _days, ...me }: Session & { ok?: boolean }): Me => me;
 
@@ -55,6 +61,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [tab, setTab] = useState<Tab>('today');
   const [profile, setProfile] = useState(false);
   const [messages, setMessages] = useState(false);
+  const [pinScreen, setPinScreen] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
@@ -62,6 +69,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [link, setLink] = useState<string | null>(null);
   const [locationIntro, setLocationIntro] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [teamPin, setTeamPin] = useState<TeamPin | null>(null);
 
   useEffect(() => {
     const timer = setTimeout(() => setSplash(false), SPLASH_MS);
@@ -77,6 +85,8 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setTab('today');
     setProfile(false);
     setMessages(false);
+    setPinScreen(false);
+    setTeamPin(null);
     setToken(null);
   }, [token]);
 
@@ -106,7 +116,9 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const refreshDashboard = useCallback(async () => {
     if (!token) return;
     try {
-      setDashboard(await employeeApi.dashboard(token));
+      const fresh = await employeeApi.dashboard(token);
+      setDashboard(fresh);
+      saveCachedDashboard(fresh);
     } catch (error) {
       onAuthError(error);
     }
@@ -124,6 +136,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     (async () => {
       const [savedToken, cachedMe] = await Promise.all([getEmployeeToken(), getCachedMe()]);
       setMe(cachedMe);
+      setDashboard((current) => current ?? getCachedDashboard());
       setPending(pendingEmployeePunches());
       setToken(savedToken && cachedMe ? savedToken : null);
       if (savedToken && cachedMe) {
@@ -138,6 +151,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   }, [token]);
 
   const openPush = useCallback((screen: PushScreen) => {
+    setPinScreen(false);
     setProfile(false);
     setContract(null);
     if (screen === 'mensagens') {
@@ -195,6 +209,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   // "Voltar" do Android: Perfil e contrato voltam atrás; outros separadores voltam a Hoje; em Hoje sai da app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pinScreen) { setPinScreen(false); return true; }
       if (messages) { setMessages(false); return true; }
       if (profile) { setProfile(false); return true; }
       if (contract) { setContract(null); return true; }
@@ -203,7 +218,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract, messages]);
+  }, [tab, profile, contract, messages, pinScreen]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
@@ -252,10 +267,14 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     );
   }
 
+  const teams = me.chefe?.equipas ?? [];
+  const tabs = teams.length ? [...TABS, TEAM_TAB] : TABS;
+  // Deixou de ser chefe (ou notificação "equipa" para quem não chefia): volta a Hoje.
+  const activeTab: Tab = tab === 'team' && !teams.length ? 'today' : tab;
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
-  const overlay = messages ? 'messages' : profile ? 'profile' : null;
-  const screenKey = overlay ?? tab;
+  const overlay = pinScreen ? 'pin' : messages ? 'messages' : profile ? 'profile' : null;
+  const screenKey = overlay ?? activeTab;
   const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
 
   return (
@@ -264,10 +283,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       {toast.node}
       <View style={{ flex: 1 }}>
         <FadeIn deps={screenKey}>
-          {messages ? (
+          {pinScreen ? <PinScreen token={token} onBack={() => setPinScreen(false)} onAuthError={onAuthError} /> : null}
+          {!pinScreen && messages ? (
             <MessagesScreen token={token} onBack={() => setMessages(false)} onRead={refreshDashboard} onAuthError={onAuthError} />
           ) : null}
-          {!messages && profile ? (
+          {!pinScreen && !messages && profile ? (
             <ProfileScreen
               token={token}
               me={me}
@@ -282,7 +302,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onInfo={(title, text) => toast.show({ tone: 'ok', title, text })}
             />
           ) : null}
-          {!overlay && tab === 'today' ? (
+          {!overlay && activeTab === 'today' ? (
             <TodayScreen
               token={token}
               me={me}
@@ -299,13 +319,17 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onProfile={() => setProfile(true)}
               onQueued={() => setPending(pendingEmployeePunches())}
               onAuthError={onAuthError}
+              onPin={() => setPinScreen(true)}
               toast={toast.show}
             />
           ) : null}
-          {!overlay && tab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
-          {!overlay && tab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
-          {!overlay && tab === 'documents' ? (
+          {!overlay && activeTab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && activeTab === 'documents' ? (
             <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
+          ) : null}
+          {!overlay && activeTab === 'team' ? (
+            <TeamScreen token={token} teams={teams} pin={teamPin} onPin={setTeamPin} onAuthError={onAuthError} toast={toast.show} />
           ) : null}
         </FadeIn>
       </View>
@@ -318,7 +342,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
         >
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.action }}>Nova versão disponível · {me.versao_atual}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.action }}>Toque para descarregar e instalar por cima. A sessão mantém-se.</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.action }}>Toque para atualizar. A sessão mantém-se.</Text>
           </View>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.action }}>Atualizar ›</Text>
         </Pressable>
@@ -331,8 +355,8 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
             shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
           }}
         >
-          {TABS.map(({ key, label, Icon }) => {
-            const active = tab === key;
+          {tabs.map(({ key, label, Icon }) => {
+            const active = activeTab === key;
             return (
               <Pressable
                 key={key}

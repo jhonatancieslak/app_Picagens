@@ -1,5 +1,5 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Cliente da API do quiosque (/api/quiosque/v1). Erros: ver ../http.ts.
+// Cliente da API do quiosque (/api/quiosque/v1). Erros: ver ../http.ts. Sem foto nem rosto desde 18/11/2026 (doc 166).
 import { KIOSK_API_URL } from '../config';
 import { ApiError, NetworkError, appVersion, createClient } from '../http';
 
@@ -15,8 +15,6 @@ export interface KioskConfig {
   local_morada?: string | null;
   cor: string;
   logo_url: string;
-  /** ativa=false (servidor ≥ 13/10/2026): a empresa desligou a foto em Gestão do App, pica-se só com o PIN. */
-  foto: { ativa?: boolean; retencao_dias: number; lado_maximo_px: number };
   fuso: string;
   agora: string;
   licenca: { estado: LicenseState; ate: string | null };
@@ -40,14 +38,10 @@ export interface PunchResult {
   rotulo: string;
   hora: string;
   offline: boolean;
-  foto: boolean;
-  /** false = a empresa não usa foto no quiosque (não é "registada sem foto"). */
-  foto_pedida?: boolean;
 }
 
 export interface PunchRequest {
   pin: string;
-  foto?: string | null;
   offline_em?: string;
 }
 

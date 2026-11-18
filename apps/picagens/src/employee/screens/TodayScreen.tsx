@@ -11,7 +11,7 @@ import { AppState, Animated, Easing, Image, Linking, Pressable, RefreshControl, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
+import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, KeyIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
@@ -90,10 +90,12 @@ interface Props {
   onProfile: () => void;
   onQueued: () => void;
   onAuthError: (error: unknown) => boolean;
+  /** «Ver o meu PIN» (2.5.0): só aparece com `me.opcoes.ver_pin` (a empresa tem tablet ou PC de picagem). */
+  onPin: () => void;
   toast: (message: { tone: 'ok' | 'queued' | 'err'; title: string; text?: string; icon?: React.ReactNode }) => void;
 }
 
-export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, unreadMessages, onMessages, photo, onRefresh, onProfile, onQueued, onAuthError, toast }: Props) {
+export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, unreadMessages, onMessages, photo, onRefresh, onProfile, onQueued, onAuthError, onPin, toast }: Props) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
@@ -153,7 +155,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     };
   }, [applyFix]);
 
-  const next = dashboard?.proximo_tipo ?? 'entrada';
+  // Cada picagem na fila ainda não está no «Hoje» do servidor: um número ímpar delas troca entrada/saída.
+  const lastKnown = dashboard?.proximo_tipo ?? 'entrada';
+  const next = pending % 2 ? (lastKnown === 'saida' ? 'entrada' : 'saida') : lastKnown;
   const isExit = next === 'saida';
   const minutes = parseHours(dashboard?.horas_hoje ?? '0h00');
   const progress = Math.min(minutes / WORKDAY_MINUTES, 1);
@@ -299,13 +303,13 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Picar ${(LABELS[next] ?? '').toLowerCase()}`}
-              accessibilityState={{ busy: state !== 'idle', disabled: !dashboard }}
-              disabled={state !== 'idle' || !dashboard}
+              accessibilityState={{ busy: state !== 'idle', disabled: online && !dashboard }}
+              disabled={state !== 'idle' || (online && !dashboard)}
               onPress={punch}
               style={({ pressed }) => ({
                 position: 'absolute', top: RING_INSET, left: RING_INSET, right: RING_INSET, bottom: RING_INSET,
                 borderRadius: RING_SIZE, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: buttonColor,
-                opacity: !dashboard ? 0.45 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
+                opacity: online && !dashboard ? 0.45 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
                 shadowColor: colors.action, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 10 }, elevation: 6,
               })}
             >
@@ -337,6 +341,19 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           ))}
         </View>
       </View>
+
+      {me.opcoes.ver_pin ? (
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+          <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
+            <KeyIcon size={22} color={colors.action} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>PIN de picagem</Text>
+            <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>Para picar no tablet ou no computador da empresa.</Text>
+          </View>
+          <Button ghost title="Ver o meu PIN" onPress={onPin} />
+        </View>
+      ) : null}
 
       {fixError === 'denied' || fixError === 'disabled' ? (
         <View style={{ gap: 10, padding: 16, borderRadius: 18, backgroundColor: colors.warnSoft }}>

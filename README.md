@@ -22,9 +22,15 @@ API e decisões: repo `picagens-saas-v2`, `/var/www/picagens/levantamento/`: doc
   nativas vão para `app.json` ou para um config plugin em `plugins/`.
 - Dependências sempre com `npx expo install <pacote>` (versões compatíveis com o SDK).
 - Antes de dar uma tarefa por feita: `npx tsc --noEmit` e `npx expo-doctor`.
-- Nada de reconhecimento facial nem comparação de fotos (dado biométrico, RGPD art. 9.º).
+- Rosto (desde 27/10, doc 77 §9.11): só quando a empresa o liga; modelo calculado e comparado no aparelho
+  (`src/face/engine.ts`, MobileFaceNet Apache-2.0), servidor guarda só o modelo cifrado, nunca fotografias.
 
-## Build de release (servidor, sem EAS)
+## Build de release (servidor, sem EAS) — NÃO USAR
+
+> Nunca no servidor (é partilhado por várias apps em produção). Desde 28/10 os builds fazem-se **no PC do Jhonatan**
+> (Windows + WSL2 `Ubuntu-24.04`, `eas build --local`): APK `piloto` para testar e AAB `production` para a Play.
+> Comandos, chave de envio e envio à Play: `/var/www/picagens/levantamento/78-build-app-local-windows.md` §7–10.
+> O EAS na nuvem continua possível quando houver quota. Os passos abaixo ficam só como registo.
 
 Ferramentas em `/opt/android-build` (JDK 17 + Android SDK). Chave de envio em `/root/.picagens-android/`
 (fora do repo; a chave final fica com a Google — Play App Signing).
