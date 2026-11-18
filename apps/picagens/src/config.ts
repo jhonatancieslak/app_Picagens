@@ -9,10 +9,6 @@ export const ACTIVATION_LINK_PATTERN = /\/colaborador\/([a-z0-9_-]+)\/ativar\/([
 export const PIN_LENGTH = 4;
 export const ADMIN_CODE_MAX_LENGTH = 8;
 export const IDLE_TIMEOUT_SECONDS = 20;
-export const PHOTO_COUNTDOWN_SECONDS = 3;
-export const PHOTO_WIDTH_PX = 640;
-export const PHOTO_JPEG_QUALITY = 0.7;
-export const NO_PHOTO_AUTO_SECONDS = 10;
 export const CONFIRMATION_MS = 5000;
 export const CONFIG_REFRESH_MS = 10 * 60 * 1000;
 export const QUEUE_RETRY_MS = 60 * 1000;
@@ -23,6 +19,5 @@ export const UPLOAD_TIMEOUT_MS = 90 * 1000;
 /** Certificado de baixa: lado maior e qualidade JPEG antes de enviar (legível, ~300-600 KB). */
 export const SICK_LEAVE_PHOTO_MAX_PX = 1600;
 export const SICK_LEAVE_JPEG_QUALITY = 0.7;
-export const PHOTO_RETENTION_DAYS_DEFAULT = 30;
 /** Prazo em que o servidor ainda aceita uma picagem feita sem rede (picagem_service.py). */
 export const OFFLINE_MAX_HOURS = 48;

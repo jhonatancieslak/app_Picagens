@@ -1,6 +1,6 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Modo quiosque da app Picagens: tablet partilhado à entrada da obra. Picagem com PIN + foto de confirmação
-// (a empresa pode desligar a foto, 2.3.3; com o rosto ligado o tablet compara-o aqui, doc 77 §9.11), fila offline, administração com código e estado da licença.
+// Modo quiosque da app Picagens: tablet partilhado à entrada da obra. Picagem só com PIN (sem foto nem rosto,
+// doc 166), fila offline, administração com código e estado da licença.
 // Fluxo e decisões: doc 44 §14 (UI) e doc 43 §4 (API) no repo picagens-saas-v2.
 import NetInfo from '@react-native-community/netinfo';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
@@ -8,18 +8,16 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, BackHandler, Text, View } from 'react-native';
 
-import { ApiError, KioskConfig, NetworkError, PunchRequest, api } from './api';
-import { matchesFaceTemplateBase64 } from '../face/engine';
+import { ApiError, KioskConfig, NetworkError, api } from './api';
 import { TopBar } from './TopBar';
 import { useVw } from '../components/ui';
-import { ADMIN_SESSION_SECONDS, CONFIG_REFRESH_MS, PHOTO_RETENTION_DAYS_DEFAULT, QUEUE_RETRY_MS } from '../config';
+import { ADMIN_SESSION_SECONDS, CONFIG_REFRESH_MS, QUEUE_RETRY_MS } from '../config';
 import { QueueStatus, clearQueue, enqueuePunch, flushQueue, purgeExpiredQueue, queueStatus } from './queue';
-import { AdminScreen, CameraTestScreen, ScreenSettingsScreen } from './screens/AdminScreens';
+import { AdminScreen, ScreenSettingsScreen } from './screens/AdminScreens';
 import { DoneInfo, DoneScreen } from './screens/DoneScreen';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
-import { PhotoInfoScreen, SuspendedScreen, UpdateRequiredScreen } from './screens/InfoScreens';
+import { SuspendedScreen, UpdateRequiredScreen } from './screens/InfoScreens';
 import { PadScreen } from './screens/PadScreen';
-import { PhotoScreen } from './screens/PhotoScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { WaitScreen } from './screens/WaitScreen';
 import {
@@ -28,7 +26,7 @@ import {
 } from './storage';
 import { colors, fonts } from '../theme';
 
-type Screen = 'wait' | 'pin' | 'photo' | 'done' | 'adminCode' | 'admin' | 'camera' | 'screenSettings' | 'info';
+type Screen = 'wait' | 'pin' | 'done' | 'adminCode' | 'admin' | 'screenSettings';
 
 const NIGHT_START_HOUR = 20;
 const NIGHT_END_HOUR = 6;
@@ -48,7 +46,6 @@ export function KioskApp({ onLeave }: Props) {
   const [screen, setScreen] = useState<Screen>('wait');
   const [padError, setPadError] = useState('');
   const [padBusy, setPadBusy] = useState(false);
-  const [sending, setSending] = useState(false);
   const [done, setDone] = useState<DoneInfo | null>(null);
   const [queue, setQueue] = useState<QueueStatus>({ pending: 0, rejected: 0 });
   const [settings, setSettings] = useState<ScreenSettings>(DEFAULT_SCREEN_SETTINGS);
@@ -133,14 +130,14 @@ export function KioskApp({ onLeave }: Props) {
   // Botão "voltar" do Android nunca fecha a app do quiosque: volta ao ecrã de espera.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
-      setScreen((current) => (['camera', 'screenSettings'].includes(current) ? 'admin' : 'wait'));
+      setScreen((current) => (current === 'screenSettings' ? 'admin' : 'wait'));
       return true;
     });
     return () => subscription.remove();
   }, []);
 
   useEffect(() => {
-    if (!['admin', 'camera', 'screenSettings'].includes(screen) || adminLeft <= 0) return;
+    if (!['admin', 'screenSettings'].includes(screen) || adminLeft <= 0) return;
     const timer = setTimeout(() => {
       if (adminLeft <= 1) setScreen('wait');
       setAdminLeft((left) => left - 1);
@@ -176,57 +173,36 @@ export function KioskApp({ onLeave }: Props) {
 
   function finishPunch(info: DoneInfo) {
     setDone(info);
-    setSending(false);
     setScreen('done');
   }
 
-  async function queueOffline(photo: string | null) {
-    await enqueuePunch(pin.current, photo);
+  async function queueOffline() {
+    await enqueuePunch(pin.current);
     pin.current = '';
     setQueue(queueStatus());
-    finishPunch({ kind: 'queued', label: 'Picagem guardada', message: 'Sem rede: fica no tablet e é enviada sozinha quando houver ligação.', photoSaved: Boolean(photo) });
+    finishPunch({ kind: 'queued', label: 'Picagem guardada', message: 'Sem rede: fica no tablet e é enviada sozinha quando houver ligação.' });
   }
 
-  /** Rosto (empresa com rosto ligado): modelo de quem digitou o PIN, comparado aqui com a foto. Sem rede ou sem
-   *  registo fica «não verificado»; o servidor nunca recebe fotos para comparar. */
-  async function faceStatus(photo: string | null): Promise<PunchRequest['rosto']> {
-    if (!config?.rosto || !token) return undefined;
-    const { rosto } = await api.face(token, pin.current);
-    if (!rosto || !photo) return 'nao_verificado';
-    try {
-      return (await matchesFaceTemplateBase64(photo, rosto)) ? 'confirmado' : 'nao_confirmado';
-    } catch {
-      return 'nao_verificado';
-    }
-  }
-
-  async function submitPhoto(shot: string | null) {
+  async function submitPunch() {
     if (!token) return;
-    // Com o rosto ligado a câmara abre mesmo sem foto de confirmação; essa foto só serve para comparar e não segue.
-    const photo = config?.foto?.ativa !== false ? shot : null;
-    setSending(true);
-    if (!online) return queueOffline(photo);
+    if (!online) return queueOffline();
     try {
-      const rosto = await faceStatus(shot);
-      const result = await api.punch(token, { pin: pin.current, foto: photo, rosto });
-      const ok = result.foto || result.foto_pedida === false;
+      const result = await api.punch(token, { pin: pin.current });
       finishPunch({
-        kind: ok ? 'ok' : 'no_photo',
+        kind: 'ok',
         name: result.nome,
         label: `${result.rotulo} · ${result.hora}`,
-        message: ok ? 'Registada. Bom trabalho!' : 'Registada sem foto. Fica marcada para o gestor rever.',
-        photoSaved: result.foto,
+        message: 'Registada. Bom trabalho!',
       });
     } catch (error) {
-      setSending(false);
-      if (error instanceof NetworkError) return queueOffline(photo);
+      if (error instanceof NetworkError) return queueOffline();
       if (handleAuthErrors(error)) return;
       if (error instanceof ApiError && (error.status === 404 || error.status === 429)) {
         setPadError(error.status === 404 ? 'PIN inválido. Tente de novo.' : error.message);
         setScreen('pin');
         return;
       }
-      finishPunch({ kind: 'refused', label: 'Não foi possível registar', message: error instanceof ApiError ? error.message : 'Tente de novo.', photoSaved: false });
+      finishPunch({ kind: 'refused', label: 'Não foi possível registar', message: error instanceof ApiError ? error.message : 'Tente de novo.' });
     } finally {
       pin.current = '';
       setPadBusy(false);
@@ -260,8 +236,7 @@ export function KioskApp({ onLeave }: Props) {
   }
 
   const license = config.licenca?.estado ?? 'ativa';
-  const photoOn = config.foto?.ativa !== false;
-  const inAdmin = ['admin', 'camera', 'screenSettings'].includes(screen);
+  const inAdmin = ['admin', 'screenSettings'].includes(screen);
   const dimmed = settings.dimAtNight && isNight(clock) && Date.now() - wokeAt > WAKE_MS;
 
   if (license === 'suspensa' && !inAdmin && screen !== 'adminCode') {
@@ -272,7 +247,7 @@ export function KioskApp({ onLeave }: Props) {
     <Shell>
       {screen !== 'done' ? <TopBar company={config.empresa} place={config.local} online={online} onAdmin={inAdmin ? undefined : () => openPad('adminCode')} /> : null}
       {screen === 'wait' ? (
-        <WaitScreen tabletName={config.tablet} place={config.local} photo={photoOn} face={Boolean(config.rosto)} address={config.local_morada ?? null} onPin={() => openPad('pin')} onInfo={() => setScreen('info')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
+        <WaitScreen tabletName={config.tablet} place={config.local} address={config.local_morada ?? null} onPin={() => openPad('pin')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
       ) : null}
       {screen === 'pin' || screen === 'adminCode' ? (
         <PadScreen
@@ -285,17 +260,12 @@ export function KioskApp({ onLeave }: Props) {
             if (screen === 'adminCode') return submitAdminCode(code);
             pin.current = code;
             setPadError('');
-            if (photoOn || config.rosto) return setScreen('photo');
             setPadBusy(true);
-            return submitPhoto(null);
+            return submitPunch();
           }}
         />
       ) : null}
-      {screen === 'photo' ? <PhotoScreen sending={sending} onPhoto={submitPhoto} /> : null}
       {screen === 'done' && done ? <DoneScreen info={done} onClose={() => setScreen('wait')} /> : null}
-      {screen === 'info' ? (
-        <PhotoInfoScreen company={config.empresa} retentionDays={config.foto?.retencao_dias ?? PHOTO_RETENTION_DAYS_DEFAULT} face={Boolean(config.rosto)} onBack={() => setScreen('wait')} />
-      ) : null}
       {screen === 'admin' ? (
         <AdminScreen
           secondsLeft={adminLeft}
@@ -305,13 +275,11 @@ export function KioskApp({ onLeave }: Props) {
           settings={settings}
           tabletName={config.tablet}
           update={isNewer(config.versao_atual) ? { version: config.versao_atual!, url: config.url_atualizacao || DEFAULT_UPDATE_URL } : null}
-          onCamera={() => setScreen('camera')}
           onScreen={() => setScreen('screenSettings')}
           onFlush={sendQueue}
           onExit={() => { setAdminLeft(0); setScreen('wait'); }}
         />
       ) : null}
-      {screen === 'camera' ? <CameraTestScreen onBack={() => setScreen('admin')} /> : null}
       {screen === 'screenSettings' ? (
         <ScreenSettingsScreen settings={settings} onChange={changeSettings} onUnlink={unlink} onBack={() => setScreen('admin')} />
       ) : null}

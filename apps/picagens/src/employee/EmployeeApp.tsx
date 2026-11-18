@@ -22,7 +22,6 @@ import { Dashboard, Me, Notice, Session, employeeApi } from './api';
 import { PushScreen, onPushOpened, onPushReceived, registerForPush, unregisterPush } from './push';
 import { clearEmployeeQueue, flushEmployeeQueue, pendingEmployeePunches } from './queue';
 import { DocumentsScreen } from './screens/DocumentsScreen';
-import { FaceEnrollScreen } from './screens/FaceEnrollScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
@@ -69,8 +68,6 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [updateRequired, setUpdateRequired] = useState(false);
   const [link, setLink] = useState<string | null>(null);
   const [locationIntro, setLocationIntro] = useState(false);
-  // «Agora não» no registo do rosto: só vale para esta abertura da app.
-  const [faceLater, setFaceLater] = useState(false);
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [teamPin, setTeamPin] = useState<TeamPin | null>(null);
 
@@ -264,24 +261,6 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
           onDone={(granted) => {
             setLocationIntro(false);
             toast.show({ tone: 'ok', title: 'Tudo pronto', text: granted ? 'Sessão guardada. A app abre logo em Hoje.' : 'Pode ligar a localização mais tarde em Hoje.' });
-          }}
-        />
-      </>
-    );
-  }
-
-  // A empresa ligou o rosto e falta o registo (também para quem já usava a app): pede-o ao abrir.
-  if (me.opcoes.rosto && !me.opcoes.rosto_registado && !faceLater) {
-    return (
-      <>
-        <StatusBar style="dark" />
-        <FaceEnrollScreen
-          token={token}
-          company={me.empresa.nome}
-          onLater={() => setFaceLater(true)}
-          onDone={() => {
-            changeMe({ ...me, opcoes: { ...me.opcoes, rosto_registado: true } });
-            toast.show({ tone: 'ok', title: 'Rosto registado', text: 'A partir de agora confirma o rosto ao picar.' });
           }}
         />
       </>

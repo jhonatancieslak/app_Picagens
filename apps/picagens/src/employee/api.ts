@@ -18,9 +18,8 @@ export interface Me {
   versao_atual?: string;
   url_atualizacao?: string;
   licenca: { estado: LicenseState; ate: string | null };
-  /** rosto / rosto_registado (servidor 27/10): a empresa ligou o rosto; sem registo a app abre no ecrã do rosto. */
   /** ver_pin (servidor 20/10): a empresa tem tablet ou PC de picagem ativo → cartão «PIN de picagem» em Hoje. */
-  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean; ver_pin?: boolean; rosto?: boolean; rosto_registado?: boolean };
+  opcoes: { localizacao_obrigatoria: boolean; bloqueio_fora_do_local: boolean; so_na_rede_da_empresa: boolean; lembretes_picagem?: boolean; ver_pin?: boolean };
 }
 
 /** Empresa encontrada pelo código de 6 algarismos (doc 49): confirma-se antes de pedir NIF e PIN. */
@@ -98,11 +97,7 @@ export interface PunchPayload {
   colaborador_id?: string;
   /** Android: posição de uma app de GPS falso (Location.mocked). O servidor marca-a e recusa-a com bloqueio. */
   simulado?: boolean;
-  /** Rosto (servidor 27/10): resultado da comparação feita no telemóvel; sem isto o servidor marca «não verificado». */
-  rosto?: FaceStatus;
 }
-
-export type FaceStatus = 'confirmado' | 'nao_confirmado' | 'nao_verificado';
 
 export interface MonthRecords {
   ano: number;
@@ -289,8 +284,6 @@ export const employeeApi = {
   profilePhoto: (token: string, version: number) => request<{ foto: string }>('GET', `/perfil/foto?formato=base64&v=${version}`, undefined, token),
   uploadProfilePhoto: (token: string, foto: string) => request<{ foto_versao: number }>('POST', '/perfil/foto', { foto }, token),
   deleteProfilePhoto: (token: string) => request<{ ok: boolean }>('DELETE', '/perfil/foto', undefined, token),
-  saveFace: (token: string, modelo: string, versao: string) => request<{ ok: boolean }>('POST', '/rosto', { modelo, versao }, token),
-  face: (token: string) => request<{ rosto: { modelo: string; versao: string } | null }>('GET', '/rosto', undefined, token),
   setReminders: (token: string, ativo: boolean) => request<{ lembretes_picagem: boolean }>('POST', '/perfil/lembretes', { ativo }, token),
   registerPush: (token: string, pushToken: string, plataforma: 'android' | 'ios') =>
     request<{ ok: boolean }>('POST', '/notificacoes/registar', { token: pushToken, plataforma }, token),

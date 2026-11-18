@@ -1,6 +1,5 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Confirmação (5 s): verde = registada; azul-petróleo = registada sem foto; âmbar = guardada sem rede;
-// vermelho = recusada (regra da empresa). Nunca mostra a foto.
+// Confirmação (5 s): verde = registada; âmbar = guardada sem rede; vermelho = recusada.
 import { useEffect, useRef } from 'react';
 import { Animated, Text, View } from 'react-native';
 
@@ -9,17 +8,16 @@ import { CheckIcon } from '../../components/icons';
 import { Logo, useVw } from '../../components/ui';
 import { colors, fonts } from '../../theme';
 
-export type DoneKind = 'ok' | 'no_photo' | 'queued' | 'refused';
+export type DoneKind = 'ok' | 'queued' | 'refused';
 
 export interface DoneInfo {
   kind: DoneKind;
   name?: string;
   label: string;
   message: string;
-  photoSaved: boolean;
 }
 
-const BACKGROUND: Record<DoneKind, string> = { ok: colors.ok, no_photo: colors.pending, queued: colors.warn, refused: colors.danger };
+const BACKGROUND: Record<DoneKind, string> = { ok: colors.ok, queued: colors.warn, refused: colors.danger };
 
 export function DoneScreen({ info, onClose }: { info: DoneInfo; onClose: () => void }) {
   const vw = useVw();
@@ -46,11 +44,6 @@ export function DoneScreen({ info, onClose }: { info: DoneInfo; onClose: () => v
       {info.name ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(3.4), color: '#fff' }}>{info.name}</Text> : null}
       <Text style={{ fontFamily: fonts.display, fontSize: vw(info.kind === 'refused' ? 4.5 : 8), color: '#fff', letterSpacing: -1, textAlign: 'center' }}>{info.label}</Text>
       <Text style={{ fontFamily: fonts.body, fontSize: vw(1.9), color: 'rgba(255,255,255,.94)', maxWidth: vw(60), textAlign: 'center' }}>{info.message}</Text>
-      {info.photoSaved ? (
-        <View style={{ backgroundColor: 'rgba(255,255,255,.2)', borderRadius: 999, paddingHorizontal: vw(1.6), paddingVertical: vw(0.6) }}>
-          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: vw(1.5), color: '#fff' }}>Foto de confirmação guardada</Text>
-        </View>
-      ) : null}
       <View style={{ position: 'absolute', bottom: vw(3) }}>
         <Logo white height={vw(3.2)} />
       </View>

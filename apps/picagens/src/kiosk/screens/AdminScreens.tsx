@@ -1,12 +1,10 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Administração do tablet (código de administrador, 15 min): testar câmara, picagens por enviar,
-// ecrã e bloqueio, sair. O rosto (quando a empresa o liga) compara-se em src/face, nunca aqui.
-import { CameraView, useCameraPermissions } from 'expo-camera';
+// Administração do tablet (código de administrador, 15 min): picagens por enviar, ecrã e bloqueio, sair.
 import { ReactNode, useState } from 'react';
 import { Linking, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 
 import type { LicenseState } from '../api';
-import { CameraIcon, CloudIcon, ExitIcon, LockIcon } from '../../components/icons';
+import { CloudIcon, ExitIcon, LockIcon } from '../../components/icons';
 import { BigButton, Heading, LinkButton, Notice, Paragraph, useVw } from '../../components/ui';
 import type { QueueStatus } from '../queue';
 import type { ScreenSettings } from '../storage';
@@ -51,18 +49,17 @@ interface AdminProps {
   tabletName: string;
   /** Versão mais recente publicada, quando é mais nova do que a instalada. */
   update?: { version: string; url: string } | null;
-  onCamera: () => void;
   onScreen: () => void;
   onFlush: () => void;
   onExit: () => void;
 }
 
-export function AdminScreen({ secondsLeft, license, licenseUntil, queue, settings, tabletName, update, onCamera, onScreen, onFlush, onExit }: AdminProps) {
+export function AdminScreen({ secondsLeft, license, licenseUntil, queue, settings, tabletName, update, onScreen, onFlush, onExit }: AdminProps) {
   const vw = useVw();
   const minutes = Math.floor(secondsLeft / 60);
   const queueText = queue.pending
     ? `${queue.pending} guardada${queue.pending > 1 ? 's' : ''} no tablet. Enviam sozinhas quando houver rede.`
-    : 'Tudo enviado. Fotos incluídas.';
+    : 'Tudo enviado.';
   return (
     <View style={{ flex: 1, paddingTop: vw(7.5), paddingHorizontal: vw(4), gap: vw(1.8) }}>
       <AdminHeader
@@ -74,7 +71,6 @@ export function AdminScreen({ secondsLeft, license, licenseUntil, queue, setting
         }
       />
       <View style={{ flexDirection: 'row', gap: vw(1.4) }}>
-        <Tile title="Testar câmara" text="Posicionar o tablet e ver a luz. Nada é guardado." icon={<CameraIcon size={vw(2.8)} color={colors.action} />} onPress={onCamera} />
         <Tile title="Picagens por enviar" text={queue.rejected ? `${queueText} ${queue.rejected} recusada(s) pelo servidor.` : queueText} badge={queue.pending} icon={<CloudIcon size={vw(2.8)} color={colors.action} />} onPress={onFlush} />
         <Tile title="Ecrã e bloqueio" text={[settings.keepAwake ? 'Sempre ligado' : 'Apaga sozinho', settings.dimAtNight ? 'Escurece à noite' : null].filter(Boolean).join(' · ')} icon={<LockIcon size={vw(2.8)} color={colors.action} />} onPress={onScreen} />
         <Tile title="Sair" text="Volta ao ecrã de picagem." danger icon={<ExitIcon size={vw(2.8)} color={colors.danger} />} onPress={onExit} />
@@ -91,34 +87,6 @@ export function AdminScreen({ secondsLeft, license, licenseUntil, queue, setting
       <Text style={{ textAlign: 'center', fontFamily: fonts.body, fontSize: vw(1.3), color: colors.ink3 }}>
         {versionLabel()} · {androidLabel()} · Tablet “{tabletName}”
       </Text>
-    </View>
-  );
-}
-
-export function CameraTestScreen({ onBack }: { onBack: () => void }) {
-  const vw = useVw();
-  const [permission, requestPermission] = useCameraPermissions();
-  return (
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingTop: vw(6), paddingHorizontal: vw(4), gap: vw(3) }}>
-      <View style={{ flex: 1, alignItems: 'center' }}>
-        <View style={{ width: vw(28), aspectRatio: 3 / 4, borderRadius: vw(2.4), overflow: 'hidden', backgroundColor: '#232A35' }}>
-          {permission?.granted ? <CameraView facing="front" style={{ flex: 1 }} /> : null}
-          <View pointerEvents="none" style={{ position: 'absolute', top: '12%', bottom: '12%', left: '18%', right: '18%', borderRadius: 999, borderWidth: vw(0.5), borderColor: colors.ok }} />
-        </View>
-      </View>
-      <View style={{ flex: 1, gap: vw(1.3) }}>
-        <LinkButton title="‹ Admin" onPress={onBack} />
-        <Heading>Testar câmara</Heading>
-        <Paragraph>Use para posicionar o tablet. Nada é guardado neste teste.</Paragraph>
-        {permission && !permission.granted ? (
-          <View style={{ alignSelf: 'flex-start' }}>
-            <BigButton small primary title="Permitir câmara" onPress={requestPermission} />
-          </View>
-        ) : null}
-        {['Rosto inteiro dentro da moldura, à altura dos olhos', 'Luz de frente, sem janela atrás da pessoa', 'Funciona com capacete e óculos de proteção'].map((tip) => (
-          <Text key={tip} style={{ fontFamily: fonts.body, fontSize: vw(1.55), color: colors.ink2 }}>●  {tip}</Text>
-        ))}
-      </View>
     </View>
   );
 }

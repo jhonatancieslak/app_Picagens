@@ -3,7 +3,6 @@
 import { File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
-import type { FaceTemplate } from '../face/engine';
 import type { Dashboard, Me } from './api';
 
 const TOKEN_KEY = 'employee_token';
@@ -37,7 +36,7 @@ export async function saveSession(token: string, me: Me) {
 }
 
 export async function clearSession() {
-  await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(ME_KEY), SecureStore.deleteItemAsync(FACE_KEY)]);
+  await Promise.all([SecureStore.deleteItemAsync(TOKEN_KEY), SecureStore.deleteItemAsync(ME_KEY), SecureStore.deleteItemAsync(LEGACY_FACE_KEY)]);
   if (dashboardFile.exists) dashboardFile.delete();
 }
 
@@ -61,16 +60,5 @@ export function saveCachedDashboard(dashboard: Dashboard) {
 export const getLastCompanyCode = () => SecureStore.getItemAsync(COMPANY_CODE_KEY);
 export const saveLastCompanyCode = (code: string) => SecureStore.setItemAsync(COMPANY_CODE_KEY, code);
 
-// Modelo do rosto (nunca a foto) no armazenamento seguro: compara-se ao picar, mesmo sem rede.
-const FACE_KEY = 'employee_face';
-
-export async function getFaceTemplate(): Promise<FaceTemplate | null> {
-  try {
-    const raw = await SecureStore.getItemAsync(FACE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export const saveFaceTemplate = (template: FaceTemplate) => SecureStore.setItemAsync(FACE_KEY, JSON.stringify(template));
+/** Modelo do rosto de versões antigas (até 18/11/2026): apaga-se ao terminar sessão, já não se usa. */
+const LEGACY_FACE_KEY = 'employee_face';

@@ -326,7 +326,7 @@ export function LoginScreen({ link, onSession, onKiosk }: Props) {
                   <TabletIcon size={30} color={colors.action} />
                 </View>
                 <Title size={24}>Usar como quiosque?</Title>
-                <Muted>Para o tablet da empresa, fixo na entrada da obra. Todos os colaboradores picam aqui com o PIN e uma foto de confirmação.</Muted>
+                <Muted>Para o tablet da empresa, fixo na entrada da obra. Todos os colaboradores picam aqui só com o PIN.</Muted>
                 <Card style={{ paddingVertical: 12, paddingHorizontal: 14, gap: 6 }}>
                   <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.ink }}>Vai precisar de</Text>
                   <Need>A <B>chave de ativação</B> que o gestor gera no painel (ou o QR)</Need>

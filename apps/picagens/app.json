@@ -2,7 +2,7 @@
   "expo": {
     "name": "Picagens",
     "slug": "picagens",
-    "version": "2.7.0",
+    "version": "2.7.1",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "pt.picagens.colaborador",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -56,7 +56,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "No modo quiosque (tablet da empresa), a Picagens usa a câmara para ler o QR de ativação e para confirmar cada picagem (foto de confirmação e, se a empresa o ligar, o rosto, comparado só no aparelho).",
+          "cameraPermission": "No modo quiosque (tablet da empresa), a Picagens usa a câmara só para ler o QR da chave de ativação.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": true
         }
@@ -86,7 +86,7 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "A Picagens usa a câmara para a foto do certificado de baixa médica e, no modo quiosque, para a foto de confirmação de cada picagem.",
+          "cameraPermission": "A Picagens usa a câmara para tirar a foto do certificado de baixa médica.",
           "photosPermission": "A Picagens abre as suas fotos só para escolher a foto do certificado de baixa médica.",
           "microphonePermission": false
         }
@@ -97,8 +97,7 @@
           "icon": "./assets/notification-icon.png",
           "color": "#2563EB"
         }
-      ],
-      "react-native-fast-tflite"
+      ]
     ],
     "web": {
       "favicon": "./assets/favicon.png"

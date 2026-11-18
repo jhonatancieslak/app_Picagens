@@ -1,11 +1,21 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Foto do certificado de baixa: reduzida (lado maior 1600 px) e enviada em JPEG base64 no JSON, como a foto de perfil.
 // O envio multipart da 2.2.0/2.3.0 falhava no Android antes de chegar ao servidor ("Sem rede", doc 53 §7).
+import { File } from 'expo-file-system';
 import type { ImagePickerAsset } from 'expo-image-picker';
 import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 
 import { SICK_LEAVE_JPEG_QUALITY, SICK_LEAVE_PHOTO_MAX_PX } from '../config';
-import { removeQuietly } from '../kiosk/photo';
+
+/** Apaga um ficheiro temporário da cache; se já não existir não há nada a fazer. */
+function removeQuietly(uri: string) {
+  try {
+    const file = new File(uri);
+    if (file.exists) file.delete();
+  } catch {
+    // ficheiro temporário da cache já removido
+  }
+}
 
 export async function sickLeavePhotoBase64(asset: ImagePickerAsset): Promise<string> {
   const context = ImageManipulator.manipulate(asset.uri);

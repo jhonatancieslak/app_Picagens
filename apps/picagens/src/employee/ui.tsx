@@ -350,7 +350,7 @@ export function HeroOk({ icon, title, text }: { icon: ReactNode; title: string; 
   );
 }
 
-/** Linha de garantia com visto verde (ecrãs que explicam antes de pedir uma permissão: localização, rosto). */
+/** Linha de garantia com visto verde (ecrãs que explicam antes de pedir uma permissão: localização). */
 export function Fact({ title, children, divider }: { title: string; children: ReactNode; divider?: boolean }) {
   return (
     <View style={{ flexDirection: 'row', gap: 10, paddingVertical: 11, paddingHorizontal: 14, borderTopWidth: divider ? 1 : 0, borderTopColor: colors.line }}>

@@ -1,11 +1,11 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// Ecrã de espera: relógio grande, um só botão (PIN) e o aviso da foto de confirmação (só se a empresa a usar).
+// Ecrã de espera: relógio grande e um só botão (PIN).
 import * as Application from 'expo-application';
 import { useEffect, useState } from 'react';
 import { Platform, Pressable, Text, View } from 'react-native';
 
-import { CameraIcon, KeypadIcon } from '../../components/icons';
-import { BigButton, LinkButton, useVw } from '../../components/ui';
+import { KeypadIcon } from '../../components/icons';
+import { BigButton, useVw } from '../../components/ui';
 import { colors, fonts } from '../../theme';
 
 const WEEKDAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -28,17 +28,12 @@ interface Props {
   tabletName: string;
   place: string | null;
   address: string | null;
-  /** A empresa usa a foto de confirmação (Gestão do App). */
-  photo: boolean;
-  /** A empresa ligou o rosto (servidor 27/10): o tablet compara a câmara com o rosto registado de quem pica. */
-  face?: boolean;
   onPin: () => void;
-  onInfo: () => void;
   dimmed: boolean;
   onWake: () => void;
 }
 
-export function WaitScreen({ tabletName, place, address, photo, face = false, onPin, onInfo, dimmed, onWake }: Props) {
+export function WaitScreen({ tabletName, place, address, onPin, dimmed, onWake }: Props) {
   const vw = useVw();
   const [now, setNow] = useState(new Date());
   useEffect(() => {
@@ -70,19 +65,7 @@ export function WaitScreen({ tabletName, place, address, photo, face = false, on
         </View>
       </View>
       <View style={{ flex: 1, justifyContent: 'center', paddingLeft: vw(1), paddingRight: vw(4), gap: vw(1.5) }}>
-        <BigButton primary title="Picar com PIN" subtitle={photo || face ? 'Código de 4 dígitos, depois olhar para a câmara' : 'Código de 4 dígitos'} icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
-        {photo || face ? (
-        <View style={{ flexDirection: 'row', gap: vw(1.1), backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.6), padding: vw(1.4) }}>
-          <CameraIcon size={vw(2.4)} color={colors.action} />
-          <View style={{ flex: 1, gap: vw(0.4) }}>
-            <Text style={{ fontFamily: fonts.body, fontSize: vw(1.4), color: colors.ink2 }}>
-              {face ? 'Ao picar, o tablet confirma o seu rosto aqui mesmo. ' : 'Ao picar, o tablet tira uma foto para confirmar que foi mesmo você. '}
-              <Text style={{ fontFamily: fonts.bodyBold }}>{face ? 'Não guardamos fotografias do rosto.' : 'Não fazemos reconhecimento facial.'}</Text>
-            </Text>
-            <LinkButton title="Saber mais" onPress={onInfo} />
-          </View>
-        </View>
-        ) : null}
+        <BigButton primary title="Picar com PIN" subtitle="Código de 4 dígitos" icon={<KeypadIcon size={vw(3.3)} color="#fff" />} onPress={onPin} />
         <Text style={{ textAlign: 'center', fontFamily: fonts.body, fontSize: vw(1.3), color: colors.ink3 }}>O nome de quem picou só aparece por 5 segundos.</Text>
       </View>
       <Text style={{ position: 'absolute', left: vw(4), bottom: vw(2.4), fontFamily: fonts.bodyMedium, fontSize: vw(1.2), color: colors.ink3 }}>

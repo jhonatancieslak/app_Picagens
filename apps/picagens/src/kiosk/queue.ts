@@ -1,10 +1,9 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Fila de picagens feitas sem rede. Cada picagem guarda a hora do toque (offline_em); o servidor
-// aceita-as até 48 h depois. O PIN fica no armazenamento seguro (Keystore), nunca no ficheiro. A foto fica
-// num ficheiro privado da app **cifrado com AES-256-GCM** (chave gerada no tablet e guardada no Keystore) e é
-// apagada assim que a picagem é enviada ou recusada, ou ao fim de 48 h (o servidor já não a aceitaria).
+// aceita-as até 48 h depois. O PIN fica no armazenamento seguro (Keystore), nunca no ficheiro.
+// Sem fotos desde 18/11/2026 (doc 166): as picagens antigas com foto ainda na fila seguem sem ela, e os
+// ficheiros de foto antigos são apagados quando a picagem sai da fila.
 import * as Crypto from 'expo-crypto';
-import { AESEncryptionKey, AESSealedData, aesDecryptAsync, aesEncryptAsync } from 'expo-crypto';
 import { Directory, File, Paths } from 'expo-file-system';
 import * as SecureStore from 'expo-secure-store';
 
@@ -14,7 +13,6 @@ import { ApiError, NetworkError, api } from './api';
 interface QueuedPunch {
   id: string;
   offlineAt: string;
-  hasPhoto: boolean;
 }
 
 export interface QueueStatus {
@@ -26,8 +24,8 @@ const queueDir = new Directory(Paths.document, 'fila');
 const indexFile = new File(Paths.document, 'fila.json');
 const pinKey = (id: string) => `fila_pin_${id}`;
 const PHOTO_KEY = 'fila_foto_chave';
+/** Ficheiros de foto das versões antigas: só se apagam ao sair da fila. */
 const photoFile = (id: string) => new File(queueDir, `${id}.enc`);
-/** Fila da 2.1.0 (foto em base64 sem cifra): ainda se lê e apaga, para não perder picagens na atualização. */
 const legacyPhotoFile = (id: string) => new File(queueDir, `${id}.b64`);
 const MAX_AGE_MS = OFFLINE_MAX_HOURS * 60 * 60 * 1000;
 
@@ -47,28 +45,6 @@ function writeIndex(items: QueuedPunch[]) {
   indexFile.write(JSON.stringify(items));
 }
 
-async function photoKey(): Promise<AESEncryptionKey> {
-  const saved = await SecureStore.getItemAsync(PHOTO_KEY);
-  if (saved) return AESEncryptionKey.import(saved, 'base64');
-  const key = await AESEncryptionKey.generate(256);
-  await SecureStore.setItemAsync(PHOTO_KEY, await key.encoded('base64'));
-  return key;
-}
-
-async function readPhoto(item: QueuedPunch): Promise<string | null> {
-  if (!item.hasPhoto) return null;
-  const sealed = photoFile(item.id);
-  if (sealed.exists) {
-    try {
-      return await aesDecryptAsync(AESSealedData.fromCombined(await sealed.text()), await photoKey(), { output: 'base64' });
-    } catch {
-      return null; // chave perdida (tablet reposto): a picagem segue sem foto e fica marcada para o gestor rever
-    }
-  }
-  const legacy = legacyPhotoFile(item.id);
-  return legacy.exists ? legacy.text() : null;
-}
-
 async function forget(item: QueuedPunch) {
   await SecureStore.deleteItemAsync(pinKey(item.id));
   [photoFile(item.id), legacyPhotoFile(item.id)].forEach((file) => {
@@ -76,7 +52,7 @@ async function forget(item: QueuedPunch) {
   });
 }
 
-/** Tira da fila (e apaga PIN e foto) o que já passou do prazo que o servidor aceita. */
+/** Tira da fila (e apaga PIN) o que já passou do prazo que o servidor aceita. */
 async function dropExpired(): Promise<number> {
   const now = Date.now();
   const items = readIndex();
@@ -89,24 +65,11 @@ async function dropExpired(): Promise<number> {
 /** No arranque do tablet: mesmo sem rede, nada fica guardado além do prazo. */
 export const purgeExpiredQueue = dropExpired;
 
-export async function enqueuePunch(pin: string, photoBase64: string | null): Promise<void> {
+export async function enqueuePunch(pin: string): Promise<void> {
   await dropExpired();
   const id = Crypto.randomUUID();
   await SecureStore.setItemAsync(pinKey(id), pin);
-  let hasPhoto = false;
-  if (photoBase64) {
-    try {
-      const sealed = await aesEncryptAsync(photoBase64, await photoKey());
-      if (!queueDir.exists) queueDir.create();
-      const file = photoFile(id);
-      file.create();
-      file.write(await sealed.combined('base64'));
-      hasPhoto = true;
-    } catch {
-      hasPhoto = false; // sem cifra não se guarda a foto em claro: a picagem segue sem foto
-    }
-  }
-  writeIndex([...readIndex(), { id, offlineAt: new Date().toISOString(), hasPhoto }]);
+  writeIndex([...readIndex(), { id, offlineAt: new Date().toISOString() }]);
 }
 
 export function queueStatus(): QueueStatus {
@@ -122,9 +85,8 @@ export async function flushQueue(token: string): Promise<QueueStatus> {
     rejectedSinceStart += await dropExpired();
     for (const item of readIndex()) {
       const pin = await SecureStore.getItemAsync(pinKey(item.id));
-      const foto = await readPhoto(item);
       try {
-        if (pin) await api.punch(token, { pin, foto, offline_em: item.offlineAt });
+        if (pin) await api.punch(token, { pin, offline_em: item.offlineAt });
       } catch (error) {
         if (error instanceof NetworkError) break;
         if (error instanceof ApiError && [401, 426, 429].includes(error.status)) break;
@@ -139,7 +101,7 @@ export async function flushQueue(token: string): Promise<QueueStatus> {
   return queueStatus();
 }
 
-/** Tablet desligado da empresa: nada pode ficar guardado (nem a chave das fotos). */
+/** Tablet desligado da empresa: nada pode ficar guardado (nem a chave antiga das fotos). */
 export async function clearQueue() {
   for (const item of readIndex()) await forget(item);
   writeIndex([]);

@@ -159,7 +159,7 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
               {found.local_morada ? <Fact label="Morada" value={found.local_morada} /> : null}
               <Fact label="Nome" value={`Tablet “${found.tablet}”`} />
               <Fact label="Acessos" value={found.acessos.limite ? `${found.acessos.em_uso} de ${found.acessos.limite} do plano` : `${found.acessos.em_uso} (plano sem limite)`} />
-              <Paragraph>A seguir o Android pede a câmara: serve para confirmar cada picagem: foto de confirmação (30 dias, cifrada) e, se a empresa o ligar, o rosto, comparado só no tablet.</Paragraph>
+              <Paragraph>A seguir o Android pede a câmara: serve só para ler o QR da chave de ativação. Não se tiram fotos nem se reconhece o rosto.</Paragraph>
               <View style={{ flexDirection: 'row', gap: vw(1.2) }}>
                 <BigButton primary small title={busy ? 'A ligar…' : 'Permitir câmara e começar'} onPress={activate} disabled={busy} />
                 <BigButton small title="Não é esta empresa" onPress={restart} />
