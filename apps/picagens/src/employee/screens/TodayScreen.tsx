@@ -13,6 +13,7 @@ import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
 import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, KeyIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
+import SlideAction from '../../components/SlideAction';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { Dashboard, DayPunch, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
@@ -341,6 +342,16 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           ))}
         </View>
       </View>
+
+      {!dayClosed && state === 'idle' ? (
+        // Deslizar para a ação seguinte, perto do menu (pedido do Jhonatan, 23/11). O botão grande mantém-se.
+        <SlideAction
+          label={`Deslizar para ${(LABELS[next] ?? 'picar').toLowerCase()}`}
+          color={next === 'saida' ? colors.ink : colors.action}
+          disabled={blocked || (online && !dashboard)}
+          onConfirm={punch}
+        />
+      ) : null}
 
       {me.opcoes.ver_pin ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
