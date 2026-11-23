@@ -165,7 +165,11 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   const circumference = 2 * Math.PI * RING_RADIUS;
   const punches = dashboard?.picagens_hoje ?? [];
   const dayClosed = punches.length > 0 && !isExit;
-  const now = new Date();
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const firstNames = me.colaborador.nome.split(/\s+/).slice(0, 2).join(' ');
   const mood = isExit ? 'Bom trabalho até à saída.' : dayClosed ? 'Dia terminado. Bom descanso.' : 'Bem-vindo(a).';
   const status: { tone: ChipTone; label: string } = !online
@@ -293,30 +297,10 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
       <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 24, padding: 16, gap: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <View style={{ width: RING_SIZE, height: RING_SIZE }}>
-            <Svg width={RING_SIZE} height={RING_SIZE} viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`} style={{ transform: [{ rotate: '-90deg' }] }}>
-              <Circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} fill="none" stroke={colors.line} strokeWidth={RING_STROKE} />
-              <Circle
-                cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} fill="none" stroke={colors.ok} strokeWidth={RING_STROKE}
-                strokeLinecap="round" strokeDasharray={`${circumference}`} strokeDashoffset={circumference * (1 - progress)}
-              />
-            </Svg>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Picar ${(LABELS[next] ?? '').toLowerCase()}`}
-              accessibilityState={{ busy: state !== 'idle', disabled: online && !dashboard }}
-              disabled={state !== 'idle' || (online && !dashboard)}
-              onPress={punch}
-              style={({ pressed }) => ({
-                position: 'absolute', top: RING_INSET, left: RING_INSET, right: RING_INSET, bottom: RING_INSET,
-                borderRadius: RING_SIZE, alignItems: 'center', justifyContent: 'center', gap: 4, backgroundColor: buttonColor,
-                opacity: online && !dashboard ? 0.45 : 1, transform: [{ scale: pressed ? 0.96 : 1 }],
-                shadowColor: colors.action, shadowOpacity: 0.5, shadowRadius: 14, shadowOffset: { width: 0, height: 10 }, elevation: 6,
-              })}
-            >
-              {buttonIcon}
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: '#fff', letterSpacing: 0.3, textTransform: 'uppercase' }}>{buttonText}</Text>
-            </Pressable>
+          <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.display, fontSize: 56, color: colors.ink, letterSpacing: -1, fontVariant: ["tabular-nums"] }}>
+              {`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`}
+            </Text>
           </View>
           <View style={{ flex: 1, gap: 10 }}>
             <View>
