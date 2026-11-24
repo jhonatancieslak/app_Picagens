@@ -293,7 +293,18 @@ export const employeeApi = {
   unregisterPush: (token: string, pushToken: string) => request<{ ok: boolean }>('POST', '/notificacoes/remover', { token: pushToken }, token),
 };
 
+/** Alerta de horário da equipa de hoje (doc 226): atraso ou saída antecipada, com a tolerância da empresa. */
+export interface TeamAlert { colaborador_id: string; nome: string; tipo: 'atraso' | 'saida_antecipada'; previsto: string; real: string; minutos: number }
+/** Pedido de correção de um colaborador da equipa que o chefe autorizado pode decidir (doc 229, decisão 7). */
+export interface TeamCollaboratorCorrection { id: string; colaborador_id: string; nome: string; tipo: string; data_hora: string; motivo: string }
+
 export const teamApi = {
+  alerts: (token: string, pinToken: string, equipa?: string | null) =>
+    request<{ alertas: TeamAlert[] }>('GET', `/equipa/alertas${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
+  decisions: (token: string, pinToken: string, equipa?: string | null) =>
+    request<{ correcoes_colaborador: TeamCollaboratorCorrection[] }>('GET', `/equipa/pedidos${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
+  decideCorrection: (token: string, pinToken: string, id: string, aprovar: boolean, nota?: string) =>
+    request<{ ok: boolean; mensagem: string }>('POST', `/equipa/correcoes/${id}/decidir`, { aprovar, nota }, token, undefined, teamHeaders(pinToken)),
   confirmPin: (token: string, pin: string) => request<{ token: string; validade_horas: number }>('POST', '/equipa/confirmar-pin', { pin }, token),
   today: (token: string, pinToken: string, equipa?: string | null) =>
     request<TeamToday>('GET', `/equipa/hoje${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
