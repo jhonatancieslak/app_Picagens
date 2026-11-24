@@ -7,6 +7,8 @@ import type { LicenseState } from '../kiosk/api';
 export type PunchType = 'entrada' | 'saida' | 'pausa_inicio' | 'pausa_fim';
 
 export interface Me {
+  /** true enquanto o colaborador não aceitou a versão atual dos termos (servidor: /eu). */
+  termos_pendentes?: boolean;
   /** foto_versao muda quando a foto de perfil muda (servidor 2.3.0); null = sem foto. */
   colaborador: { id: string; nome: string; foto_versao?: number | null };
   empresa: { slug: string; nome: string };
@@ -256,6 +258,7 @@ export const employeeApi = {
   company: (codigo: string) => request<Company>('POST', '/empresa', { codigo }),
   login: (codigo: string, nif: string, pin: string) => request<Session>('POST', '/sessao/entrar', { codigo, nif, pin }),
   renew: (token: string) => request<Session>('POST', '/sessao/renovar', {}, token),
+  acceptTerms: (token: string, versao: string) => request<{ ok: boolean }>('POST', '/termos/aceitar', { versao }, token),
   pinRequestCode: (codigo: string, nif: string) => request<PinCodeRequest>('POST', '/pin/pedir-codigo', { codigo, nif }),
   pinConfirm: (codigo: string, token: string, codigo_email: string) => request<PinReset>('POST', '/pin/confirmar', { codigo, token, codigo_email }),
   newPin: (token: string) => request<{ pin: string; restantes_hoje: number }>('POST', '/eu/pin', {}, token),

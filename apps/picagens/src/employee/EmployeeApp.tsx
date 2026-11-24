@@ -23,6 +23,7 @@ import { PushScreen, onPushOpened, onPushReceived, registerForPush, unregisterPu
 import { clearEmployeeQueue, flushEmployeeQueue, pendingEmployeePunches } from './queue';
 import { DocumentsScreen } from './screens/DocumentsScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
+import { TermosScreen } from './screens/TermosScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
 import { PinScreen } from './screens/PinScreen';
@@ -248,6 +249,15 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       <>
         <StatusBar style="dark" />
         <LoginScreen link={link} onSession={startSession} onKiosk={onKiosk} />
+      </>
+    );
+  }
+
+  if (me.termos_pendentes) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <TermosScreen token={token} onAuthError={onAuthError} onDone={() => setMe((m) => (m ? { ...m, termos_pendentes: false } : m))} />
       </>
     );
   }
