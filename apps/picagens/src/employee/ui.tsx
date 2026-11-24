@@ -2,6 +2,7 @@
 // Peças do modo colaborador (telemóvel, vertical). Medidas e cores do protótipo v6 aprovado (doc 49).
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Image, Pressable, Text, TextInput, TextInputProps, View, ViewStyle } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ShieldCheckIcon } from '../components/icons';
@@ -261,7 +262,25 @@ export function Avatar({ name, count, onPress, size = 38, photo }: { name: strin
 }
 
 /** Cabeçalho dos separadores (".hd"): logótipo (Hoje) ou ícone, subtítulo, título grande e saudação. */
-export function Header({ subtitle, title, right, wordmark, greeting }: { subtitle: string; title: string; right?: ReactNode; wordmark?: boolean; greeting?: ReactNode }) {
+/** Cabeçalho único do app. `variante='faixa'` = faixa azul-escura do artboard do chefe (24/11), com botão de voltar. */
+export function Header({ subtitle, title, right, wordmark, greeting, variante, onVoltar }: { subtitle: string; title: string; right?: ReactNode; wordmark?: boolean; greeting?: ReactNode; variante?: 'faixa'; onVoltar?: () => void }) {
+  const insets = useSafeAreaInsets();
+  if (variante === 'faixa') {
+    return (
+      <View style={{ backgroundColor: '#243746', paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+        {onVoltar ? (
+          <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
+            style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', alignItems: 'center', justifyContent: 'center' }}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              <Path d="M15 6l-6 6 6 6" />
+            </Svg>
+          </Pressable>
+        ) : null}
+        <Text style={{ marginTop: onVoltar ? 14 : 0, fontFamily: fonts.bodyBold, fontSize: 24, color: '#FFFFFF' }}>{title}</Text>
+        {subtitle ? <Text style={{ marginTop: 4, fontFamily: fonts.body, fontSize: 13, color: '#D5DEE5' }}>{subtitle}</Text> : null}
+      </View>
+    );
+  }
   return (
     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10, paddingTop: 2 }}>
       <View style={{ flex: 1 }}>

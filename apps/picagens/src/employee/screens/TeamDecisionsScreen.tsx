@@ -3,7 +3,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { TeamCollaboratorCorrection, teamApi } from '../api';
-import { CHEFE, CabecalhoChefe, CartaoChefe, IniciaisAvatar, Pilula } from './chefeUi';
+import { CHEFE, CartaoChefe, IniciaisAvatar, Pilula } from './chefeUi';
+import { Header } from '../ui';
 import { colors } from '../../theme';
 
 type Props = { token: string; pinToken: string; equipa?: string | null; onBack: () => void; onAuthError: (error: unknown) => boolean };
@@ -37,7 +38,7 @@ export function TeamDecisionsScreen({ token, pinToken, equipa, onBack, onAuthErr
   const lista = pedidos ?? [];
   return (
     <View style={{ flex: 1, backgroundColor: CHEFE.fundo }}>
-      <CabecalhoChefe titulo="Correções" subtitulo="Decide o chefe desta equipa. Fica registado." onVoltar={onBack} />
+      <Header variante="faixa" title="Correções" subtitle="Decide o chefe desta equipa. Fica registado." onVoltar={onBack} />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
         {erro ? <Text style={{ color: colors.danger, fontFamily: 'Inter_400Regular' }}>{erro}</Text> : null}
         {pedidos && lista.length === 0 ? (

@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import { TeamAlert, teamApi } from '../api';
-import { CHEFE, CabecalhoChefe, CartaoChefe, IniciaisAvatar, Pilula } from './chefeUi';
+import { CHEFE, CartaoChefe, IniciaisAvatar, Pilula } from './chefeUi';
+import { Header } from '../ui';
 import { colors, fonts } from '../../theme';
 
 type Props = { token: string; pinToken: string; equipa?: string | null; onBack: () => void; onAuthError: (error: unknown) => boolean };
@@ -25,7 +26,7 @@ export function TeamAlertsScreen({ token, pinToken, equipa, onBack, onAuthError 
   const lista = alertas ?? [];
   return (
     <View style={{ flex: 1, backgroundColor: CHEFE.fundo }}>
-      <CabecalhoChefe titulo="Alertas da equipa" subtitulo="Atrasos e saídas antes da hora prevista" onVoltar={onBack} />
+      <Header variante="faixa" title="Alertas da equipa" subtitle="Atrasos e saídas antes da hora prevista" onVoltar={onBack} />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
         {erro ? <Text style={{ color: colors.danger, fontFamily: fonts.body }}>{erro}</Text> : null}
         <CartaoChefe>
