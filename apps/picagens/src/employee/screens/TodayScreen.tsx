@@ -14,6 +14,7 @@ import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, KeyIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
 import SlideAction from '../../components/SlideAction';
+import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { Dashboard, DayPunch, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
@@ -100,6 +101,8 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
+  const [resultado, setResultado] = useState<ResultadoPicar | null>(null);
+  const fecharResultado = useCallback(() => setResultado(null), []);
   const [place, setPlace] = useState<PlaceCheck | null>(null);
   const [fix, setFix] = useState<Fix | null>(null);
   const [fixError, setFixError] = useState<'' | 'denied' | 'disabled' | 'unavailable'>('');
@@ -213,7 +216,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       enqueueEmployeePunch(payload);
       onQueued();
       finish('queued');
-      toast({ tone: 'queued', icon: <CloudSavedIcon size={26} color="#fff" />, title: `${label} guardada às ${clock(new Date())}`, text: 'Envia sozinha quando houver rede.' });
+      setResultado({ tone: 'queued', title: `${label} guardada às ${clock(new Date())}`, text: 'Envia sozinha quando houver rede.' });
     };
 
     if (!online) return queue();
@@ -223,7 +226,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       finish('done');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       const where = place?.dentro === true ? `Dentro do local${fix ? ` · ±${Math.round(fix.accuracy)} m` : ''}` : place?.dentro === false ? 'Fora do local' : undefined;
-      toast({ tone: 'ok', icon: <OkIcon size={26} color="#fff" />, title: `${LABELS[result.tipo] ?? 'Picagem'} registada às ${result.hora}`, text: where });
+      setResultado({ tone: 'ok', title: `${LABELS[result.tipo] ?? 'Picagem'} registada às ${result.hora}`, text: where });
       await onRefresh();
     } catch (error) {
       if (error instanceof NetworkError) return queue();
@@ -327,11 +330,13 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         </View>
       </View>
 
+      <ResultSheet resultado={resultado} onClose={fecharResultado} />
+
       {!dayClosed && state === 'idle' ? (
         // Deslizar para a ação seguinte, perto do menu (pedido do Jhonatan, 23/11). O botão grande mantém-se.
         <SlideAction
           label={`Deslizar para ${(LABELS[next] ?? 'picar').toLowerCase()}`}
-          color={next === 'saida' ? colors.ink : colors.action}
+          color={next === 'saida' ? colors.ink : next === 'pausa_fim' ? colors.warn : colors.action}
           disabled={blocked || (online && !dashboard)}
           onConfirm={punch}
         />
