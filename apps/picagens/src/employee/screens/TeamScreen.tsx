@@ -13,6 +13,8 @@ import {
   MemberState, MissingType, OpinionSense, TeamCorrection, TeamMap, TeamMissing, TeamPunches, TeamRef, TeamRequests, TeamToday, teamApi,
 } from '../api';
 import { Button, Card, Chip, ChipTone, ErrorText, Field, Header, Muted, NumPad, OtpCells, Row, ToastMessage, applyKey } from '../ui';
+import { TeamAlertsScreen } from './TeamAlertsScreen';
+import { TeamDecisionsScreen } from './TeamDecisionsScreen';
 
 const PIN_LENGTH = 4;
 const MONTHS = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -143,6 +145,7 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fix, setFix] = useState<Missing | null>(null);
+  const [ecra, setEcra] = useState<'alertas' | 'decisoes' | null>(null);
 
   /** 401 com pin_necessario = prova do PIN caducada (volta ao pedido de PIN); outro 401/426 = sessão. */
   const fail = useCallback((exc: unknown) => {
@@ -207,6 +210,9 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
   const opinionCount = requests?.pedidos.filter((p) => !p.parecer).length ?? 0;
   const current = teams.find((t) => t.id === team) ?? teams[0];
 
+  if (ecra === 'alertas') return <TeamAlertsScreen token={token} pinToken={pinToken} equipa={team} onBack={() => setEcra(null)} onAuthError={onAuthError} />;
+  if (ecra === 'decisoes') return <TeamDecisionsScreen token={token} pinToken={pinToken} equipa={team} onBack={() => setEcra(null)} onAuthError={onAuthError} />;
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView
@@ -215,6 +221,11 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { load(); loadCounts(); }} />}
       >
         <Header subtitle={current?.local ? `Chefe de equipa · ${current.local}` : 'Chefe de equipa'} title={current?.nome ?? 'Equipa'} />
+
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          <Pill label="Alertas de hoje" active={false} onPress={() => setEcra('alertas')} />
+          <Pill label="Correções para decidir" active={false} onPress={() => setEcra('decisoes')} />
+        </View>
 
         {teams.length > 1 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
