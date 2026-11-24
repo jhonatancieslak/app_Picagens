@@ -1,13 +1,14 @@
-// Alertas da equipa de hoje (doc 226): atrasos e saídas antecipadas, pela hora prevista e a tolerância da empresa.
+// Alertas da equipa de hoje (doc 226). Desenho do artboard «Chefe · Hoje» aprovado: cartão «Alertas da equipa» com linhas e pílula âmbar.
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 
 import { TeamAlert, teamApi } from '../api';
+import { CHEFE, CabecalhoChefe, CartaoChefe, IniciaisAvatar, Pilula } from './chefeUi';
 import { colors, fonts } from '../../theme';
 
 type Props = { token: string; pinToken: string; equipa?: string | null; onBack: () => void; onAuthError: (error: unknown) => boolean };
 
-const ROTULO: Record<TeamAlert['tipo'], string> = { atraso: 'Atraso', saida_antecipada: 'Saída antecipada' };
+const ROTULO: Record<TeamAlert['tipo'], string> = { atraso: 'atrasado', saida_antecipada: 'saiu cedo' };
 
 export function TeamAlertsScreen({ token, pinToken, equipa, onBack, onAuthError }: Props) {
   const [alertas, setAlertas] = useState<TeamAlert[] | null>(null);
@@ -21,25 +22,31 @@ export function TeamAlertsScreen({ token, pinToken, equipa, onBack, onAuthError 
     return () => { vivo = false; };
   }, [token, pinToken, equipa, onAuthError]);
 
+  const lista = alertas ?? [];
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: 56 }}>
-      <Pressable onPress={onBack} accessibilityRole="button" style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.action }}>‹ Voltar</Text>
-      </Pressable>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 24, color: colors.ink, paddingHorizontal: 20 }}>Alertas de hoje</Text>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
+    <View style={{ flex: 1, backgroundColor: CHEFE.fundo }}>
+      <CabecalhoChefe titulo="Alertas da equipa" subtitulo="Atrasos e saídas antes da hora prevista" onVoltar={onBack} />
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
         {erro ? <Text style={{ color: colors.danger, fontFamily: fonts.body }}>{erro}</Text> : null}
-        {alertas && alertas.length === 0 ? (
-          <Text style={{ fontFamily: fonts.body, fontSize: 15, color: colors.ink2 }}>Ninguém picou atrasado nem saiu antes.</Text>
-        ) : null}
-        {(alertas ?? []).map((alerta) => (
-          <View key={`${alerta.colaborador_id}-${alerta.tipo}`} style={{ padding: 16, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, gap: 4 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{alerta.nome}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.ink2 }}>
-              {ROTULO[alerta.tipo]} · previsto {alerta.previsto}, real {alerta.real} ({alerta.minutos} min)
-            </Text>
+        <CartaoChefe>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.ink }}>Alertas da equipa</Text>
+            <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 13, color: CHEFE.cinza }}>{lista.length === 0 ? 'sem alertas' : `${lista.length} hoje`}</Text>
           </View>
-        ))}
+          {lista.length === 0 ? (
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: CHEFE.cinza }}>Ninguém picou atrasado nem saiu antes.</Text>
+          ) : null}
+          {lista.map((alerta) => (
+            <View key={`${alerta.colaborador_id}-${alerta.tipo}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <IniciaisAvatar nome={alerta.nome} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.ink }}>{alerta.nome} {alerta.tipo === 'atraso' ? 'entrou' : 'saiu'} às {alerta.real}</Text>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12.5, color: CHEFE.cinza, marginTop: 2 }}>{alerta.minutos} min {alerta.tipo === 'atraso' ? 'depois' : 'antes'} da hora prevista ({alerta.previsto})</Text>
+              </View>
+              <Pilula texto={ROTULO[alerta.tipo]} ambar />
+            </View>
+          ))}
+        </CartaoChefe>
       </ScrollView>
     </View>
   );

@@ -1,9 +1,10 @@
-// Correções dos colaboradores que o chefe autorizado decide (doc 229, decisão 7). Sem autorização, a lista vem vazia.
+// Correções para decidir (doc 229, decisão 7). Desenho do artboard «Chefe · Pedidos com libertação (aprova)»: cartões com Recusar e Aprovar.
 import { useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { TeamCollaboratorCorrection, teamApi } from '../api';
-import { colors, fonts } from '../../theme';
+import { CHEFE, CabecalhoChefe, CartaoChefe, IniciaisAvatar, Pilula } from './chefeUi';
+import { colors } from '../../theme';
 
 type Props = { token: string; pinToken: string; equipa?: string | null; onBack: () => void; onAuthError: (error: unknown) => boolean };
 
@@ -33,31 +34,37 @@ export function TeamDecisionsScreen({ token, pinToken, equipa, onBack, onAuthErr
     }
   }
 
+  const lista = pedidos ?? [];
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: 56 }}>
-      <Pressable onPress={onBack} accessibilityRole="button" style={{ paddingHorizontal: 20, paddingVertical: 10 }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.action }}>‹ Voltar</Text>
-      </Pressable>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 24, color: colors.ink, paddingHorizontal: 20 }}>Correções para decidir</Text>
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 10 }}>
-        {erro ? <Text style={{ color: colors.danger, fontFamily: fonts.body }}>{erro}</Text> : null}
-        {pedidos && pedidos.length === 0 ? (
-          <Text style={{ fontFamily: fonts.body, fontSize: 15, color: colors.ink2 }}>Não há correções à espera da sua decisão.</Text>
+    <View style={{ flex: 1, backgroundColor: CHEFE.fundo }}>
+      <CabecalhoChefe titulo="Correções" subtitulo="Decide o chefe desta equipa. Fica registado." onVoltar={onBack} />
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
+        {erro ? <Text style={{ color: colors.danger, fontFamily: 'Inter_400Regular' }}>{erro}</Text> : null}
+        {pedidos && lista.length === 0 ? (
+          <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 14, color: CHEFE.cinza }}>Não há correções à espera da sua decisão.</Text>
         ) : null}
-        {(pedidos ?? []).map((pedido) => (
-          <View key={pedido.id} style={{ padding: 16, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, gap: 6 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{pedido.nome}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.ink2 }}>{pedido.tipo} · {pedido.data_hora.replace('T', ' ')}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.ink2 }}>Motivo: {pedido.motivo}</Text>
-            <View style={{ flexDirection: 'row', gap: 10, marginTop: 6 }}>
-              <Pressable disabled={aDecidir !== null} onPress={() => decidir(pedido.id, false)} style={{ flex: 1, height: 46, borderRadius: 12, borderWidth: 1.5, borderColor: colors.danger, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: fonts.bodyBold, color: colors.danger }}>Recusar</Text>
+        {lista.map((pedido) => (
+          <CartaoChefe key={pedido.id}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <IniciaisAvatar nome={pedido.nome} />
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={{ fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.ink }}>{pedido.nome}</Text>
+                <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 12.5, color: CHEFE.cinza }}>{pedido.tipo} · {pedido.data_hora.replace('T', ' ')}</Text>
+              </View>
+              <Pilula texto="Aguarda" />
+            </View>
+            <Text style={{ fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.ink2 }}>Motivo: {pedido.motivo}</Text>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <Pressable disabled={aDecidir !== null} onPress={() => decidir(pedido.id, false)} accessibilityRole="button"
+                style={{ flex: 1, height: 52, borderRadius: 14, borderWidth: 1.5, borderColor: CHEFE.vermelho, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 15, color: CHEFE.vermelho }}>Recusar</Text>
               </Pressable>
-              <Pressable disabled={aDecidir !== null} onPress={() => decidir(pedido.id, true)} style={{ flex: 1, height: 46, borderRadius: 12, backgroundColor: colors.ok, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ fontFamily: fonts.bodyBold, color: '#fff' }}>{aDecidir === pedido.id ? 'A guardar…' : 'Aprovar'}</Text>
+              <Pressable disabled={aDecidir !== null} onPress={() => decidir(pedido.id, true)} accessibilityRole="button"
+                style={{ flex: 1, height: 52, borderRadius: 14, backgroundColor: CHEFE.verde, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#FFFFFF' }}>{aDecidir === pedido.id ? 'A guardar…' : 'Aprovar'}</Text>
               </Pressable>
             </View>
-          </View>
+          </CartaoChefe>
         ))}
       </ScrollView>
     </View>
