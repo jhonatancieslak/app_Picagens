@@ -1,24 +1,26 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
 // Tokens da marca (doc 02/30 e protótipo v6 aprovado, doc 49). Verde reservado a "picagem feita".
 
+import { tokens } from './tokens';
+
 export const colors = {
-  bg: '#F7F9FC',
-  surface: '#FFFFFF',
-  line: '#E3E8EF',
-  ink: '#16233A',
-  ink2: '#55657A',
-  ink3: '#8A97A8',
-  action: '#2563EB',
+  bg: tokens.cores.fundo,
+  surface: tokens.cores.cartao,
+  line: tokens.cores.borda,
+  ink: tokens.cores.texto,
+  ink2: tokens.cores.textoSecundario,
+  ink3: tokens.cores.textoSuave,
+  action: tokens.cores.azul,
   actionSoft: '#E8EFFE',
   brand: '#00C3FF',
-  ok: '#1E9E52',
+  ok: tokens.cores.verde,
   okSoft: '#E6F6EC',
   pending: '#0E7490',
-  warn: '#B86E00',
-  warnSoft: '#FFF3DC',
+  warn: tokens.cores.ambar,
+  warnSoft: tokens.cores.ambarFundo,
   /** Texto âmbar sobre warnSoft: #B86E00 dava 3,6:1 (abaixo de WCAG AA); este dá 6,5:1 (doc 52 §3 n.º 5). */
   warnInk: '#92400E',
-  danger: '#C62828',
+  danger: tokens.cores.vermelho,
   dangerSoft: '#FDECEC',
   info: '#0B7FA6',
   infoSoft: '#E6F7FD',

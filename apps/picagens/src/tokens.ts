@@ -44,4 +44,4 @@ export const tokens = {
   "sombras": {
     "cartao": "0 6px 16px rgba(36, 55, 70, 0.08)"
   }
-} as const;
+};
