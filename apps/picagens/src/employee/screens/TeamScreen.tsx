@@ -11,10 +11,11 @@ import { ApiError, NetworkError } from '../../http';
 import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import {
-  MemberState, MissingType, OpinionSense, TeamCorrection, TeamMap, TeamMissing, TeamPunches, TeamRef, TeamRequests, TeamToday, teamApi,
+  MemberState, MissingType, OpinionSense, TeamCorrection, TeamMap, TeamMapWeek, TeamMapYear, TeamMissing, TeamPunches, TeamRef, TeamRequests, TeamToday, teamApi,
 } from '../api';
 import { Button, Card, Chip, ChipTone, ErrorText, Field, Header, Muted, NumPad, OtpCells, Row, ToastMessage, applyKey } from '../ui';
 import { TeamAlertsScreen } from './TeamAlertsScreen';
+import { TeamCollaboratorScreen } from './TeamCollaboratorScreen';
 import { TeamDecisionsScreen } from './TeamDecisionsScreen';
 
 const PIN_LENGTH = 4;
@@ -56,6 +57,11 @@ const MAP_LEGEND: [string, string][] = [['P', 'picou'], ['X', 'falta'], ['C', 'c
 
 type Tab = 'today' | 'punches' | 'missing' | 'requests' | 'map';
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+const DAY_MS = 86_400_000;
+/** Data ISO (aaaa-mm-dd) deslocada `delta` dias, sem depender do fuso do telemóvel. */
+const shiftDays = (text: string, delta: number) => new Date(Date.parse(`${text}T12:00:00Z`) + delta * DAY_MS).toISOString().slice(0, 10);
+const MONTHS_SHORT = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const shortRange = (from: string, to: string) => `${Number(from.slice(8))}${from.slice(5, 7) !== to.slice(5, 7) ? ` ${MONTHS_SHORT[Number(from.slice(5, 7)) - 1]}` : ''} a ${Number(to.slice(8))} ${MONTHS_SHORT[Number(to.slice(5, 7)) - 1]}`;
 const TABS: { key: Tab; label: string }[] = [
   { key: 'today', label: 'Hoje' }, { key: 'punches', label: 'Picagens' }, { key: 'missing', label: 'Faltas' }, { key: 'requests', label: 'Pedidos' }, { key: 'map', label: 'Mapa' },
 ];
@@ -152,6 +158,13 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
   const [error, setError] = useState('');
   const [fix, setFix] = useState<Missing | null>(null);
   const [ecra, setEcra] = useState<'alertas' | 'decisoes' | null>(null);
+  // Mapa: semana, mês ou ano (só ver), e a pessoa aberta em «Colaborador no mapa».
+  const [mapMode, setMapMode] = useState<'week' | 'month' | 'year'>('month');
+  const [weekRef, setWeekRef] = useState<string | null>(null);
+  const [mapWeek, setMapWeek] = useState<TeamMapWeek | null>(null);
+  const [mapYear, setMapYear] = useState<TeamMapYear | null>(null);
+  const [yearRef, setYearRef] = useState<number | null>(null);
+  const [person, setPerson] = useState<{ id: string; nome: string } | null>(null);
 
   /** 401 com pin_necessario = prova do PIN caducada (volta ao pedido de PIN); outro 401/426 = sessão. */
   const fail = useCallback((exc: unknown) => {
@@ -178,16 +191,15 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
       if (tab === 'punches') setPunches(await teamApi.punches(token, pinToken, team, day));
       if (tab === 'missing') setMissing(await teamApi.missing(token, pinToken, team));
       if (tab === 'requests') setRequests(await teamApi.requests(token, pinToken, team));
-      if (tab === 'map') {
-        const data = await teamApi.map(token, pinToken, team, month?.ano, month?.mes);
-        setMap(data);
-      }
+      if (tab === 'map' && mapMode === 'month') setMap(await teamApi.map(token, pinToken, team, month?.ano, month?.mes));
+      if (tab === 'map' && mapMode === 'week') setMapWeek(await teamApi.mapWeek(token, pinToken, team, weekRef ?? undefined));
+      if (tab === 'map' && mapMode === 'year') setMapYear(await teamApi.mapYear(token, pinToken, team, yearRef ?? undefined));
     } catch (exc) {
       fail(exc);
     } finally {
       setLoading(false);
     }
-  }, [tab, token, pinToken, team, month, day, fail]);
+  }, [tab, token, pinToken, team, month, day, mapMode, weekRef, yearRef, fail]);
 
   useEffect(() => { loadCounts(); }, [loadCounts]);
   useEffect(() => { load(); }, [load]);
@@ -216,6 +228,8 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
   const opinionCount = requests?.pedidos.filter((p) => !p.parecer).length ?? 0;
   const current = teams.find((t) => t.id === team) ?? teams[0];
 
+  const authOrPin = (exc: unknown) => { if (needsPin(exc)) { onPinExpired(); return true; } return onAuthError(exc); };
+  if (person) return <TeamCollaboratorScreen token={token} pinToken={pinToken} person={person} avatar={avatar} onBack={() => setPerson(null)} onAuthError={authOrPin} toast={toast} />;
   if (ecra === 'alertas') return <TeamAlertsScreen token={token} pinToken={pinToken} equipa={team} onBack={() => setEcra(null)} onAuthError={onAuthError} />;
   if (ecra === 'decisoes') return <TeamDecisionsScreen token={token} pinToken={pinToken} equipa={team} onBack={() => setEcra(null)} onAuthError={onAuthError} />;
 
@@ -416,7 +430,92 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
           </>
         ) : null}
 
-        {tab === 'map' && map ? (
+        {tab === 'map' ? (
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {([['week', 'Semana'], ['month', 'Mês'], ['year', 'Ano']] as const).map(([key, label]) => (
+              <Pressable key={key} accessibilityRole="radio" accessibilityState={{ selected: mapMode === key }} onPress={() => setMapMode(key)}
+                style={{ flex: 1, minHeight: 44, borderRadius: 12, borderWidth: 1.5, borderColor: mapMode === key ? colors.band : colors.fieldBorder, backgroundColor: mapMode === key ? colors.band : colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: mapMode === key ? colors.surface : colors.ink }}>{label}</Text>
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {tab === 'map' && mapMode === 'week' && mapWeek ? (
+          <Card style={{ paddingVertical: 12, gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 }}>
+              <MonthArrow label="Semana anterior" text="‹" onPress={() => setWeekRef(shiftDays(mapWeek.inicio, -7))} />
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{shortRange(mapWeek.inicio, mapWeek.fim)}</Text>
+              <MonthArrow label="Semana seguinte" text="›" onPress={() => setWeekRef(shiftDays(mapWeek.inicio, 7))} />
+            </View>
+            <View style={{ paddingHorizontal: 12, gap: 4 }}>
+              <View style={{ flexDirection: 'row', gap: 4 }}>
+                <View style={{ width: 84 }} />
+                {WEEKDAYS.slice(1).concat(WEEKDAYS[0]).map((label) => (
+                  <Text key={label} style={{ flex: 1, textAlign: 'center', fontFamily: fonts.bodyMedium, fontSize: 11.5, color: colors.ink3 }}>{label}</Text>
+                ))}
+              </View>
+              {mapWeek.membros.map((m) => (
+                <View key={m.id} style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+                  <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${m.nome}`} onPress={() => setPerson({ id: m.id, nome: m.nome })} style={{ width: 84, minHeight: 44, justifyContent: 'center' }}>
+                    <Text numberOfLines={1} style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.band }}>{m.nome}</Text>
+                  </Pressable>
+                  {m.dias.map((code, i) => {
+                    const cell = code ? MAP_CELL[code] : null;
+                    return (
+                      <Pressable key={i} onPress={() => setPerson({ id: m.id, nome: m.nome })} accessibilityRole="button"
+                        style={{ flex: 1, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: cell?.bg ?? 'transparent' }}>
+                        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12.5, color: cell?.fg ?? colors.ink3 }}>{code === '-' ? '–' : code ?? ''}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+            </View>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 14 }}>
+              {MAP_LEGEND.map(([code, label]) => (
+                <View key={code} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 3, backgroundColor: MAP_CELL[code].bg, borderWidth: 1, borderColor: MAP_CELL[code].fg }} />
+                  <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: colors.ink2 }}>{label}</Text>
+                </View>
+              ))}
+            </View>
+            <Muted size={12} center>Toque num nome ou num dia para ver e corrigir as picagens dessa pessoa.</Muted>
+          </Card>
+        ) : null}
+
+        {tab === 'map' && mapMode === 'year' && mapYear ? (
+          <Card style={{ paddingVertical: 12, gap: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 }}>
+              <MonthArrow label="Ano anterior" text="‹" onPress={() => setYearRef(mapYear.ano - 1)} />
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{mapYear.ano} · só para ver</Text>
+              <MonthArrow label="Ano seguinte" text="›" onPress={() => setYearRef(mapYear.ano + 1)} />
+            </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ paddingHorizontal: 12 }}>
+              <View style={{ gap: 3 }}>
+                <View style={{ flexDirection: 'row', gap: 3 }}>
+                  <View style={{ width: 84 }} />
+                  {['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'].map((label, i) => (
+                    <Text key={i} style={{ width: 30, textAlign: 'center', fontFamily: fonts.bodyMedium, fontSize: 11.5, color: colors.ink3 }}>{label}</Text>
+                  ))}
+                </View>
+                {mapYear.membros.map((m) => (
+                  <View key={m.id} style={{ flexDirection: 'row', gap: 3, alignItems: 'center' }}>
+                    <Text numberOfLines={1} style={{ width: 84, fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.ink }}>{m.nome}</Text>
+                    {m.meses.map((faltas, i) => (
+                      <View key={i} style={{ width: 30, height: 28, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: faltas ? colors.warnSoft : 'transparent' }}>
+                        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: faltas ? colors.warnInk : colors.ink3 }}>{faltas || '·'}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+            <Muted size={12} center>Faltas por mês. Só para ver: os meses fechados não mudam.</Muted>
+          </Card>
+        ) : null}
+
+        {tab === 'map' && mapMode === 'month' && map ? (
           <Card style={{ paddingVertical: 12, gap: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6 }}>
               <MonthArrow label="Mês anterior" text="‹" onPress={() => changeMonth(-1)} />
@@ -433,7 +532,9 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
                 </View>
                 {map.membros.map((m) => (
                   <View key={m.id} style={{ flexDirection: 'row', gap: 3, alignItems: 'center' }}>
-                    <Text numberOfLines={1} style={{ width: 64, fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink }}>{m.nome.split(' ')[0]}</Text>
+                    <Pressable accessibilityRole="button" accessibilityLabel={`Abrir ${m.nome}`} onPress={() => setPerson({ id: m.id, nome: m.nome })} style={{ width: 64 }}>
+                      <Text numberOfLines={1} style={{ fontFamily: fonts.bodyBold, fontSize: 12, color: colors.band }}>{m.nome.split(' ')[0]}</Text>
+                    </Pressable>
                     {m.dias.map((code, i) => {
                       const cell = code ? MAP_CELL[code] : null;
                       const day = `${map.ano}-${String(map.mes).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}`;
@@ -443,7 +544,7 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
                           disabled={code !== 'X'}
                           accessibilityRole={code === 'X' ? 'button' : undefined}
                           accessibilityLabel={code === 'X' ? `Falta de ${m.nome} a ${datePt(day)}` : undefined}
-                          onPress={() => setTab('missing')}
+                          onPress={() => setPerson({ id: m.id, nome: m.nome })}
                           style={{ width: 22, height: 24, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: cell?.bg ?? 'transparent' }}
                         >
                           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10.5, color: cell?.fg ?? colors.ink3 }}>{code === '-' ? '–' : code ?? ''}</Text>
@@ -462,7 +563,7 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
                 </View>
               ))}
             </View>
-            <Muted size={12} center>Deslize na horizontal. Toque num X para ver as faltas e corrigir (últimos 7 dias).</Muted>
+            <Muted size={12} center>Deslize na horizontal. Toque no nome ou num X para ver e corrigir os dias dessa pessoa.</Muted>
           </Card>
         ) : null}
 

@@ -278,6 +278,35 @@ export interface TeamMap {
   membros: { id: string; nome: string; iniciais: string; dias: (string | null)[]; faltas: number }[];
 }
 
+export interface TeamMapWeek {
+  equipa: TeamRef;
+  inicio: string;
+  fim: string;
+  membros: { id: string; nome: string; iniciais: string; dias: (string | null)[]; faltas: number }[];
+}
+
+/** Ano só para ver: faltas por mês de cada pessoa (doc 224). */
+export interface TeamMapYear {
+  equipa: TeamRef;
+  ano: number;
+  meses: { mes: number; faltas: number }[];
+  membros: { id: string; nome: string; iniciais: string; meses: number[] }[];
+}
+
+/** «Colaborador no mapa» (artboard AppChefeColaboradorMapa): os dias da janela de correção de uma pessoa. */
+export interface TeamCollaboratorDays {
+  colaborador: { id: string; nome: string; iniciais: string };
+  janela: number;
+  correcao_direta: boolean;
+  chefe_pica: boolean;
+  pausa_manual: boolean;
+  dias: {
+    data: string; rotulo: string; estado: 'falta' | 'ausencia' | 'a_trabalhar' | 'completo' | 'sem_registo' | 'ainda' | 'folga'; texto: string;
+    fechado: boolean; pode_marcar_falta: boolean;
+    picagens: { id: string; tipo: string; hora: string; pendente: boolean }[];
+  }[];
+}
+
 /** Picagens de um dia por membro (separador «Picagens», 2.7.0, canvas 45): hora e tipo, sem GPS nem foto. */
 export interface TeamPunches {
   equipa: TeamRef;
@@ -401,6 +430,14 @@ export const teamApi = {
     request<TeamRequests>('GET', `/equipa/pedidos${teamQuery(equipa)}`, undefined, token, undefined, teamHeaders(pinToken)),
   map: (token: string, pinToken: string, equipa: string | null, ano?: number, mes?: number) =>
     request<TeamMap>('GET', `/equipa/mapa${teamQuery(equipa, ano && mes ? `ano=${ano}&mes=${mes}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
+  mapWeek: (token: string, pinToken: string, equipa: string | null, data?: string) =>
+    request<TeamMapWeek>('GET', `/equipa/mapa/semana${teamQuery(equipa, data ? `data=${data}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
+  mapYear: (token: string, pinToken: string, equipa: string | null, ano?: number) =>
+    request<TeamMapYear>('GET', `/equipa/mapa/ano${teamQuery(equipa, ano ? `ano=${ano}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
+  collaboratorDays: (token: string, pinToken: string, id: string) =>
+    request<TeamCollaboratorDays>('GET', `/equipa/colaborador/${encodeURIComponent(id)}/dias`, undefined, token, undefined, teamHeaders(pinToken)),
+  markAbsence: (token: string, pinToken: string, body: { colaborador_id: string; data: string; motivo: string }) =>
+    request<{ id: string; estado: string; mensagem: string }>('POST', '/equipa/faltas/marcar', body, token, undefined, teamHeaders(pinToken)),
   punches: (token: string, pinToken: string, equipa?: string | null, data?: string | null) =>
     request<TeamPunches>('GET', `/equipa/picagens${teamQuery(equipa, data ? `data=${encodeURIComponent(data)}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
   propose: (token: string, pinToken: string, body: TeamCorrection) =>
