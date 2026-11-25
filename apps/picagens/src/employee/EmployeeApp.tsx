@@ -33,7 +33,7 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
 import { TeamPin, TeamScreen } from './screens/TeamScreen';
-import { TodayScreen } from './screens/TodayScreen';
+import { TodayScreen, parseHours } from './screens/TodayScreen';
 import { clearSession, getCachedDashboard, getCachedMe, getEmployeeToken, saveCachedDashboard, saveSession } from './storage';
 import { AvatarPhoto, FadeIn, useToast } from './ui';
 
@@ -341,7 +341,10 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               toast={toast.show}
             />
           ) : null}
-          {!overlay && activeTab === 'records' ? <RecordsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && activeTab === 'records' ? (
+            <RecordsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
+              weeklyMinutes={dashboard?.semana?.carga_texto ? parseHours(dashboard.semana.carga_texto) || null : null} onAuthError={onAuthError} />
+          ) : null}
           {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
           {!overlay && activeTab === 'documents' ? (
             <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />

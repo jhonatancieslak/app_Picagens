@@ -3,21 +3,17 @@
 // depois os dias do mês com as horas ou o que falta corrigir. Mês anterior/seguinte em baixo. Tocar num dia abre o
 // pedido de correção (2.3.0: na 2.2.0 o "Corrigir" não fazia nada, doc 53 §3); o gestor aprova no painel.
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { ApiError, NetworkError } from '../../http';
 import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { MonthRecords, PunchType, Visto, employeeApi } from '../api';
-import { Button, Card, Chip, ErrorText, Field, Header, Muted, Row, Section } from '../ui';
+import { Avatar, AvatarPhoto, Button, Card, ErrorText, Field, Header, Muted } from '../ui';
 import { formatHours, parseHours } from './TodayScreen';
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
-const WEEK_LETTERS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const WORKDAY_MINUTES = 8 * 60;
-const BAR_MAX_PX = 60;
 const DAY_MS = 86_400_000;
 
 const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
@@ -94,156 +90,171 @@ function CorrectionCard({ token, day, onClose, onSent, onAuthError }: { token: s
   );
 }
 
-export function RecordsScreen({ token, onAuthError }: { token: string; onAuthError: (error: unknown) => boolean }) {
-  const insets = useSafeAreaInsets();
+const WEEKDAYS_FULL = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+const WEEKDAYS_LONG_MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const WORKING_DAYS = 5;
+
+/** Registos, semana (artboard p2311-registos, aprovado 24/11): semana anterior/seguinte, total contra as horas previstas
+ * e um dia por linha com entrada e saída. Dias sem saída pedem a correção ali mesmo. Os vistos por confirmar ficam no topo. */
+export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onAuthError }: {
+  token: string; name: string; photo: AvatarPhoto | null; onProfile: () => void; weeklyMinutes: number | null; onAuthError: (error: unknown) => boolean;
+}) {
   const today = new Date();
-  const { monday, number } = weekOf(today);
+  const [offset, setOffset] = useState(0);
+  const monday = new Date(weekOf(today).monday.getTime() + offset * 7 * DAY_MS);
   const sunday = new Date(monday.getTime() + 6 * DAY_MS);
-  const [month, setMonth] = useState({ ano: today.getFullYear(), mes: today.getMonth() + 1 });
   const [data, setData] = useState<MonthRecords | null>(null);
-  const [weekDays, setWeekDays] = useState<Record<string, Day>>({});
+  const [daysByDate, setDaysByDate] = useState<Record<string, Day>>({});
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState('');
   const [correcting, setCorrecting] = useState<string | null>(null);
+  const mondayKey = iso(monday);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
-      const current = await employeeApi.records(token, month.ano, month.mes);
-      setData(current);
-      // A semana atual pode começar no mês anterior.
-      const sources = [current];
-      if (monday.getMonth() !== today.getMonth()) sources.push(await employeeApi.records(token, monday.getFullYear(), monday.getMonth() + 1));
+      // A semana pode começar num mês e acabar noutro: pede os (um ou dois) meses que a cobrem.
+      const start = fromIso(mondayKey);
+      const end = new Date(start.getTime() + 6 * DAY_MS);
+      const months = [{ ano: start.getFullYear(), mes: start.getMonth() + 1 }];
+      if (end.getMonth() !== start.getMonth()) months.push({ ano: end.getFullYear(), mes: end.getMonth() + 1 });
+      const loaded = await Promise.all(months.map((m) => employeeApi.records(token, m.ano, m.mes)));
       const map: Record<string, Day> = {};
-      sources.forEach((source) => source.dias.forEach((day) => { map[day.data] = day; }));
-      setWeekDays((previous) => (month.ano === today.getFullYear() && month.mes === today.getMonth() + 1 ? map : { ...previous }));
+      loaded.forEach((source) => source.dias.forEach((day) => { map[day.data] = day; }));
+      setDaysByDate(map);
+      setData(loaded[loaded.length - 1]);
     } catch (exc) {
       if (onAuthError(exc)) return;
       setError(exc instanceof NetworkError ? 'Sem rede. Os registos aparecem quando houver ligação.' : exc instanceof ApiError ? exc.message : 'Não foi possível carregar.');
     } finally {
       setLoading(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token, month, onAuthError]);
+  }, [token, mondayKey, onAuthError]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const week = Array.from({ length: 7 }, (_, index) => {
+  const todayKey = iso(today);
+  const hasWeekend = [5, 6].some((index) => daysByDate[iso(new Date(monday.getTime() + index * DAY_MS))]?.picagens.length);
+  const rows = Array.from({ length: hasWeekend ? 7 : WORKING_DAYS }, (_, index) => {
     const date = new Date(monday.getTime() + index * DAY_MS);
-    const day = weekDays[iso(date)];
-    const minutes = day ? parseHours(day.horas) : 0;
-    return { letter: WEEK_LETTERS[index], minutes, incomplete: Boolean(day && !day.completo && iso(date) !== iso(today)), future: date > today };
+    const key = iso(date);
+    const day = daysByDate[key];
+    const entry = day?.picagens.find((p) => p.tipo === 'entrada')?.hora;
+    const exit = [...(day?.picagens ?? [])].reverse().find((p) => p.tipo === 'saida')?.hora;
+    return { key, date, day, entry, exit, minutes: day ? parseHours(day.horas) : 0, isToday: key === todayKey, future: key > todayKey };
   });
-  const weekMinutes = week.reduce((sum, day) => sum + day.minutes, 0);
-  const incomplete = week.filter((day) => day.incomplete).length;
-  const isCurrentMonth = month.ano === today.getFullYear() && month.mes === today.getMonth() + 1;
-  const days = [...(data?.dias ?? [])].reverse();
-  const range = `${monday.getDate()} ${MONTHS[monday.getMonth()]} – ${sunday.getDate()} ${MONTHS[sunday.getMonth()]}`;
+  const totalMinutes = rows.reduce((sum, row) => sum + row.minutes, 0);
+  const progress = weeklyMinutes ? Math.min(totalMinutes / weeklyMinutes, 1) : 0;
+  const human = (minutes: number) => `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
+  const rangeText = `${monday.getDate()}${monday.getMonth() !== sunday.getMonth() ? ` de ${WEEKDAYS_LONG_MONTHS[monday.getMonth()]}` : ''} a ${sunday.getDate()} de ${WEEKDAYS_LONG_MONTHS[sunday.getMonth()]}`;
+  const isCurrentWeek = offset === 0;
 
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 12 }}
-      refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.action]} />}
-    >
-      <Header subtitle={`Semana ${number} · ${range}`} title="Registos" />
-      {done ? (
-        <View style={{ backgroundColor: colors.okSoft, borderRadius: 14, padding: 12 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ok }}>{done}</Text>
-        </View>
-      ) : null}
-      {(data?.vistos_pendentes ?? []).map((visto) => (
-        <VistoCard key={`${visto.inicio}-${visto.fim}`} token={token} visto={visto} declaration={data!.declaracao_visto} onAuthError={onAuthError}
-          onConfirmed={(text) => { setDone(text); load(); }} />
-      ))}
-
-      <Card>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingTop: 14, paddingHorizontal: 14 }}>
-          <View>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11.5, color: colors.ink3, letterSpacing: 0.7, textTransform: 'uppercase' }}>Esta semana</Text>
-            <Text style={{ fontFamily: fonts.display, fontSize: 27, color: colors.ink }}>
-              {Math.floor(weekMinutes / 60)}h<Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink3 }}> {String(weekMinutes % 60).padStart(2, '0')}</Text>
-            </Text>
+    <View style={{ flex: 1 }}>
+      <Header
+        variante="faixaLogo"
+        title="Registos"
+        subtitle="As suas horas desta semana"
+        right={(
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
+            <Avatar name={name} count={0} onPress={onProfile} photo={photo} size={36} />
           </View>
-          {incomplete ? <Chip tone="warn" label={`${incomplete} dia${incomplete > 1 ? 's' : ''} incompleto${incomplete > 1 ? 's' : ''}`} /> : <Chip tone="ok" label="Tudo certo" />}
+        )}
+      />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120, gap: 12 }}
+        refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.action]} />}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <WeekArrow label="‹" accessibilityLabel="Semana anterior" onPress={() => { setCorrecting(null); setOffset(offset - 1); }} />
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{rangeText}</Text>
+          <WeekArrow label="›" accessibilityLabel="Semana seguinte" disabled={isCurrentWeek} onPress={() => { setCorrecting(null); setOffset(offset + 1); }} />
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 6, height: 92, paddingHorizontal: 14, paddingTop: 12 }}>
-          {week.map((day, index) => {
-            const ratio = Math.min(day.minutes / WORKDAY_MINUTES, 1);
-            const color = day.incomplete ? colors.warn : ratio >= 0.95 ? colors.action : colors.actionSoft;
-            return (
-              <View key={index} style={{ flex: 1, alignItems: 'center', gap: 4 }}>
-                <View style={{ width: '100%', height: Math.max(ratio * BAR_MAX_PX, 4), borderRadius: 6, backgroundColor: color, opacity: day.future ? 0.5 : 1 }} />
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: colors.ink3 }}>{day.letter}</Text>
-              </View>
-            );
-          })}
+
+        {done ? (
+          <View style={{ backgroundColor: colors.okSoft, borderRadius: 14, padding: 12 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ok }}>{done}</Text>
+          </View>
+        ) : null}
+        {(data?.vistos_pendentes ?? []).map((visto) => (
+          <VistoCard key={`${visto.inicio}-${visto.fim}`} token={token} visto={visto} declaration={data!.declaracao_visto} onAuthError={onAuthError}
+            onConfirmed={(text) => { setDone(text); load(); }} />
+        ))}
+
+        <View accessibilityLabel="Resumo da semana" style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 16, elevation: 2 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink, fontVariant: ['tabular-nums'] }}>{human(totalMinutes)}</Text>
+            {weeklyMinutes ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink2 }}>de {human(weeklyMinutes).replace(/ 00$/, '')} previstas</Text> : null}
+          </View>
+          {weeklyMinutes ? (
+            <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.skeleton, marginTop: 12, overflow: 'hidden' }}>
+              <View style={{ height: 8, width: `${Math.round(progress * 100)}%`, borderRadius: 4, backgroundColor: colors.band }} />
+            </View>
+          ) : null}
         </View>
-        <View style={{ height: 12 }} />
-      </Card>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4 }}>
-        <MonthArrow label="‹" accessibilityLabel="Mês anterior" onPress={() => data && setMonth(data.mes_anterior)} />
-        <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontFamily: fonts.display, fontSize: 16, color: colors.ink }}>{data?.mes_nome ?? '…'}</Text>
-          <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.ink3 }}>{data ? `${data.horas_mes} no mês` : ' '}</Text>
-        </View>
-        <MonthArrow label="›" accessibilityLabel="Mês seguinte" disabled={isCurrentMonth} onPress={() => data && setMonth(data.mes_seguinte)} />
-      </View>
+        {error ? <ErrorText>{error}</ErrorText> : null}
+        {loading && !data ? <ListaSkeleton /> : null}
 
-      <Section title="Dias" right={`${days.length} com picagens`} />
-      {error ? <Muted>{error}</Muted> : null}
-      {loading && !data ? <ListaSkeleton /> : null}
-      {data && !days.length ? <Muted>Sem picagens neste mês.</Muted> : null}
-
-      {days.length ? (
-        <Card>
-          {days.map((day, index) => {
-            const first = day.picagens[0]?.hora;
-            const last = day.picagens[day.picagens.length - 1];
-            const isToday = day.data === iso(today);
-            const subtitle = !day.completo
-              ? `${first ?? '--:--'} → ${isToday ? 'em curso' : 'sem saída'}`
-              : `${first ?? '--:--'} → ${last?.hora ?? '--:--'}${day.picagens.some((p) => p.fora_do_local) ? ' · fora do local' : ''}${day.picagens.some((p) => p.correcao_pendente) ? ' · correção pedida' : ''}`;
-            if (correcting === day.data) {
+        {data || Object.keys(daysByDate).length ? (
+          <View style={{ backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 4, paddingHorizontal: 16, elevation: 2 }}>
+            {rows.map((row, index) => {
+              const incomplete = Boolean(row.day && !row.day.completo && !row.isToday);
+              const weekday = WEEKDAYS_FULL[row.date.getDay()];
+              const dateText = `${row.date.getDate()} ${MONTHS[row.date.getMonth()]}${row.isToday ? ' · hoje' : ''}`;
+              const hoursText = row.day && row.day.picagens.length
+                ? `${row.entry ?? '--:--'} entrada · ${row.exit ?? (row.isToday ? 'a trabalhar' : 'sem saída')}${row.exit ? ' saída' : ''}`
+                : row.future ? 'Ainda não começou' : 'Sem picagens';
+              if (correcting === row.key && row.day) {
+                return (
+                  <View key={row.key} style={{ paddingVertical: 8 }}>
+                    <CorrectionCard token={token} day={row.day} onClose={() => setCorrecting(null)} onAuthError={onAuthError}
+                      onSent={(message) => { setCorrecting(null); setDone(message); load(); }} />
+                  </View>
+                );
+              }
               return (
-                <View key={day.data} style={{ padding: 8 }}>
-                  <CorrectionCard token={token} day={day} onClose={() => setCorrecting(null)} onAuthError={onAuthError}
-                    onSent={(message) => { setCorrecting(null); setDone(message); load(); }} />
+                <View key={row.key} style={{ paddingVertical: 8, borderBottomWidth: index === rows.length - 1 ? 0 : 1, borderBottomColor: colors.line, backgroundColor: index % 2 ? colors.zebra : 'transparent', marginHorizontal: index % 2 ? -16 : 0, paddingHorizontal: index % 2 ? 16 : 0 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <View>
+                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: row.future ? colors.ink3 : colors.ink }}>{weekday}</Text>
+                      <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink3, marginTop: 2 }}>{dateText}</Text>
+                    </View>
+                    <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: row.future ? colors.ink3 : colors.ink, fontVariant: ['tabular-nums'] }}>{row.minutes ? human(row.minutes) : '—'}</Text>
+                  </View>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink2, marginTop: 4, fontVariant: ['tabular-nums'] }}>{hoursText}</Text>
+                  {incomplete ? (
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.warnInk }}>Dia sem saída</Text>
+                      <Pressable accessibilityRole="button" onPress={() => { setDone(''); setCorrecting(row.key); }} hitSlop={6} style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 8 }}>
+                        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ok }}>Pedir correção</Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </View>
               );
-            }
-            return (
-              <Row
-                key={day.data}
-                first={index === 0}
-                title={dayLabel(day.data)}
-                subtitle={subtitle}
-                onPress={isToday ? undefined : () => { setDone(''); setCorrecting(day.data); }}
-                right={isToday && !day.completo ? <Chip tone="action" label="Hoje" />
-                  : !day.completo ? <Chip tone="warn" label="Corrigir" />
-                  : <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14.5, color: colors.ink }}>{formatHours(parseHours(day.horas))}</Text>}
-              />
-            );
-          })}
-        </Card>
-      ) : null}
-      {days.some((day) => !day.completo && day.data !== iso(today)) ? (
-        <Muted size={12.5}>Dias sem saída: toque no dia para pedir a correção.</Muted>
-      ) : null}
-    </ScrollView>
+            })}
+          </View>
+        ) : null}
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, color: colors.ink2 }}>
+          Uma entrada sem saída fica a aguardar a correção. Peça-a no próprio dia para as horas ficarem certas.
+        </Text>
+      </ScrollView>
+    </View>
   );
 }
 
-function MonthArrow({ label, accessibilityLabel, onPress, disabled }: { label: string; accessibilityLabel: string; onPress: () => void; disabled?: boolean }) {
+function WeekArrow({ label, accessibilityLabel, onPress, disabled }: { label: string; accessibilityLabel: string; onPress: () => void; disabled?: boolean }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} disabled={disabled} hitSlop={10}
-      style={{ width: 36, height: 36, borderRadius: 10, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{label}</Text>
+    <Pressable accessibilityRole="button" accessibilityLabel={accessibilityLabel} onPress={onPress} disabled={disabled} hitSlop={6}
+      style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.35 : 1 }}>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 20, color: colors.band }}>{label}</Text>
     </Pressable>
   );
 }

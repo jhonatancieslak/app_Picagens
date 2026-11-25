@@ -296,8 +296,9 @@ export function Header({ subtitle, title, right, wordmark, greeting, variante, o
               </Svg>
             </Pressable>
           ) : null}
-          <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 29, color: '#FFFFFF' }}>{title}</Text>
+          <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 29, color: colors.surface }}>{title}</Text>
         </View>
+        {subtitle ? <Text style={{ marginTop: 4, fontFamily: fonts.body, fontSize: 15, color: colors.surface, opacity: 0.85 }}>{subtitle}</Text> : null}
       </View>
     );
   }
