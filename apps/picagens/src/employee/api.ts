@@ -91,7 +91,27 @@ export interface ProfileData { nome: string; nif: string; nif_texto: string; ema
 export interface ProfileInput { telefone: string; email: string; morada: string }
 export interface LegalDocument { titulo: string; aviso: string; versao: string; seccoes: { titulo: string; texto: string }[] }
 
+/** `GET /painel` › `amanha` (doc 253): o dia de amanhã; `null` quando a pessoa não tem horário. */
+export interface TomorrowShift {
+  data: string;
+  /** Dia da semana curto do servidor: seg, ter, qua, qui, sex, sab, dom. */
+  dia: string;
+  tipo: 'trabalho' | 'folga' | 'ferias' | 'baixa' | 'feriado' | 'sem_horario';
+  inicio: string | null;
+  fim: string | null;
+  local: string | null;
+  feriado: string | null;
+}
+
+/** `GET /painel` e `/registos` › `banco_horas` (doc 253): só o saldo do próprio; `null` sem banco calculado ou se a empresa o esconde. */
+export interface BankBalance {
+  saldo_minutos: number;
+  saldo: string;
+}
+
 export interface Dashboard {
+  amanha?: TomorrowShift | null;
+  banco_horas?: BankBalance | null;
   semana?: WeekSummary;
   /** Etiqueta do separador «Notificações». */
   notificacoes_por_resolver?: number;

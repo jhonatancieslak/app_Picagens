@@ -19,7 +19,7 @@ import PunchButton, { PunchKind } from '../../components/PunchButton';
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts, punchButton, punchFooterHeight, tabBarHeight } from '../../theme';
-import { Dashboard, Me, Notice, PlaceCheck, PunchPayload, PunchType, TeamRef, WeekSummary, employeeApi } from '../api';
+import { BankBalance, DayPunch, Dashboard, Me, Notice, PlaceCheck, PunchPayload, PunchType, TeamRef, TomorrowShift, WeekSummary, employeeApi } from '../api';
 import { TeamHomeCards } from './TeamHomeCards';
 import { FIX_ERROR_MESSAGES, Fix, addressOf, isFreshFix, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
@@ -53,6 +53,31 @@ export const formatHours = (minutes: number) => `${Math.floor(minutes / 60)}h ${
 const clock = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
 const distanceLabel = (meters: number) => (meters >= 1000 ? `${(meters / 1000).toFixed(1).replace('.', ',')} km` : `${meters} m`);
+
+/** Entrada e saída do turno em curso (ou do último): a entrada mais recente e a saída que veio depois dela, se veio. */
+export function dayEntryExit(punches: DayPunch[]): { entrada: string | null; saida: string | null } {
+  const lastEntry = punches.map((p) => p.tipo).lastIndexOf('entrada');
+  if (lastEntry < 0) return { entrada: null, saida: null };
+  const exit = punches.slice(lastEntry + 1).find((p) => p.tipo === 'saida');
+  return { entrada: punches[lastEntry].hora, saida: exit ? exit.hora : null };
+}
+
+/** «+2 h 15» / «−1 h 30» (o saldo do banco de horas). */
+export function formatBank(minutes: number): string {
+  const abs = Math.abs(minutes);
+  return `${minutes < 0 ? '−' : '+'}${Math.floor(abs / 60)} h ${String(abs % 60).padStart(2, '0')}`;
+}
+
+/** Título e texto do turno de amanhã: «Amanhã · sex 27» e «08:00–17:00», «Folga», «Férias»… */
+export function tomorrowText(shift: TomorrowShift): { title: string; value: string } {
+  const title = `Amanhã · ${shift.dia} ${Number(shift.data.slice(8, 10))}`;
+  const value = shift.tipo === 'trabalho' ? `${shift.inicio}–${shift.fim}`
+    : shift.tipo === 'ferias' ? 'Férias'
+    : shift.tipo === 'baixa' ? 'Baixa'
+    : shift.tipo === 'feriado' ? (shift.feriado ?? 'Feriado')
+    : 'Folga';
+  return { title, value };
+}
 
 const LABELS: Record<string, string> = { entrada: 'Entrada', saida: 'Saída', pausa_inicio: 'Pausa', pausa_fim: 'Fim pausa' };
 
@@ -292,6 +317,8 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           {pending ? <View style={{ marginTop: 8 }}><Chip tone="warn" label={`${pending} por enviar`} /></View> : null}
         </View>
 
+        {dashboard ? <DayCard punches={punches} bank={dashboard.banco_horas ?? null} tomorrow={dashboard.amanha ?? null} /> : null}
+
         {fixError === 'denied' || fixError === 'disabled' ? (
           <View style={{ gap: 10, padding: 16, borderRadius: 18, backgroundColor: colors.warnSoft }}>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -408,6 +435,45 @@ const humanHours = (text: string) => {
 };
 
 /** «Esta semana»: barras por dia, o dia de hoje a escuro, os futuros vazios e a meta diária a tracejado (artboard v9). */
+/** Cartão «Hoje» (artboard V4HojeSimples, doc 252): o que já picou hoje, o banco de horas e o turno de amanhã. O saldo é só do próprio. */
+function DayCard({ punches, bank, tomorrow }: { punches: DayPunch[]; bank: BankBalance | null; tomorrow: TomorrowShift | null }) {
+  const { entrada, saida } = dayEntryExit(punches);
+  const next = tomorrow ? tomorrowText(tomorrow) : null;
+  const label = `Hoje: entrada ${entrada ?? 'por registar'}, saída ${saida ?? 'por registar'}.${bank ? ` Banco de horas ${formatBank(bank.saldo_minutos)}.` : ''}${next ? ` ${next.title}: ${next.value}.` : ''}`;
+  const small = { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink3 } as const;
+  const big = (muted: boolean) => ({ fontFamily: fonts.bodyBold, fontSize: 20, color: muted ? colors.ink3 : colors.ink, fontVariant: ['tabular-nums' as const], marginTop: 2 });
+  return (
+    <View accessibilityLabel={label} style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 14, gap: 12, elevation: 2 }}>
+      <View style={{ flexDirection: 'row', gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={small}>Entrada</Text>
+          <Text style={big(!entrada)}>{entrada ?? 'a seguir'}</Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={small}>Saída</Text>
+          <Text style={big(!saida)}>{saida ?? '--:--'}</Text>
+        </View>
+      </View>
+      {bank || next ? (
+        <View style={{ flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
+          {bank ? (
+            <View style={{ flex: 1 }}>
+              <Text style={small}>Banco de horas</Text>
+              <Text style={{ ...big(false), fontSize: 16, color: bank.saldo_minutos < 0 ? colors.dangerInk : colors.okInk }}>{formatBank(bank.saldo_minutos)}</Text>
+            </View>
+          ) : null}
+          {next ? (
+            <View style={{ flex: 1 }}>
+              <Text style={small}>{next.title}</Text>
+              <Text style={{ ...big(false), fontSize: 16 }}>{next.value}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function WeekCard({ week }: { week: WeekSummary }) {
   const total = week.carga_texto ? `${humanHours(week.total_texto)} de ${humanHours(week.carga_texto)}` : humanHours(week.total_texto);
   return (
