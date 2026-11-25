@@ -149,6 +149,8 @@ export interface Visto {
   hash: string;
   minutos: number;
   estado: 'por_confirmar' | 'alterado';
+  /** Mês completo: o visto leva a assinatura desenhada (obrigatória antes do fecho do mês, doc 249). */
+  assinatura_obrigatoria?: boolean;
   dias?: { data: string; minutos: number; periodos: string[]; observacoes: string[] }[];
 }
 
@@ -312,8 +314,8 @@ export const employeeApi = {
   checkPlace: (token: string, lat: number, lon: number) => request<PlaceCheck>('POST', '/verificar-local', { lat, lon }, token),
   punch: (token: string, payload: PunchPayload) => request<{ tipo: PunchType; hora: string }>('POST', '/picar', payload, token),
   records: (token: string, ano: number, mes: number) => request<MonthRecords>('GET', `/registos?ano=${ano}&mes=${mes}`, undefined, token),
-  confirmVisto: (token: string, visto: Visto) =>
-    request<{ mensagem: string }>('POST', '/registos/visto', { inicio: visto.inicio, fim: visto.fim, hash: visto.hash, confirmo: true }, token),
+  confirmVisto: (token: string, visto: Visto, assinatura?: string) =>
+    request<{ mensagem: string }>('POST', '/registos/visto', { inicio: visto.inicio, fim: visto.fim, hash: visto.hash, confirmo: true, ...(assinatura ? { assinatura } : {}) }, token),
   requests: (token: string) => request<Requests>('GET', '/pedidos', undefined, token),
   /** «São N dias úteis. Ficam-lhe M dias de férias por gozar.» (`depois` = null sem direito configurado). */
   vacationDays: (token: string, inicio: string, fim: string) =>

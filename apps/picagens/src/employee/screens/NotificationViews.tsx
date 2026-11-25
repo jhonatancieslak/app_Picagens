@@ -6,6 +6,7 @@ import { ReactNode, useEffect, useState } from 'react';
 import { ScrollView, Text, View } from 'react-native';
 
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
+import { SignaturePad } from '../../components/SignaturePad';
 import { Bloco } from '../../components/Skeleton';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
@@ -179,6 +180,7 @@ function weeksOf(visto: Visto): Week[] {
 export function ConfirmRecordsView({ token, avatar, onBack, onDone, onCorrection, onAuthError }: Common & { onDone: () => void; onCorrection: () => void }) {
   const [visto, setVisto] = useState<Visto | null | undefined>(undefined);
   const [declaration, setDeclaration] = useState('');
+  const [signature, setSignature] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [sent, setSent] = useState<ResultadoPicar | null>(null);
@@ -188,7 +190,9 @@ export function ConfirmRecordsView({ token, avatar, onBack, onDone, onCorrection
     const previous = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     Promise.all([employeeApi.records(token, now.getFullYear(), now.getMonth() + 1), employeeApi.records(token, previous.getFullYear(), previous.getMonth() + 1)])
       .then((months: MonthRecords[]) => {
-        const first = months.flatMap((m) => m.vistos_pendentes)[0] ?? null;
+        // O mês completo (com assinatura obrigatória) vem primeiro.
+        const all = months.flatMap((m) => m.vistos_pendentes);
+        const first = all.find((v) => v.assinatura_obrigatoria) ?? all[0] ?? null;
         setVisto(first);
         setDeclaration(months[0].declaracao_visto);
       })
@@ -200,7 +204,7 @@ export function ConfirmRecordsView({ token, avatar, onBack, onDone, onCorrection
     setBusy(true);
     setError('');
     try {
-      const result = await employeeApi.confirmVisto(token, visto);
+      const result = await employeeApi.confirmVisto(token, visto, signature ?? undefined);
       setSent({ tone: 'ok', title: 'Registos confirmados', text: result.mensagem, botao: 'Continuar' });
     } catch (exc) {
       if (!onAuthError(exc)) setError(errorText(exc));
@@ -216,7 +220,7 @@ export function ConfirmRecordsView({ token, avatar, onBack, onDone, onCorrection
       <Screen title={visto ? `Registos de ${monthName}` : 'Confirmar registos'} avatar={avatar} onBack={onBack}
         footer={visto ? (
           <>
-            <Button primary tone="verde" title={busy ? 'A confirmar…' : 'Confirmo que estão certos'} busy={busy} onPress={confirm} />
+            <Button primary tone="verde" title={busy ? 'A confirmar…' : 'Confirmo que estão certos'} busy={busy} disabled={Boolean(visto.assinatura_obrigatoria) && !signature} onPress={confirm} />
             <Button ghost tone="faixa" title="Pedir correção" onPress={onCorrection} />
           </>
         ) : <Button ghost tone="faixa" title="Voltar" onPress={onBack} />}>
@@ -242,6 +246,13 @@ export function ConfirmRecordsView({ token, avatar, onBack, onDone, onCorrection
               </View>
             </View>
             {declaration ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, lineHeight: 19, color: colors.ink2 }}>{declaration}</Text> : null}
+            {visto.assinatura_obrigatoria ? (
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>A sua assinatura do mês</Text>
+                <Muted size={13}>Obrigatória antes de o mês fechar. Fica na folha mensal do registo de tempos (ACT).</Muted>
+                <SignaturePad onChange={setSignature} />
+              </View>
+            ) : null}
           </>
         ) : null}
         <ErrorText>{error}</ErrorText>

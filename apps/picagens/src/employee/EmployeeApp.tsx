@@ -357,7 +357,8 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
           ) : null}
           {!overlay && activeTab === 'records' ? (
             <RecordsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
-              weeklyMinutes={dashboard?.semana?.carga_texto ? parseHours(dashboard.semana.carga_texto) || null : null} onAuthError={onAuthError} />
+              weeklyMinutes={dashboard?.semana?.carga_texto ? parseHours(dashboard.semana.carga_texto) || null : null}
+              onSignMonth={() => setNotifView({ kind: 'vistos' })} onAuthError={onAuthError} />
           ) : null}
           {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)} onAuthError={onAuthError} /> : null}
           {!overlay && activeTab === 'documents' ? (

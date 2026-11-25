@@ -96,8 +96,10 @@ const WORKING_DAYS = 5;
 
 /** Registos, semana (artboard p2311-registos, aprovado 24/11): semana anterior/seguinte, total contra as horas previstas
  * e um dia por linha com entrada e saída. Dias sem saída pedem a correção ali mesmo. Os vistos por confirmar ficam no topo. */
-export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onAuthError }: {
-  token: string; name: string; photo: AvatarPhoto | null; onProfile: () => void; weeklyMinutes: number | null; onAuthError: (error: unknown) => boolean;
+export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onSignMonth, onAuthError }: {
+  token: string; name: string; photo: AvatarPhoto | null; onProfile: () => void; weeklyMinutes: number | null;
+  /** Abre «Confirmar registos» com o quadro de assinatura do mês (doc 249). */
+  onSignMonth: () => void; onAuthError: (error: unknown) => boolean;
 }) {
   const today = new Date();
   const [offset, setOffset] = useState(0);
@@ -183,7 +185,7 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
           </View>
         ) : null}
         {(data?.vistos_pendentes ?? []).map((visto) => (
-          <VistoCard key={`${visto.inicio}-${visto.fim}`} token={token} visto={visto} declaration={data!.declaracao_visto} onAuthError={onAuthError}
+          <VistoCard key={`${visto.inicio}-${visto.fim}`} token={token} visto={visto} declaration={data!.declaracao_visto} onAuthError={onAuthError} onSignMonth={onSignMonth}
             onConfirmed={(text) => { setDone(text); load(); }} />
         ))}
 
@@ -266,7 +268,8 @@ const shortDate = (text: string) => {
 
 /** Confirmação das horas de um período fechado (visto do trabalhador, guardado para o registo ACT). Mostra os dias
  * como a PWA; o servidor só aceita se o registo ainda for o que o colaborador viu (hash). */
-function VistoCard({ token, visto, declaration, onConfirmed, onAuthError }: {
+function VistoCard({ token, visto, declaration, onConfirmed, onAuthError, onSignMonth }: {
+  onSignMonth: () => void;
   token: string; visto: Visto; declaration: string; onConfirmed: (text: string) => void; onAuthError: (error: unknown) => boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -302,7 +305,9 @@ function VistoCard({ token, visto, declaration, onConfirmed, onAuthError }: {
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12.5, color: colors.warn }}>O registo mudou depois do seu último visto (ex.: correção aprovada). Reveja e confirme de novo.</Text>
         </View>
       ) : null}
-      {!open ? (
+      {visto.assinatura_obrigatoria ? (
+        <Button primary tone="verde" title="Assinar o mês" onPress={onSignMonth} />
+      ) : !open ? (
         <Button primary tone="verde" title="Rever e confirmar" onPress={() => setOpen(true)} />
       ) : (
         <>
