@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShieldCheckIcon } from '../components/icons';
 import { Logo } from '../components/ui';
 import { colors, fonts } from '../theme';
+import { tokens } from '../tokens';
 
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
@@ -49,13 +50,16 @@ interface ButtonProps {
   busy?: boolean;
   disabled?: boolean;
   icon?: ReactNode;
+  /** `verde`: botão principal dos ecrãs novos de 24/11 (artboards p2311-*); sem isto mantém o azul do protótipo v6. */
+  tone?: 'verde';
 }
 
 /** Botões do protótipo: .btn (azul), .btn.ghost (branco com texto azul), .btn.link (só texto). */
-export function Button({ title, onPress, primary, danger, ghost, link, busy, disabled, icon }: ButtonProps) {
+export function Button({ title, onPress, primary, danger, ghost, link, busy, disabled, icon, tone }: ButtonProps) {
   const solid = primary || (!ghost && !link && !danger);
-  const background = link ? 'transparent' : solid ? colors.action : colors.surface;
-  const foreground = solid ? '#fff' : danger ? colors.danger : colors.action;
+  const green = tone === 'verde';
+  const background = link ? 'transparent' : solid ? (green ? tokens.cores.verde : colors.action) : colors.surface;
+  const foreground = solid ? '#fff' : danger ? colors.danger : link && green ? tokens.cores.verde : colors.action;
   return (
     <Pressable
       accessibilityRole="button"
@@ -261,10 +265,39 @@ export function Avatar({ name, count, onPress, size = 38, photo }: { name: strin
   );
 }
 
+/** Barra fixa em baixo com os botões do ecrã (artboards de 24/11: fundo branco, linha por cima). */
+export function BarraRodape({ children }: { children: ReactNode }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14, paddingHorizontal: 20, paddingBottom: insets.bottom + 14, gap: 10 }}>
+      {children}
+    </View>
+  );
+}
+
 /** Cabeçalho dos separadores (".hd"): logótipo (Hoje) ou ícone, subtítulo, título grande e saudação. */
 /** Cabeçalho único do app. `variante='faixa'` = faixa azul-escura do artboard do chefe (24/11), com botão de voltar. */
-export function Header({ subtitle, title, right, wordmark, greeting, variante, onVoltar }: { subtitle: string; title: string; right?: ReactNode; wordmark?: boolean; greeting?: ReactNode; variante?: 'faixa'; onVoltar?: () => void }) {
+export function Header({ subtitle, title, right, wordmark, greeting, variante, onVoltar }: { subtitle: string; title: string; right?: ReactNode; wordmark?: boolean; greeting?: ReactNode; variante?: 'faixa' | 'faixaLogo'; onVoltar?: () => void }) {
   const insets = useSafeAreaInsets();
+  if (variante === 'faixaLogo') {
+    // Entrada e «Esqueci o PIN» (artboards p2311-abertura e p2311-esqueci-pin, 25/11): logótipo no topo, voltar e título na mesma linha.
+    return (
+      <View style={{ backgroundColor: tokens.cores.faixa, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+        <Logo height={26} white />
+        <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+          {onVoltar ? (
+            <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
+              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', alignItems: 'center', justifyContent: 'center' }}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+                <Path d="M15 6l-6 6 6 6" />
+              </Svg>
+            </Pressable>
+          ) : null}
+          <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 29, color: '#FFFFFF' }}>{title}</Text>
+        </View>
+      </View>
+    );
+  }
   if (variante === 'faixa') {
     return (
       <View style={{ backgroundColor: '#243746', paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>

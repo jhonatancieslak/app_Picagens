@@ -22,8 +22,8 @@ interface Props {
 export function PinShown({ pin, text }: { pin: string; text: string }) {
   return (
     <Card style={{ paddingVertical: 28, paddingHorizontal: 20, alignItems: 'center', gap: 14 }}>
-      <Text accessibilityLabel={`O seu PIN é ${pin.split('').join(' ')}`} style={{ fontFamily: fonts.display, fontSize: 56, letterSpacing: 16, color: colors.ink }}>{pin}</Text>
-      <Muted size={15} center>{text}</Muted>
+      <Text accessibilityLabel={`O seu PIN é ${pin.split('').join(' ')}`} style={{ fontFamily: fonts.display, fontSize: 48, letterSpacing: 14, color: colors.ink }}>{pin}</Text>
+      <Muted size={14} center>{text}</Muted>
     </Card>
   );
 }

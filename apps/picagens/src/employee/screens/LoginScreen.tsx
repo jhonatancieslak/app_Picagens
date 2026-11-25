@@ -15,7 +15,7 @@ import { colors, fonts } from '../../theme';
 import { Company, Session, employeeApi } from '../api';
 import { PinShown } from './PinScreen';
 import { getKeepSession, getLastCompanyCode, saveKeepSession, saveLastCompanyCode } from '../storage';
-import { BackLink, Button, Card, ErrorText, FadeIn, Field, Hint, Muted, NumPad, OtpCells, PadField, Title, Toggle, applyKey } from '../ui';
+import { BackLink, BarraRodape, Button, Card, ErrorText, FadeIn, Field, Header, Hint, Muted, NumPad, OtpCells, PadField, Title, Toggle, applyKey } from '../ui';
 
 const COMPANY_CODE_LENGTH = 6;
 const NIF_LENGTH = 9;
@@ -223,6 +223,60 @@ export function LoginScreen({ link, onSession, onKiosk }: Props) {
     );
   }
 
+  // «Esqueci-me do PIN» (artboards p2311-abertura 5–7 e p2311-esqueci-pin, aprovados 25/11): faixa com logótipo,
+  // corpo com teclado e barra de botões fixa em baixo. O servidor gera o PIN (nunca é escolhido pela pessoa).
+  if ((step === 'forgot' || step === 'forgotCode' || step === 'newPin') && (company || step === 'newPin')) {
+    const titles = { forgot: 'Esqueci-me do PIN', forgotCode: 'Veja o seu email', newPin: 'O seu PIN novo' } as const;
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+        <Header variante="faixaLogo" subtitle="" title={titles[step]} onVoltar={step === 'forgot' ? () => go('credentials') : step === 'forgotCode' ? () => go('forgot') : undefined} />
+        <FadeIn deps={step}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
+            {step === 'forgot' ? (
+              <>
+                <Muted size={15}>Também serve para o primeiro acesso. Enviamos um código de 6 números para o email que a empresa tem na sua ficha.</Muted>
+                <PadField label="O seu NIF" value={groupNif(nif)} placeholder="9 dígitos" active onPress={() => undefined} />
+                <ErrorText>{error}</ErrorText>
+                <NumPad onKey={credentialKey} />
+                <Hint>Se a empresa não tiver o seu email, peça ao gestor um PIN novo.</Hint>
+              </>
+            ) : null}
+            {step === 'forgotCode' ? (
+              <>
+                <Muted size={15}>{forgotMessage}</Muted>
+                <OtpCells value={emailCode} length={EMAIL_CODE_LENGTH} />
+                <ErrorText>{busy ? '' : error}</ErrorText>
+                {busy ? <Hint>A confirmar…</Hint> : null}
+                <NumPad onKey={emailCodeKey} />
+              </>
+            ) : null}
+            {step === 'newPin' ? (
+              <>
+                <PinShown pin={newPin} text="Anote-o agora: por segurança não volta a ser mostrado. Serve para entrar noutro telemóvel e para picar no tablet da empresa." />
+                <View style={{ backgroundColor: colors.warnSoft, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
+                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, lineHeight: 21, color: colors.warnInk }}>O PIN anterior deixou de funcionar.</Text>
+                </View>
+                <ErrorText>{error}</ErrorText>
+              </>
+            ) : null}
+          </ScrollView>
+        </FadeIn>
+        <BarraRodape>
+          {step === 'forgot' ? (
+            <Button primary tone="verde" title={busy ? 'A enviar…' : 'Enviar código para o meu email'} busy={busy} disabled={nif.length !== NIF_LENGTH} onPress={requestPinCode} />
+          ) : null}
+          {step === 'forgotCode' ? (
+            <>
+              <Button primary tone="verde" title="Confirmar" busy={busy} disabled={emailCode.length !== EMAIL_CODE_LENGTH} onPress={() => confirmPinCode(emailCode)} />
+              <Button link tone="verde" title="Não recebi: pedir outro código" onPress={() => go('forgot')} />
+            </>
+          ) : null}
+          {step === 'newPin' ? <Button primary tone="verde" title={resetSession ? 'Já anotei, entrar' : 'Já anotei'} onPress={enterWithNewPin} /> : null}
+        </BarraRodape>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {corner}
@@ -263,46 +317,6 @@ export function LoginScreen({ link, onSession, onKiosk }: Props) {
               <NumPad onKey={credentialKey} />
               <Button primary title={busy ? 'A entrar…' : 'Entrar'} busy={busy} disabled={nif.length !== NIF_LENGTH || pin.length !== PIN_LENGTH} onPress={enter} />
               <Button link title="Esqueci o PIN" onPress={() => go('forgot')} />
-            </>
-          ) : null}
-
-          {step === 'forgot' && company ? (
-            <>
-              <BackLink label="Voltar" onPress={() => go('credentials')} />
-              <Title>Esqueci-me do PIN</Title>
-              <Muted size={15}>Também serve para o primeiro acesso. Enviamos um código de 6 números para o email que a empresa tem na sua ficha.</Muted>
-              <PadField label="O seu NIF" value={groupNif(nif)} placeholder="9 dígitos" active onPress={() => undefined} />
-              <ErrorText>{error}</ErrorText>
-              <NumPad onKey={credentialKey} />
-              <Button primary title={busy ? 'A enviar…' : 'Enviar código para o meu email'} busy={busy} disabled={nif.length !== NIF_LENGTH} onPress={requestPinCode} />
-              <Hint>Se a empresa não tiver o seu email, peça ao gestor um PIN novo.</Hint>
-            </>
-          ) : null}
-
-          {step === 'forgotCode' && company ? (
-            <>
-              <BackLink label="Voltar" onPress={() => go('forgot')} />
-              <Title>Veja o seu email</Title>
-              <Muted size={15}>{forgotMessage}</Muted>
-              <OtpCells value={emailCode} length={EMAIL_CODE_LENGTH} />
-              <ErrorText>{busy ? '' : error}</ErrorText>
-              {busy ? <Hint>A confirmar…</Hint> : null}
-              <NumPad onKey={emailCodeKey} />
-              <Button primary title="Confirmar" busy={busy} disabled={emailCode.length !== EMAIL_CODE_LENGTH} onPress={() => confirmPinCode(emailCode)} />
-              <Button link title="Não recebi: pedir outro código" onPress={() => go('forgot')} />
-            </>
-          ) : null}
-
-          {step === 'newPin' ? (
-            <>
-              <View style={{ height: 30 }} />
-              <Title>O seu PIN novo</Title>
-              <PinShown pin={newPin} text="Anote-o agora: por segurança não volta a ser mostrado. Serve para entrar noutro telemóvel e para picar no tablet da empresa." />
-              <View style={{ backgroundColor: colors.warnSoft, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
-                <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.warnInk }}>O PIN anterior deixou de funcionar.</Text>
-              </View>
-              <ErrorText>{error}</ErrorText>
-              <Button primary title={resetSession ? 'Já anotei, entrar' : 'Já anotei'} onPress={enterWithNewPin} />
             </>
           ) : null}
 
