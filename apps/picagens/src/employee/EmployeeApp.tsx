@@ -362,7 +362,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
           ) : null}
           {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)} onAuthError={onAuthError} /> : null}
           {!overlay && activeTab === 'documents' ? (
-            <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
+            <DocumentsScreen token={token} me={me} avatar={avatar} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
           ) : null}
           {!overlay && activeTab === 'notifications' ? (
             <NotificationsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)} onOpen={openNotification} onChanged={refreshDashboard} onAuthError={onAuthError} />

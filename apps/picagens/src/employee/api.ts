@@ -177,6 +177,8 @@ export interface Requests {
 export interface Documents {
   documentos: { id: string; titulo: string; tipo: string; tipo_nome: string; ficheiro: string; valido_ate: string | null; validade: { estado: string | null; dias: number | null }; criado_em: string | null }[];
   contratos_por_assinar: { id: string; titulo: string; criado_em: string | null }[];
+  /** Recibos e contratos anexados que a empresa pediu para assinar (artboard p2311-documentos). */
+  por_assinar?: { id: string; titulo: string; tipo: string; criado_em: string | null }[];
 }
 
 export interface Contract {
@@ -326,7 +328,16 @@ export const employeeApi = {
   documents: (token: string) => request<Documents>('GET', '/documentos', undefined, token),
   documentUrl: (id: string) => `${EMPLOYEE_API_URL}/documentos/${encodeURIComponent(id)}`,
   contract: (token: string, id: string) => request<Contract & { ok: boolean }>('GET', `/contratos/${encodeURIComponent(id)}`, undefined, token),
-  contractCode: (token: string, id: string) => request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/codigo`, {}, token),
+  contractCode: (token: string, id: string, assinatura?: string) =>
+    request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/codigo`, assinatura ? { assinatura } : {}, token),
+  /** Recibos e contratos anexados: pedir o código (leitura confirmada + assinatura desenhada) e assinar. */
+  signatureCode: (token: string, id: string, assinatura: string) =>
+    request<{ mensagem: string }>('POST', `/documentos/assinaturas/${encodeURIComponent(id)}/codigo`, { li_e_aceito: true, assinatura }, token),
+  signatureSign: (token: string, id: string, nome: string, codigo: string) =>
+    request<{ mensagem: string }>('POST', `/documentos/assinaturas/${encodeURIComponent(id)}/assinar`, { nome, codigo, li_e_aceito: true }, token),
+  /** Número de páginas de um PDF desenhado pelo servidor (`base` = /documentos/<id> ou /documentos/assinaturas/<id>). */
+  pdfPages: (token: string, base: string) => request<{ paginas: number }>('GET', `${base}/paginas`, undefined, token),
+  pdfPageUrl: (base: string, page: number) => `${EMPLOYEE_API_URL}${base}/paginas/${page}`,
   signContract: (token: string, id: string, nome: string, codigo: string) =>
     request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/assinar`, { nome, codigo, li_e_aceito: true }, token),
   requestCorrection: (token: string, payload: CorrectionPayload) =>

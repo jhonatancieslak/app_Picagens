@@ -1,52 +1,51 @@
 // Desenvolvimento: Cieslak Sistemas, jhonatan.cieslak94@gmail.com, +351 935 834 214
-// "Documentos" (protótipo v6): contratos por assinar em destaque, depois recibos, certificados e avisos da empresa
-// com a validade. Abrir descarrega o ficheiro com a sessão e entrega-o ao leitor do Android.
-// Contrato: ler o texto, "Li e aceito", código de 6 dígitos por email, nome completo e confirmação.
+// «Documentos» (artboard p2311-documentos, aprovado 24/11): resumo «Para assinar», «Por assinar» e «Para ver»; ler o documento
+// dentro da app (o servidor desenha as páginas do PDF), assinar com o dedo, confirmar com o código do email, folha «assinado»
+// e ver o documento guardado. Serve recibos e contratos anexados (assinaturas de documentos) e os contratos de trabalho.
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
-import { DocumentIcon, MailIcon, PenIcon } from '../../components/icons';
+import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
+import { SignaturePad } from '../../components/SignaturePad';
+import { Bloco, ListaSkeleton } from '../../components/Skeleton';
 import { ApiError, NetworkError, appVersion } from '../../http';
-import { Illustration } from '../../components/Illustration';
-import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { Contract, Documents, Me, employeeApi } from '../api';
-import { BackLink, Button, Card, Chip, ErrorText, Field, Header, Muted, NumPad, OtpCells, Row, Title, applyKey } from '../ui';
+import { BarraRodape, Button, ErrorText, Field, Header, Muted, applyKey } from '../ui';
 
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
 const CODE_LENGTH = 6;
-const EXPIRING_DAYS = 30;
+const IMAGE_FILE = /\.(jpe?g|png|webp)$/i;
 
 const dateLabel = (text: string | null) => {
   if (!text) return '';
   const [year, month, day] = text.slice(0, 10).split('-').map(Number);
   return `${day} ${MONTHS[month - 1]}${year !== new Date().getFullYear() ? ` ${year}` : ''}`;
 };
-
+const shortDate = (text: string | null) => (text ? `${text.slice(8, 10)}/${text.slice(5, 7)}` : '');
 const errorText = (exc: unknown) => (exc instanceof NetworkError ? 'Sem rede. Tente quando houver ligação.' : exc instanceof ApiError ? exc.message : 'Não foi possível concluir.');
+
+type Target = { kind: 'recibo' | 'contrato'; id: string; title: string };
+type View_ = { name: 'list' } | { name: 'sign'; target: Target } | { name: 'view'; id: string; title: string; file: string };
 
 interface Props {
   token: string;
   me: Me;
+  /** Nome e avatar à direita da faixa (como nos outros ecrãs). */
+  avatar: ReactNode;
   openContract?: string | null;
   onContractClosed: () => void;
   onAuthError: (error: unknown) => boolean;
 }
 
-export function DocumentsScreen({ token, me, openContract, onContractClosed, onAuthError }: Props) {
-  const insets = useSafeAreaInsets();
+export function DocumentsScreen({ token, me, avatar, openContract, onContractClosed, onAuthError }: Props) {
   const [data, setData] = useState<Documents | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [opening, setOpening] = useState('');
-  const [contract, setContract] = useState<string | null>(openContract ?? null);
-
-  useEffect(() => {
-    if (openContract) setContract(openContract);
-  }, [openContract]);
+  const [view, setView] = useState<View_>({ name: 'list' });
+  const [result, setResult] = useState<ResultadoPicar | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,116 +63,202 @@ export function DocumentsScreen({ token, me, openContract, onContractClosed, onA
     load();
   }, [load]);
 
-  async function open(id: string, name: string) {
-    setOpening(id);
-    setError('');
-    try {
-      const target = new File(Paths.cache, name.replace(/[^\w.\-]+/g, '_') || 'documento.pdf');
-      const file = await File.downloadFileAsync(employeeApi.documentUrl(id), target, {
-        headers: { Authorization: `Bearer ${token}`, 'X-App-Versao': appVersion },
-        idempotent: true,
-      });
-      await Sharing.shareAsync(file.uri, { dialogTitle: name });
-    } catch {
-      setError('Não foi possível abrir o documento. Verifique a ligação e tente de novo.');
-    } finally {
-      setOpening('');
-    }
-  }
+  // Notificação «Assinar» de um contrato abre-o diretamente.
+  useEffect(() => {
+    if (openContract) setView({ name: 'sign', target: { kind: 'contrato', id: openContract, title: 'Contrato de trabalho' } });
+  }, [openContract]);
 
-  const container = { paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 12 };
-
-  if (contract) {
+  if (view.name === 'sign') {
     return (
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={container} keyboardShouldPersistTaps="handled">
-        <ContractFlow
-          token={token}
-          me={me}
-          id={contract}
-          onClose={() => { setContract(null); onContractClosed(); load(); }}
-          onAuthError={onAuthError}
-        />
-      </ScrollView>
+      <>
+        <SignFlow token={token} me={me} avatar={avatar} target={view.target} onAuthError={onAuthError}
+          onBack={() => { setView({ name: 'list' }); onContractClosed(); }}
+          onSigned={(text) => { setView({ name: 'list' }); onContractClosed(); setResult({ tone: 'ok', title: `${view.target.kind === 'recibo' ? 'Recibo' : 'Contrato'} assinado`, text, botao: 'Ver em Documentos' }); load(); }} />
+        <ResultSheet resultado={result} onClose={() => setResult(null)} />
+      </>
     );
   }
+  if (view.name === 'view') {
+    return <Viewer token={token} avatar={avatar} id={view.id} title={view.title} file={view.file} onBack={() => setView({ name: 'list' })} />;
+  }
 
+  const pending = [
+    ...(data?.por_assinar ?? []).map((item) => ({ ...item, kind: 'recibo' as const })),
+    ...(data?.contratos_por_assinar ?? []).map((item) => ({ ...item, tipo: 'contrato', kind: 'contrato' as const })),
+  ];
   const docs = data?.documentos ?? [];
-  const pending = data?.contratos_por_assinar ?? [];
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={container} refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.action]} />}>
-      <Header subtitle="Contratos, recibos e certificados" title="Documentos" />
-      {pending.map((item) => (
-        <Pressable key={item.id} accessibilityRole="button" onPress={() => setContract(item.id)}
-          style={({ pressed }) => ({ flexDirection: 'row', gap: 10, alignItems: 'center', paddingVertical: 9, paddingLeft: 12, paddingRight: 10, borderRadius: 16, minHeight: 54, backgroundColor: colors.infoSoft, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
-          <View style={{ width: 30, height: 30, borderRadius: 10, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
-            <PenIcon size={18} color={colors.info} />
+    <View style={{ flex: 1 }}>
+      <Header variante="faixaLogo" title="Documentos" subtitle="" right={avatar} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 110, gap: 14 }}
+        refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.band]} />}>
+        {pending.length ? (
+          <View style={{ backgroundColor: colors.band, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 18, gap: 4, elevation: 4 }}>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.surface, opacity: 0.85 }}>Para assinar</Text>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 36, color: colors.surface }}>{pending.length} {pending.length === 1 ? 'documento' : 'documentos'}</Text>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.surface, opacity: 0.9 }}>Leia o documento e assine no ecrã ou com o código do email</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.info }}>{item.titulo}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.info, opacity: 0.88 }}>Assine com um código enviado por email</Text>
+        ) : null}
+        {error ? <ErrorText>{error}</ErrorText> : null}
+        {loading && !data ? <ListaSkeleton /> : null}
+        {data && !pending.length && !docs.length ? <Muted>Ainda não há documentos para si.</Muted> : null}
+        {pending.length ? (
+          <View>
+            <Text style={sectionStyle}>Por assinar</Text>
+            {pending.map((item, index) => (
+              <Line key={item.id} zebra={index % 2 === 1} title={item.titulo} sub={`${item.kind === 'recibo' ? 'Recibo' : 'Contrato'}${item.criado_em ? ` · ${shortDate(item.criado_em)}` : ''}`}
+                right={<Pill label="Por assinar" />} onPress={() => setView({ name: 'sign', target: { kind: item.kind, id: item.id, title: item.titulo } })} />
+            ))}
           </View>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.info }}>Assinar ›</Text>
-        </Pressable>
-      ))}
-      {error ? <ErrorText>{error}</ErrorText> : null}
-      {loading && !data ? <ListaSkeleton /> : null}
-      {data && !docs.length && !pending.length ? (
-        <View style={{ alignItems: 'center', gap: 8, paddingTop: 16 }}>
-          <Illustration name="documents" width={190} />
-          <Muted center>Ainda não há documentos para si.</Muted>
-        </View>
-      ) : null}
-      {docs.length ? (
-        <Card>
-          {docs.map((doc, index) => {
-            const days = doc.validade?.dias;
-            const expiring = doc.valido_ate && typeof days === 'number' && days <= EXPIRING_DAYS;
-            return (
-              <Row
-                key={doc.id}
-                first={index === 0}
-                onPress={() => open(doc.id, doc.ficheiro || `${doc.titulo}.pdf`)}
-                left={(
-                  <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
-                    {opening === doc.id ? <ActivityIndicator size="small" color={colors.action} /> : <DocumentIcon size={18} color={colors.action} />}
-                  </View>
-                )}
-                title={doc.titulo}
-                subtitle={doc.valido_ate ? `${doc.tipo_nome} · válido até ${dateLabel(doc.valido_ate)}` : `${doc.tipo_nome}${doc.criado_em ? ` · ${dateLabel(doc.criado_em)}` : ''}`}
-                right={expiring ? <Chip tone={days! < 0 ? 'danger' : 'warn'} label={days! < 0 ? 'Expirado' : `${days} dias`} /> : undefined}
-              />
-            );
-          })}
-        </Card>
-      ) : null}
-    </ScrollView>
+        ) : null}
+        {docs.length ? (
+          <View>
+            <Text style={sectionStyle}>Para ver</Text>
+            {docs.map((doc, index) => (
+              <Line key={doc.id} zebra={index % 2 === 1} title={doc.titulo}
+                sub={doc.valido_ate ? `${doc.tipo_nome} · válido até ${dateLabel(doc.valido_ate)}` : `${doc.tipo_nome}${doc.criado_em ? ` · ${dateLabel(doc.criado_em)}` : ''}`}
+                right={<ViewButton onPress={() => setView({ name: 'view', id: doc.id, title: doc.titulo, file: doc.ficheiro })} />}
+                onPress={() => setView({ name: 'view', id: doc.id, title: doc.titulo, file: doc.ficheiro })} />
+            ))}
+          </View>
+        ) : null}
+      </ScrollView>
+      <ResultSheet resultado={result} onClose={() => setResult(null)} />
+    </View>
   );
 }
 
-function ContractFlow({ token, me, id, onClose, onAuthError }: { token: string; me: Me; id: string; onClose: () => void; onAuthError: (error: unknown) => boolean }) {
+const sectionStyle = { fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink2, marginBottom: 2 } as const;
+
+function Pill({ label }: { label: string }) {
+  return (
+    <View style={{ backgroundColor: colors.warnIconBg, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 11 }}>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.warnIconInk }}>{label}</Text>
+    </View>
+  );
+}
+
+function ViewButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.band, backgroundColor: colors.surface, justifyContent: 'center' }}>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.band }}>Ver</Text>
+    </Pressable>
+  );
+}
+
+function Line({ title, sub, right, zebra, onPress }: { title: string; sub: string; right: ReactNode; zebra: boolean; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress}
+      style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: zebra ? colors.zebra : 'transparent', marginHorizontal: zebra ? -10 : 0, paddingHorizontal: zebra ? 10 : 0 }}>
+      <View style={{ flex: 1 }}>
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{title}</Text>
+        <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink3, marginTop: 2 }}>{sub}</Text>
+      </View>
+      {right}
+    </Pressable>
+  );
+}
+
+/** Páginas do PDF desenhadas pelo servidor, uma por imagem (sem biblioteca nativa de PDF na app). */
+function PdfPages({ token, base, fallbackImage }: { token: string; base: string; fallbackImage?: string }) {
+  const [count, setCount] = useState<number | null>(null);
+  const [failed, setFailed] = useState(false);
+  const headers = { Authorization: `Bearer ${token}`, 'X-App-Versao': appVersion };
+
+  useEffect(() => {
+    employeeApi.pdfPages(token, base).then((result) => setCount(result.paginas)).catch(() => setFailed(true));
+  }, [token, base]);
+
+  if (failed && fallbackImage) return <PageImage uri={fallbackImage} headers={headers} />;
+  if (failed) return <Muted size={14}>Não foi possível mostrar este documento aqui. Use «Descarregar cópia».</Muted>;
+  if (count === null) return <Bloco style={{ height: 320, borderRadius: 14 }} />;
+  return (
+    <View style={{ gap: 10 }}>
+      {Array.from({ length: count }, (_, index) => <PageImage key={index} uri={employeeApi.pdfPageUrl(base, index + 1)} headers={headers} />)}
+    </View>
+  );
+}
+
+function PageImage({ uri, headers }: { uri: string; headers: Record<string, string> }) {
+  const [ratio, setRatio] = useState(1.414);
+  useEffect(() => {
+    Image.getSizeWithHeaders(uri, headers, (width, height) => { if (width) setRatio(height / width); }, () => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uri]);
+  return (
+    <View style={{ borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface }}>
+      <Image source={{ uri, headers }} style={{ width: '100%', aspectRatio: 1 / ratio }} resizeMode="contain" accessibilityLabel="Página do documento" />
+    </View>
+  );
+}
+
+function Screen({ title, avatar, onBack, footer, children }: { title: string; avatar: ReactNode; onBack: () => void; footer: ReactNode; children: ReactNode }) {
+  return (
+    <View style={{ flex: 1 }}>
+      <Header variante="faixaLogo" title={title} subtitle="" onVoltar={onBack} right={avatar} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingTop: 16, gap: 14 }} keyboardShouldPersistTaps="handled">{children}</ScrollView>
+      <BarraRodape aboveMenu>{footer}</BarraRodape>
+    </View>
+  );
+}
+
+/** Ver um documento guardado (artboard n.º 5): as páginas e «Descarregar cópia». */
+function Viewer({ token, avatar, id, title, file, onBack }: { token: string; avatar: ReactNode; id: string; title: string; file: string; onBack: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function download() {
+    setBusy(true);
+    setError('');
+    try {
+      const name = (file || `${title}.pdf`).replace(/[^\w.\-]+/g, '_');
+      const saved = await File.downloadFileAsync(employeeApi.documentUrl(id), new File(Paths.cache, name), {
+        headers: { Authorization: `Bearer ${token}`, 'X-App-Versao': appVersion }, idempotent: true,
+      });
+      await Sharing.shareAsync(saved.uri, { dialogTitle: title });
+    } catch {
+      setError('Não foi possível descarregar o documento. Verifique a ligação e tente de novo.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Screen title={title} avatar={avatar} onBack={onBack} footer={<Button ghost tone="faixa" title={busy ? 'A descarregar…' : 'Descarregar cópia'} busy={busy} onPress={download} />}>
+      <PdfPages token={token} base={`/documentos/${encodeURIComponent(id)}`} fallbackImage={IMAGE_FILE.test(file) ? employeeApi.documentUrl(id) : undefined} />
+      <ErrorText>{error}</ErrorText>
+    </Screen>
+  );
+}
+
+/** Ler e assinar (artboards n.º 2 e 3): ler → confirmar a leitura e assinar com o dedo → código do email e nome → assinado. */
+function SignFlow({ token, me, avatar, target, onBack, onSigned, onAuthError }: {
+  token: string; me: Me; avatar: ReactNode; target: Target; onBack: () => void; onSigned: (text: string) => void; onAuthError: (error: unknown) => boolean;
+}) {
+  const [step, setStep] = useState<'read' | 'code'>('read');
   const [contract, setContract] = useState<Contract | null>(null);
-  const [step, setStep] = useState<'read' | 'sign' | 'done'>('read');
   const [accepted, setAccepted] = useState(false);
+  const [signature, setSignature] = useState<string | null>(null);
   const [code, setCode] = useState('');
   const [name, setName] = useState(me.colaborador.nome);
   const [sentTo, setSentTo] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  const [signedAt, setSignedAt] = useState('');
 
   useEffect(() => {
-    employeeApi.contract(token, id).then(setContract).catch((exc) => { if (!onAuthError(exc)) setError(errorText(exc)); });
-  }, [token, id, onAuthError]);
+    if (target.kind === 'contrato') employeeApi.contract(token, target.id).then(setContract).catch((exc) => { if (!onAuthError(exc)) setError(errorText(exc)); });
+  }, [target, token, onAuthError]);
 
   async function requestCode() {
+    if (!signature) return;
     setBusy(true);
     setError('');
     try {
-      const result = await employeeApi.contractCode(token, id);
+      const result = target.kind === 'recibo' ? await employeeApi.signatureCode(token, target.id, signature) : await employeeApi.contractCode(token, target.id, signature);
       setSentTo(result.mensagem);
       setCode('');
-      setStep('sign');
+      setStep('code');
     } catch (exc) {
       if (!onAuthError(exc)) setError(errorText(exc));
     } finally {
@@ -185,11 +270,8 @@ function ContractFlow({ token, me, id, onClose, onAuthError }: { token: string; 
     setBusy(true);
     setError('');
     try {
-      await employeeApi.signContract(token, id, name.trim(), code);
-      const now = new Date();
-      setSignedAt(`${now.getDate()} ${MONTHS[now.getMonth()]}, ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
-      setContract(await employeeApi.contract(token, id).catch(() => contract));
-      setStep('done');
+      const result = target.kind === 'recibo' ? await employeeApi.signatureSign(token, target.id, name.trim(), code) : await employeeApi.signContract(token, target.id, name.trim(), code);
+      onSigned(result.mensagem);
     } catch (exc) {
       if (!onAuthError(exc)) setError(errorText(exc));
       setCode('');
@@ -198,84 +280,72 @@ function ContractFlow({ token, me, id, onClose, onAuthError }: { token: string; 
     }
   }
 
-  if (!contract) {
+  const noun = target.kind === 'recibo' ? 'recibo' : 'contrato';
+  if (step === 'code') {
     return (
-      <>
-        <BackLink label="Documentos" onPress={onClose} />
-        {error ? <ErrorText>{error}</ErrorText> : <ActivityIndicator color={colors.action} />}
-      </>
-    );
-  }
-
-  if (step === 'done') {
-    return (
-      <>
-        <View style={{ alignItems: 'center', gap: 6, paddingTop: 8 }}>
-          <Illustration name="signed" width={200} />
-          <Text style={{ fontFamily: fonts.display, fontSize: 24, color: colors.ink }}>Contrato assinado</Text>
-          <Muted size={14} center>A cópia final com as duas assinaturas está em Documentos e foi enviada para o seu email.</Muted>
-        </View>
-        <View style={{ flexDirection: 'row', gap: 8 }}>
-          <Summary label="Assinado em" value={signedAt} />
-          <Summary label="Código de verificação" value={contract.codigo_verificacao ?? '—'} />
-        </View>
-        <Button ghost title="Ver em Documentos" onPress={onClose} />
-      </>
-    );
-  }
-
-  if (step === 'sign') {
-    return (
-      <>
-        <BackLink label="Voltar ao texto" onPress={() => setStep('read')} />
-        <Title size={24}>Assinar</Title>
-        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: colors.okSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}>
-          <MailIcon size={20} color={colors.ok} />
-          <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ok }}>{sentTo}</Text>
-        </View>
+      <Screen title="Confirmar" avatar={avatar} onBack={() => setStep('read')}
+        footer={<><Button primary tone="verde" title={busy ? 'A assinar…' : `Assinar ${noun}`} busy={busy} disabled={code.length !== CODE_LENGTH || name.trim().length < 3} onPress={sign} /><Button ghost tone="faixa" title="Reenviar o código" onPress={requestCode} /></>}>
+        <Muted size={15}>{sentTo} Escreva-o para confirmar a assinatura.</Muted>
+        <CodeBoxes value={code} onKey={(key) => { setError(''); setCode(applyKey(code, key, CODE_LENGTH)); }} />
         <Field label="Nome completo" value={name} onChangeText={setName} autoCapitalize="words" />
-        <OtpCells value={code} length={CODE_LENGTH} />
         <ErrorText>{error}</ErrorText>
-        <NumPad onKey={(key) => { setError(''); setCode(applyKey(code, key, CODE_LENGTH)); }} />
-        <Button primary title={busy ? 'A assinar…' : 'Assinar contrato'} busy={busy} disabled={code.length !== CODE_LENGTH || name.trim().length < 3} onPress={sign} />
-        <Button link title="Não recebi o código" onPress={requestCode} />
-        <Muted size={12} center>Registamos a data, a hora e o dispositivo da assinatura.</Muted>
-      </>
+        <Muted size={12.5}>Registamos a data, a hora e o dispositivo da assinatura.</Muted>
+      </Screen>
     );
   }
 
   return (
-    <>
-      <BackLink label="Documentos" onPress={onClose} />
-      <View>
-        <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink2 }}>Enviado por {me.empresa.nome}</Text>
-        <Title size={24}>{contract.titulo}</Title>
-      </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Summary label="Assinatura da empresa" value={contract.empresa_assinante ? `✓ ${contract.empresa_assinante}` : 'Por assinar'} ok={Boolean(contract.empresa_assinante)} />
-        <Summary label="Assinada pela empresa em" value={contract.empresa_assinou_em ? dateLabel(contract.empresa_assinou_em) : '—'} />
-      </View>
-      <Card style={{ padding: 14 }}>
-        <Text style={{ fontFamily: fonts.body, fontSize: 13.5, color: colors.ink, lineHeight: 21 }}>{contract.corpo}</Text>
-      </Card>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start' }}>
-        <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: accepted ? colors.action : colors.line, backgroundColor: accepted ? colors.action : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-          {accepted ? <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, fontSize: 13 }}>✓</Text> : null}
+    <Screen title={target.title} avatar={avatar} onBack={onBack}
+      footer={<>
+        <Button primary tone="verde" title={busy ? 'A enviar o código…' : 'Continuar'} busy={busy} disabled={!accepted || !signature} onPress={requestCode} />
+        <Text style={{ textAlign: 'center', fontFamily: fonts.body, fontSize: 12.5, color: colors.ink3 }}>Depois enviamos um código de 6 dígitos para o seu email.</Text>
+      </>}>
+      {target.kind === 'recibo' ? (
+        <PdfPages token={token} base={`/documentos/assinaturas/${encodeURIComponent(target.id)}`} />
+      ) : contract ? (
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 14, padding: 16 }}>
+          <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 22, color: colors.ink }}>{contract.corpo}</Text>
         </View>
-        <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 13.5, color: colors.ink }}>Li o documento até ao fim e aceito o seu conteúdo.</Text>
+      ) : <ActivityIndicator color={colors.band} />}
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: accepted }} onPress={() => setAccepted(!accepted)} style={{ flexDirection: 'row', gap: 12, alignItems: 'flex-start' }}>
+        <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: accepted ? colors.ok : colors.band, backgroundColor: accepted ? colors.ok : colors.surface, alignItems: 'center', justifyContent: 'center', marginTop: 1 }}>
+          {accepted ? <Text style={{ color: colors.surface, fontFamily: fonts.bodyBold, fontSize: 14 }}>✓</Text> : null}
+        </View>
+        <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 14, lineHeight: 20, color: colors.ink }}>Li o documento e concordo com o seu conteúdo.</Text>
       </Pressable>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink2 }}>A sua assinatura</Text>
+      <SignaturePad onChange={setSignature} />
       <ErrorText>{error}</ErrorText>
-      <Button primary title={busy ? 'A enviar o código…' : 'Continuar para assinar'} busy={busy} disabled={!accepted} onPress={requestCode} />
-      <Muted size={12.5} center>Dúvidas sobre o contrato? Fale com o RH da {me.empresa.nome} antes de assinar.</Muted>
-    </>
+    </Screen>
   );
 }
 
-function Summary({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
+/** Seis caixas do código com o teclado numérico (mesmo gesto do resto da app). */
+function CodeBoxes({ value, onKey }: { value: string; onKey: (key: string) => void }) {
   return (
-    <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.ink3, letterSpacing: 0.5, textTransform: 'uppercase' }}>{label}</Text>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: ok ? colors.ok : colors.ink }}>{value}</Text>
+    <View style={{ gap: 12 }}>
+      <View style={{ flexDirection: 'row', gap: 8 }}>
+        {Array.from({ length: CODE_LENGTH }, (_, index) => (
+          <View key={index} style={{ flex: 1, height: 56, borderRadius: 12, borderWidth: 1.5, borderColor: value.length === index ? colors.band : colors.fieldBorder, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink, fontVariant: ['tabular-nums'] }}>{value[index] ?? ''}</Text>
+          </View>
+        ))}
+      </View>
+      <NumKeys onKey={onKey} />
+    </View>
+  );
+}
+
+function NumKeys({ onKey }: { onKey: (key: string) => void }) {
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', '⌫'];
+  return (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {keys.map((key, index) => key ? (
+        <Pressable key={index} accessibilityRole="button" accessibilityLabel={key === '⌫' ? 'Apagar' : key} onPress={() => onKey(key)}
+          style={({ pressed }) => ({ width: '31.5%', height: 50, borderRadius: 12, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.7 : 1 })}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 20, color: colors.ink }}>{key}</Text>
+        </Pressable>
+      ) : <View key={index} style={{ width: '31.5%' }} />)}
     </View>
   );
 }
