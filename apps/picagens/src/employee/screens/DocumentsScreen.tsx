@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DocumentIcon, MailIcon, PenIcon } from '../../components/icons';
 import { ApiError, NetworkError, appVersion } from '../../http';
 import { Illustration } from '../../components/Illustration';
+import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { Contract, Documents, Me, employeeApi } from '../api';
 import { BackLink, Button, Card, Chip, ErrorText, Field, Header, Muted, NumPad, OtpCells, Row, Title, applyKey } from '../ui';
@@ -116,7 +117,7 @@ export function DocumentsScreen({ token, me, openContract, onContractClosed, onA
         </Pressable>
       ))}
       {error ? <ErrorText>{error}</ErrorText> : null}
-      {loading && !data ? <ActivityIndicator color={colors.action} /> : null}
+      {loading && !data ? <ListaSkeleton /> : null}
       {data && !docs.length && !pending.length ? (
         <View style={{ alignItems: 'center', gap: 8, paddingTop: 16 }}>
           <Illustration name="documents" width={190} />

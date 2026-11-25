@@ -7,6 +7,7 @@ import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '../../http';
+import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { MonthRecords, PunchType, Visto, employeeApi } from '../api';
 import { Button, Card, Chip, ErrorText, Field, Header, Muted, Row, Section } from '../ui';
@@ -196,7 +197,7 @@ export function RecordsScreen({ token, onAuthError }: { token: string; onAuthErr
 
       <Section title="Dias" right={`${days.length} com picagens`} />
       {error ? <Muted>{error}</Muted> : null}
-      {loading && !data ? <ActivityIndicator color={colors.action} /> : null}
+      {loading && !data ? <ListaSkeleton /> : null}
       {data && !days.length ? <Muted>Sem picagens neste mês.</Muted> : null}
 
       {days.length ? (

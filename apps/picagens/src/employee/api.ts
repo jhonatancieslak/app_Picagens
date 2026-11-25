@@ -69,7 +69,12 @@ export interface DayPunch {
   correcao_pendente?: boolean;
 }
 
+/** «Esta semana» do Hoje (servidor: o mesmo serviço da PWA). `altura` já vem em px do desenho (0–60). */
+export interface WeekDay { numero: number; rotulo: string; minutos: number; texto: string; hoje: boolean; futuro: boolean; altura: number }
+export interface WeekSummary { dias: WeekDay[]; total_texto: string; carga_texto: string | null; meta_altura: number | null }
+
 export interface Dashboard {
+  semana?: WeekSummary;
   proximo_tipo: PunchType;
   horas_hoje: string;
   data: string;

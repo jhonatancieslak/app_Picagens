@@ -8,6 +8,7 @@ import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, Re
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ApiError, NetworkError } from '../../http';
+import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import {
   MemberState, MissingType, OpinionSense, TeamCorrection, TeamMap, TeamMissing, TeamPunches, TeamRef, TeamRequests, TeamToday, teamApi,
@@ -460,7 +461,7 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
           </Card>
         ) : null}
 
-        {loading && !today && !punches && !missing && !requests && !map ? <ActivityIndicator color={colors.action} /> : null}
+        {loading && !today && !punches && !missing && !requests && !map ? <ListaSkeleton /> : null}
       </ScrollView>
 
       <FixSheet

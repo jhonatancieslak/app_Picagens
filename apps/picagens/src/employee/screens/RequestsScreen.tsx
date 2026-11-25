@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CameraIcon, MedicalIcon, SunIcon } from '../../components/icons';
 import { Illustration } from '../../components/Illustration';
 import { ApiError, NetworkError } from '../../http';
+import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { RequestState, Requests, employeeApi } from '../api';
 import { holidayName, holidaysBetween, workingDays } from '../holidays';
@@ -161,7 +162,7 @@ export function RequestsScreen({ token, onAuthError }: { token: string; onAuthEr
         ))}
       </View>
       {error ? <Muted>{error}</Muted> : null}
-      {loading && !data ? <ActivityIndicator color={colors.action} /> : null}
+      {loading && !data ? <ListaSkeleton /> : null}
       {mode === 'cal' ? (
         <CalendarView all={all} onDay={(day) => setView({ name: 'new', from: day })} onItem={(item) => setView({ name: 'track', item })} />
       ) : (

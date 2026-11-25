@@ -8,7 +8,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ShieldCheckIcon } from '../components/icons';
 import { Logo } from '../components/ui';
 import { colors, fonts } from '../theme';
-import { tokens } from '../tokens';
 
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
@@ -58,8 +57,8 @@ interface ButtonProps {
 export function Button({ title, onPress, primary, danger, ghost, link, busy, disabled, icon, tone }: ButtonProps) {
   const solid = primary || (!ghost && !link && !danger);
   const green = tone === 'verde';
-  const background = link ? 'transparent' : solid ? (green ? tokens.cores.verde : colors.action) : colors.surface;
-  const foreground = solid ? '#fff' : danger ? colors.danger : link && green ? tokens.cores.verde : colors.action;
+  const background = link ? 'transparent' : solid ? (green ? colors.ok : colors.action) : colors.surface;
+  const foreground = solid ? '#fff' : danger ? colors.danger : link && green ? colors.ok : colors.action;
   return (
     <Pressable
       accessibilityRole="button"
@@ -67,7 +66,7 @@ export function Button({ title, onPress, primary, danger, ghost, link, busy, dis
       onPress={onPress}
       disabled={disabled || busy}
       style={({ pressed }) => ({
-        minHeight: link ? 44 : 52,
+        minHeight: link ? 44 : green ? 56 : 52,
         borderRadius: 16,
         paddingHorizontal: 18,
         alignItems: 'center',
@@ -282,7 +281,7 @@ export function Header({ subtitle, title, right, wordmark, greeting, variante, o
   if (variante === 'faixaLogo') {
     // Entrada e «Esqueci o PIN» (artboards p2311-abertura e p2311-esqueci-pin, 25/11): logótipo no topo, voltar e título na mesma linha.
     return (
-      <View style={{ backgroundColor: tokens.cores.faixa, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Logo height={26} white />
           {right}
@@ -290,7 +289,7 @@ export function Header({ subtitle, title, right, wordmark, greeting, variante, o
         <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {onVoltar ? (
             <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
-              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', alignItems: 'center', justifyContent: 'center' }}>
+              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.bandLine, alignItems: 'center', justifyContent: 'center' }}>
               <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M15 6l-6 6 6 6" />
               </Svg>
@@ -303,10 +302,10 @@ export function Header({ subtitle, title, right, wordmark, greeting, variante, o
   }
   if (variante === 'faixa') {
     return (
-      <View style={{ backgroundColor: '#243746', paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
         {onVoltar ? (
           <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
-            style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.45)', alignItems: 'center', justifyContent: 'center' }}>
+            style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.bandLine, alignItems: 'center', justifyContent: 'center' }}>
             <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
               <Path d="M15 6l-6 6 6 6" />
             </Svg>

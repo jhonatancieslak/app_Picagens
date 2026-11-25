@@ -12,24 +12,22 @@ import { AppState, Animated, Easing, Image, Linking, Pressable, RefreshControl, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import { BellIcon, CloudSavedIcon, EntryDoorIcon, ExitDoorIcon, KeyIcon, OkIcon, PinIcon, RecenterIcon } from '../../components/icons';
+import { BellIcon, KeyIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
+import { HojeSkeleton } from '../../components/Skeleton';
 import SlideAction from '../../components/SlideAction';
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
-import { Dashboard, DayPunch, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
+import { Dashboard, Me, Notice, PlaceCheck, PunchPayload, WeekSummary, employeeApi } from '../api';
 import { FIX_ERROR_MESSAGES, Fix, addressOf, isFreshFix, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
-import { Avatar, AvatarPhoto, Button, Chip, ChipTone, Header } from '../ui';
+import { Avatar, AvatarPhoto, Button, Chip, ChipTone } from '../ui';
 
-const RING_SIZE = 172;
-const RING_RADIUS = 78;
-const RING_STROKE = 10;
-const RING_INSET = 18;
-const WORKDAY_MINUTES = 8 * 60;
+const WEEK_CHART_HEIGHT = 84;
+/** O relógio mostra horas e minutos: basta atualizar umas vezes por minuto. */
+const CLOCK_TICK_MS = 10 * 1000;
 const PUNCH_FEEDBACK_MS = 1100;
-const TIMELINE_SLOTS = 4;
 /** Volta a perguntar ao servidor se está no local quando se moveu isto (ou passou este tempo). */
 const RECHECK_METERS = 15;
 const RECHECK_MS = 60 * 1000;
@@ -41,12 +39,6 @@ const metersBetween = (a: Fix, b: Fix) => {
   const y = (b.lat - a.lat) * rad;
   return Math.hypot(x, y) * 6_371_000;
 };
-
-const WEEKDAYS = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
-const shortDate = (date: Date) => `${WEEKDAYS[date.getDay()]}, ${date.getDate()} ${MONTHS[date.getMonth()]}`;
-
-const greeting = (hour: number) => (hour >= 6 && hour < 12 ? 'Bom dia' : hour >= 12 && hour < 20 ? 'Boa tarde' : 'Boa noite');
 
 /** "7h30" (formato do servidor) → minutos. */
 export const parseHours = (text: string) => {
@@ -61,18 +53,6 @@ const clock = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${Str
 const distanceLabel = (meters: number) => (meters >= 1000 ? `${(meters / 1000).toFixed(1).replace('.', ',')} km` : `${meters} m`);
 
 const LABELS: Record<string, string> = { entrada: 'Entrada', saida: 'Saída', pausa_inicio: 'Pausa', pausa_fim: 'Fim pausa' };
-
-/** Linha do dia: as picagens feitas, a próxima ("a seguir") e espaços vazios até 4. */
-function timeline(punches: DayPunch[], next: string) {
-  const done = punches.slice(-(TIMELINE_SLOTS - 1)).map((p) => ({ label: LABELS[p.tipo] ?? p.rotulo, time: p.hora, state: 'done' as const, warn: p.fora_do_local }));
-  const slots: { label: string; time: string; state: 'done' | 'next' | 'empty'; warn?: boolean }[] = [...done, { label: LABELS[next] ?? 'Entrada', time: 'a seguir', state: 'next' }];
-  let type = next;
-  while (slots.length < TIMELINE_SLOTS) {
-    type = type === 'saida' ? 'entrada' : 'saida';
-    slots.push({ label: LABELS[type], time: '--:--', state: 'empty' });
-  }
-  return slots;
-}
 
 type PunchState = 'idle' | 'locating' | 'sending' | 'done' | 'queued';
 
@@ -165,21 +145,13 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   const next = pending % 2 ? (lastKnown === 'saida' ? 'entrada' : 'saida') : lastKnown;
   const isExit = next === 'saida';
   const minutes = parseHours(dashboard?.horas_hoje ?? '0h00');
-  const progress = Math.min(minutes / WORKDAY_MINUTES, 1);
-  const circumference = 2 * Math.PI * RING_RADIUS;
   const punches = dashboard?.picagens_hoje ?? [];
   const dayClosed = punches.length > 0 && !isExit;
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    const timer = setInterval(() => setNow(new Date()), CLOCK_TICK_MS);
     return () => clearInterval(timer);
   }, []);
-  const firstNames = me.colaborador.nome.split(/\s+/).slice(0, 2).join(' ');
-  const mood = isExit ? 'Bom trabalho até à saída.' : dayClosed ? 'Dia terminado. Bom descanso.' : 'Bem-vindo(a).';
-  const status: { tone: ChipTone; label: string } = !online
-    ? { tone: 'warn', label: 'Sem rede · guarda' }
-    : isExit ? { tone: 'ok', label: 'Em serviço' } : { tone: 'action', label: 'Fora de serviço' };
-  const left = WORKDAY_MINUTES - minutes;
 
   function finish(kind: 'done' | 'queued') {
     setState(kind);
@@ -192,7 +164,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     if (state !== 'idle') return;
     if (blocked) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: `Está a ${distanceLabel(place?.distancia ?? 0)} do local`, text: 'A empresa só aceita picagens dentro do local. Aproxime-se e tente de novo.' });
+      setResultado({ tone: 'err', title: 'Não foi possível picar', text: `Está a ${distanceLabel(place?.distancia ?? 0)} do posto${place?.raio ? `. Tem de estar a menos de ${place.raio} metros` : ''}. Aproxime-se e tente de novo.` });
       return;
     }
     const tappedAt = new Date().toISOString();
@@ -207,7 +179,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     } else if (me.opcoes.localizacao_obrigatoria) {
       setState('idle');
       setFixError(position.error);
-      toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: 'Ligue a localização para picar', text: FIX_ERROR_MESSAGES[position.error] });
+      setResultado({ tone: 'err', title: 'Ligue a localização para picar', text: FIX_ERROR_MESSAGES[position.error] });
       return;
     }
     payload.colaborador_id = me.colaborador.id;
@@ -218,7 +190,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       enqueueEmployeePunch(payload, tappedAt);
       onQueued();
       finish('queued');
-      setResultado({ tone: 'queued', title: `${label} guardada às ${clock(new Date())}`, text: 'Envia sozinha quando houver rede.' });
+      setResultado({ tone: 'queued', title: `Picagem guardada às ${clock(new Date())}`, text: 'Sem rede. A picagem fica neste telemóvel e é enviada sozinha quando houver ligação.', pendentes: pending + 1 });
     };
 
     if (!online) return queue();
@@ -227,15 +199,17 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       const result = await employeeApi.punch(token, payload);
       finish('done');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      const where = place?.dentro === true ? `Dentro do local${fix ? ` · ±${Math.round(fix.accuracy)} m` : ''}` : place?.dentro === false ? 'Fora do local' : undefined;
-      setResultado({ tone: 'ok', title: `${LABELS[result.tipo] ?? 'Picagem'} registada às ${result.hora}`, text: where });
+      const where = place?.dentro === true
+        ? `Está no local${place.distancia !== undefined ? `, a ${distanceLabel(place.distancia)} do posto` : ''}. Bom trabalho.`
+        : place?.dentro === false ? 'Registada fora do local.' : undefined;
+      setResultado({ tone: 'ok', title: `${LABELS[result.tipo] ?? 'Picagem'} registada`, hora: `às ${result.hora}`, text: where });
       await onRefresh();
     } catch (error) {
       if (error instanceof NetworkError) return queue();
       setState('idle');
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       if (!onAuthError(error)) {
-        toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: 'Picagem não registada', text: error instanceof ApiError ? error.message : 'Tente de novo.' });
+        setResultado({ tone: 'err', title: 'Picagem não registada', text: error instanceof ApiError ? error.message : 'Tente de novo.' });
       }
     }
   }
@@ -256,135 +230,169 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     );
   }
 
-  const buttonColor = state === 'done' ? colors.ok : state === 'queued' ? colors.warn : blocked ? colors.ink3 : isExit ? colors.ink : colors.action;
-  const buttonIcon = state === 'done' ? <OkIcon size={34} color="#fff" /> : state === 'queued' ? <CloudSavedIcon size={34} color="#fff" /> : blocked && state === 'idle' ? <PinIcon size={34} color="#fff" /> : isExit ? <ExitDoorIcon size={34} color="#fff" /> : <EntryDoorIcon size={34} color="#fff" />;
-  const buttonText = { idle: blocked ? 'Longe' : LABELS[next] ?? 'Picar', locating: 'GPS…', sending: 'A enviar…', done: 'Feito', queued: 'Guardada' }[state];
+  // Enquanto o primeiro «Painel» não chega: skeleton do artboard (nunca uma página em branco).
+  if (online && !dashboard) return <HojeSkeleton />;
+
+  const week = dashboard?.semana;
+  const firstEntry = punches.find((p) => p.tipo === 'entrada');
+  const verb = ({ entrada: 'entrar', saida: 'sair', pausa_inicio: 'iniciar a pausa', pausa_fim: 'terminar a pausa' } as Record<string, string>)[next] ?? 'picar';
+  const workedText = `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
+  const subline = isExit ? `${firstEntry ? `entrou às ${firstEntry.hora} · ` : ''}${workedText} hoje` : `agora${me.local ? ` · ${me.local}` : ''}`;
+  const placeStatus: { text: string; color: string } | null = !online ? { text: 'Sem rede · a picagem fica guardada', color: colors.warnInk }
+    : blocked ? { text: `Está a ${distanceLabel(place?.distancia ?? 0)} do local`, color: colors.danger }
+    : isExit ? { text: 'Em serviço', color: colors.ok }
+    : dayClosed ? { text: 'Dia terminado. Bom descanso.', color: colors.ink2 }
+    : place?.dentro === true ? { text: 'Está no local de trabalho', color: colors.ink2 }
+    : place?.dentro === false ? { text: 'Fora do local de trabalho', color: colors.warnInk }
+    : null;
 
   return (
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 12 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.action]} />}
-    >
-      <Header
-        wordmark
-        subtitle={`${shortDate(now)}${me.local ? ` · ${me.local}` : ''}`}
-        title="Hoje"
-        greeting={<>{greeting(now.getHours())}, <Text style={{ fontFamily: fonts.bodyBold, color: colors.ink }}>{firstNames}</Text>. {mood}</>}
-        right={(
+    <View style={{ flex: 1 }}>
+      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Logo height={26} white />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Pressable accessibilityRole="button" accessibilityLabel={unreadMessages ? `Mensagens, ${unreadMessages} por ler` : 'Mensagens'} onPress={onMessages} hitSlop={8}
-              style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-              <BellIcon size={20} color={colors.ink2} />
+              style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.bandLine, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
+              <BellIcon size={20} color={colors.surface} />
               {unreadMessages ? (
-                <View style={{ position: 'absolute', top: -4, right: -5, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.action, borderWidth: 2, borderColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10, color: '#fff' }}>{unreadMessages}</Text>
+                <View style={{ position: 'absolute', top: -4, right: -5, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.ok, borderWidth: 2, borderColor: colors.band, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10, color: colors.surface }}>{unreadMessages}</Text>
                 </View>
               ) : null}
             </Pressable>
-            <Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} photo={photo} />
-          </View>
-        )}
-      />
-
-      {urgent ? (
-        <Pressable accessibilityRole="button" onPress={() => onNotice(urgent)}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 56, padding: 12, borderRadius: 16, backgroundColor: urgent.tipo === 'saida_em_falta' ? colors.warnSoft : colors.actionSoft, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: urgent.tipo === 'saida_em_falta' ? colors.warnInk : colors.action }}>{urgent.titulo}</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: urgent.tipo === 'saida_em_falta' ? colors.warnInk : colors.action }}>{urgent.detalhe}</Text>
-          </View>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: urgent.tipo === 'saida_em_falta' ? colors.warnInk : colors.action }}>
-            {urgent.acao === 'contrato' ? 'Assinar ›' : urgent.acao === 'correcao' ? 'Corrigir ›' : 'Ver ›'}
-          </Text>
-        </Pressable>
-      ) : null}
-
-      <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 24, padding: 16, gap: 14 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
-          <View style={{ width: "100%", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontFamily: fonts.display, fontSize: 56, color: colors.ink, letterSpacing: -1, fontVariant: ["tabular-nums"] }}>
-              {`${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`}
-            </Text>
-          </View>
-          <View style={{ flex: 1, gap: 10 }}>
-            <View>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11.5, color: colors.ink3, letterSpacing: 0.7, textTransform: 'uppercase' }}>Trabalhado</Text>
-              <Text style={{ fontFamily: fonts.display, fontSize: 27, color: colors.ink, letterSpacing: -0.5 }}>
-                {Math.floor(minutes / 60)}h<Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink3 }}> {String(minutes % 60).padStart(2, '0')}</Text>
-              </Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: dayClosed || left > 0 ? colors.ink3 : colors.ok, marginTop: 2 }}>
-                {dayClosed ? 'dia fechado' : left > 0 ? `faltam ${Math.floor(left / 60)}h${String(left % 60).padStart(2, '0')}` : 'dia completo'}
-              </Text>
-            </View>
-            <Chip tone={blocked ? 'danger' : status.tone} label={blocked ? `A ${distanceLabel(place?.distancia ?? 0)} da obra` : status.label} />
-            {pending ? <Chip tone="warn" label={`${pending} por enviar`} /> : null}
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
+            <Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} photo={photo} size={36} />
           </View>
         </View>
-
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: 6, borderTopWidth: 1, borderStyle: 'dashed', borderColor: colors.line, paddingTop: 12 }}>
-          {timeline(punches, next).map((slot, index) => (
-            <View key={index} style={{ flex: 1, alignItems: 'center', gap: 2 }}>
-              <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: slot.state === 'next' ? colors.action : colors.ink3 }}>{slot.label}</Text>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: slot.state === 'next' ? 13 : 15, color: slot.state === 'next' ? colors.action : slot.state === 'empty' ? colors.ink3 : slot.warn ? colors.warn : colors.ink }}>{slot.time}</Text>
-            </View>
-          ))}
-        </View>
+        {week ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }} accessibilityLabel="Dias da semana">
+            {week.dias.map((day) => (
+              <View key={day.rotulo} style={{ alignItems: 'center', gap: 6, minWidth: 40, opacity: day.hoje ? 1 : 0.8 }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: day.hoje ? colors.surface : 'transparent' }}>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: day.hoje ? colors.band : colors.surface }}>{day.numero}</Text>
+                </View>
+                <Text style={{ fontFamily: day.hoje ? fonts.bodyBold : fonts.bodyMedium, fontSize: 12, color: colors.surface }}>{day.rotulo}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </View>
 
-      <ResultSheet resultado={resultado} onClose={fecharResultado} />
-
-      {!dayClosed && state === 'idle' ? (
-        // Deslizar para a ação seguinte, perto do menu (pedido do Jhonatan, 23/11). O botão grande mantém-se.
-        <SlideAction
-          label={`Deslizar para ${(LABELS[next] ?? 'picar').toLowerCase()}`}
-          color={next === 'saida' ? colors.ink : next === 'pausa_fim' ? colors.warn : colors.action}
-          disabled={blocked || (online && !dashboard)}
-          onConfirm={punch}
-        />
-      ) : null}
-
-      {me.opcoes.ver_pin ? (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
-          <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
-            <KeyIcon size={22} color={colors.action} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>PIN de picagem</Text>
-            <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>Para picar no tablet ou no computador da empresa.</Text>
-          </View>
-          <Button ghost title="Ver o meu PIN" onPress={onPin} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 110, gap: 12 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.action]} />}
+      >
+        <View style={{ alignItems: 'center' }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 52, lineHeight: 56, letterSpacing: -1, color: colors.ink, fontVariant: ['tabular-nums'] }}>{clock(now)}</Text>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.ink2, marginTop: 6, textAlign: 'center' }}>{subline}</Text>
+          {placeStatus ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: placeStatus.color, marginTop: 6, textAlign: 'center' }}>{placeStatus.text}</Text> : null}
+          {pending ? <View style={{ marginTop: 8 }}><Chip tone="warn" label={`${pending} por enviar`} /></View> : null}
         </View>
-      ) : null}
 
-      {fixError === 'denied' || fixError === 'disabled' ? (
-        <View style={{ gap: 10, padding: 16, borderRadius: 18, backgroundColor: colors.warnSoft }}>
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-            <PinIcon size={20} color={colors.warn} />
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.warn }}>Localização desligada</Text>
+        {fixError === 'denied' || fixError === 'disabled' ? (
+          <View style={{ gap: 10, padding: 16, borderRadius: 18, backgroundColor: colors.warnSoft }}>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <PinIcon size={20} color={colors.warnInk} />
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.warnInk }}>Localização desligada</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>
+              {me.opcoes.localizacao_obrigatoria ? 'A sua empresa pede a localização para picar.' : 'Sem localização, o gestor não vê se estava no local.'} Só é lida no momento em que toca em Picar.
+            </Text>
+            <View style={{ alignSelf: 'flex-start' }}>
+              <Button
+                title="Ligar localização"
+                onPress={async () => {
+                  const permission = await Location.requestForegroundPermissionsAsync();
+                  if (!permission.granted && !permission.canAskAgain) Linking.openSettings();
+                  else locate();
+                }}
+              />
+            </View>
           </View>
-          <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>
-            {me.opcoes.localizacao_obrigatoria ? 'A sua empresa pede a localização para picar.' : 'Sem localização, o gestor não vê se estava no local.'} Só é lida no momento em que toca em Picar.
-          </Text>
-          <View style={{ alignSelf: 'flex-start' }}>
-            <Button
-              title="Ligar localização"
-              onPress={async () => {
-                const permission = await Location.requestForegroundPermissionsAsync();
-                if (!permission.granted && !permission.canAskAgain) Linking.openSettings();
-                else locate();
-              }}
-            />
+        ) : (
+          <PlaceMap place={place} fix={fix} address={address} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
+        )}
+
+        {week ? <WeekCard week={week} /> : null}
+
+        {urgent ? (
+          <Pressable accessibilityRole="button" onPress={() => onNotice(urgent)}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 56, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.surface, elevation: 2, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{urgent.titulo}</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink3, marginTop: 2 }}>{urgent.detalhe}</Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.band }}>
+              {urgent.acao === 'contrato' ? 'Assinar' : urgent.acao === 'correcao' ? 'Corrigir' : 'Ver'}
+            </Text>
+          </Pressable>
+        ) : null}
+
+        {!dayClosed && state === 'idle' ? (
+          // Deslizar para a ação seguinte (artboard v9): verde para entrar, vermelho-escuro para sair.
+          <SlideAction
+            label={`Deslize para ${verb}`}
+            color={next === 'saida' ? colors.danger : next === 'pausa_fim' ? colors.warn : colors.ok}
+            disabled={blocked || (online && !dashboard)}
+            onConfirm={punch}
+          />
+        ) : null}
+
+        {me.opcoes.ver_pin ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
+              <KeyIcon size={22} color={colors.action} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>PIN de picagem</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>Para picar no tablet ou no computador da empresa.</Text>
+            </View>
+            <Button ghost title="Ver o meu PIN" onPress={onPin} />
           </View>
-        </View>
-      ) : (
-        <PlaceMap place={place} fix={fix} address={address} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
-      )}
-    </ScrollView>
+        ) : null}
+
+        <ResultSheet resultado={resultado} onClose={fecharResultado} />
+      </ScrollView>
+    </View>
   );
 }
 
-const MAP_HEIGHT = 196;
+/** «21h33» → «21 h 33»; «40h00» → «40 h» (artboard v9). */
+const humanHours = (text: string) => {
+  const match = /^(\d+)h(\d{2})$/.exec(text);
+  return match ? (match[2] === '00' ? `${match[1]} h` : `${match[1]} h ${match[2]}`) : text;
+};
+
+/** «Esta semana»: barras por dia, o dia de hoje a escuro, os futuros vazios e a meta diária a tracejado (artboard v9). */
+function WeekCard({ week }: { week: WeekSummary }) {
+  const total = week.carga_texto ? `${humanHours(week.total_texto)} de ${humanHours(week.carga_texto)}` : humanHours(week.total_texto);
+  return (
+    <View accessibilityLabel={`Esta semana, ${total}`} style={{ backgroundColor: colors.surface, borderRadius: 18, paddingTop: 14, paddingHorizontal: 16, paddingBottom: 12, elevation: 2 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Esta semana</Text>
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink2 }}>{total}</Text>
+      </View>
+      <View style={{ height: WEEK_CHART_HEIGHT, marginTop: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }} importantForAccessibility="no-hide-descendants">
+        {week.meta_altura ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: week.meta_altura, borderTopWidth: 1, borderStyle: 'dashed', borderColor: colors.line }} /> : null}
+        {week.dias.map((day) => (
+          <View key={day.rotulo} style={{ flex: 1, maxWidth: 34, alignItems: 'center', justifyContent: 'flex-end' }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.ink2, marginBottom: 4, fontVariant: ['tabular-nums'] }}>{day.futuro ? '' : day.texto}</Text>
+            <View style={{ width: '100%', height: day.altura, borderTopLeftRadius: 8, borderTopRightRadius: 8, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, backgroundColor: day.hoje ? colors.band : day.minutos ? colors.ok : colors.skeleton }} />
+          </View>
+        ))}
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
+        {week.dias.map((day) => (
+          <Text key={day.rotulo} style={{ flex: 1, maxWidth: 34, textAlign: 'center', fontFamily: day.hoje ? fonts.bodyBold : fonts.bodyMedium, fontSize: 12, color: day.hoje ? colors.band : colors.ink3 }}>{day.rotulo}</Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const MAP_HEIGHT = 112;
 const TILE_PX = 256;
 const MAP_TILES_URL = 'https://picagens.pt/mapa';
 const METERS_PER_PIXEL_Z0 = 156_543.033_92;
@@ -482,43 +490,39 @@ function PlaceMap({ place, fix, address: currentAddress, error, onRecenter }: { 
       <Svg width={width} height={MAP_HEIGHT} style={{ position: 'absolute', left: 0, top: 0 }}>
         {sitePx ? (
           <>
-            <Circle cx={sitePx.x} cy={sitePx.y} r={radiusPx} fill="rgba(37,99,235,.12)" stroke={colors.action} strokeWidth={1.5} strokeDasharray="4 4" />
+            <Circle cx={sitePx.x} cy={sitePx.y} r={radiusPx} fill={colors.okSoft} fillOpacity={0.7} stroke={colors.ok} strokeWidth={1.5} strokeDasharray="4 4" />
             <G x={sitePx.x} y={sitePx.y}>
-              <Path d="M0 0 C-9 -12 -12 -16 -12 -22 a12 12 0 0 1 24 0 c0 6 -3 10 -12 22z" fill={colors.ink} />
-              <Rect x={-5} y={-27} width={10} height={9} rx={1.5} fill="#fff" />
+              <Path d="M0 0 C-9 -12 -12 -16 -12 -22 a12 12 0 0 1 24 0 c0 6 -3 10 -12 22z" fill={colors.band} />
+              <Rect x={-5} y={-27} width={10} height={9} rx={1.5} fill={colors.surface} />
             </G>
           </>
         ) : null}
-        {user ? <Circle cx={user.x} cy={user.y} r={7} fill={colors.brand} stroke="#fff" strokeWidth={2.5} /> : null}
+        {user ? <Circle cx={user.x} cy={user.y} r={6} fill={colors.ok} stroke={colors.surface} strokeWidth={2.5} /> : null}
       </Svg>
       <Text style={{ position: 'absolute', right: 4, bottom: 2, fontFamily: fonts.body, fontSize: 9, color: colors.ink2, backgroundColor: 'rgba(255,255,255,.75)', paddingHorizontal: 3, borderRadius: 3 }}>© OpenStreetMap</Text>
       {user ? (
         <Animated.View
           pointerEvents="none"
           style={{
-            position: 'absolute', left: user.x - 9, top: user.y - 9, width: 18, height: 18, borderRadius: 9, backgroundColor: 'rgba(0,195,255,.35)',
+            position: 'absolute', left: user.x - 9, top: user.y - 9, width: 18, height: 18, borderRadius: 9, backgroundColor: colors.okSoft,
             opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.9, 0] }),
             transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.6] }) }],
           }}
         />
       ) : null}
-      <View style={{ position: 'absolute', left: 10, top: 10, right: 56, backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 7, paddingHorizontal: 10, elevation: 3 }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink }} numberOfLines={1}>{place?.local ?? 'Local de trabalho'}</Text>
-        <Text style={{ fontFamily: fonts.body, fontSize: 11.5, color: error ? colors.danger : colors.ink2 }} numberOfLines={2}>{address}</Text>
-      </View>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Atualizar a minha posição"
         onPress={onRecenter}
         style={({ pressed }) => ({ position: 'absolute', right: 10, top: 10, width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', elevation: 3, transform: [{ scale: pressed ? 0.94 : 1 }] })}
       >
-        <RecenterIcon size={18} color={colors.action} />
+        <RecenterIcon size={18} color={colors.band} />
       </Pressable>
-      <View style={{ position: 'absolute', left: 10, bottom: 10, right: 10, flexDirection: 'row' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 10, elevation: 3 }}>
-          <Chip tone={chip.tone} label={chip.label} />
-          {tagDetails ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink2 }}>{tagDetails}</Text> : null}
-        </View>
+      <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10, flexDirection: 'row', justifyContent: 'space-between', gap: 8, backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 7, paddingHorizontal: 12, elevation: 3 }}>
+        <Text style={{ flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: 12, color: chip.tone === 'danger' ? colors.danger : chip.tone === 'warn' ? colors.warnInk : colors.ok }} numberOfLines={1}>
+          {error ? 'Sem posição' : place?.dentro === true ? 'No raio do posto' : place?.dentro === false ? 'Fora do raio do posto' : chip.label}
+        </Text>
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink2 }} numberOfLines={1}>{place?.distancia !== undefined ? distanceLabel(place.distancia) : tagDetails}</Text>
       </View>
     </View>
     {here ? (

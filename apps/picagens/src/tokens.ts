@@ -29,7 +29,18 @@ export const tokens = {
     "faixaSuave": "#E4EAF0",
     "zebra": "#F6F4EF",
     "vermelhoFundo": "#F6D5D2",
-    "vermelhoTexto": "#7A1F16"
+    "vermelhoTexto": "#7A1F16",
+    "esqueleto": "#E6E3DC",
+    "esqueletoEscuro": "#D9D5CC",
+    "veu": "rgba(27, 42, 54, 0.28)",
+    "puxador": "#D8D4CB",
+    "verdeIcone": "#E3F2E9",
+    "ambarIcone": "#FBE7C6",
+    "ambarIconeTexto": "#8A4B07",
+    "vermelhoIcone": "#FDF1F0",
+    "vermelhoErro": "#B42318",
+    "filaFundo": "#F3F1EC",
+    "faixaBloco": "rgba(255, 255, 255, 0.22)"
   },
   "coresPainel": {
     "tinta": "#243746",

@@ -9,6 +9,7 @@ import { ActivityIndicator, Animated, BackHandler, PanResponder, Pressable, Refr
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Illustration } from '../../components/Illustration';
+import { ListaSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { Message, employeeApi } from '../api';
 import { BackLink, Button, Card, Muted, Title } from '../ui';
@@ -168,7 +169,7 @@ export function MessagesScreen({ token, onBack, onRead, onAuthError }: Props) {
           ) : null}
         </View>
         {error ? <Muted>{error}</Muted> : null}
-        {messages === null && !error ? <ActivityIndicator color={colors.action} /> : null}
+        {messages === null && !error ? <ListaSkeleton /> : null}
         {messages && !messages.length ? (
           <View style={{ alignItems: 'center', gap: 8, paddingTop: 24 }}>
             <Illustration name="messages" width={210} />
