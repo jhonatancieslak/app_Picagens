@@ -17,6 +17,9 @@ import { colors, fonts } from '../../theme';
 const KEY_LENGTH = 12;
 /** Abaixo desta largura (dp) o ecrã de ativação passa a coluna, para caber num telemóvel em paisagem. */
 const NARROW_WIDTH_DP = 700;
+/** Letras e números das chaves de ativação: o servidor (`desktop_api.ALFABETO_CHAVE`) não usa 0, O, 1, I nem L, para a chave se poder escrever à mão. */
+const KEY_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+export const invalidKeyChars = (value: string) => [...new Set(value.toUpperCase().replace(/[^A-Z0-9]/g, '').split('').filter((char) => !KEY_ALPHABET.includes(char)))];
 const KEY_IN_TEXT = /([A-Z0-9]{4})-?([A-Z0-9]{4})-?([A-Z0-9]{4})/i;
 
 const formatKey = (value: string) =>
@@ -43,13 +46,18 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
   const [step, setStep] = useState<Step>(0);
   const [found, setFound] = useState<KeyCheck | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [facing, setFacing] = useState<'front' | 'back'>('front');
+  const [facing, setFacing] = useState<'front' | 'back'>('back');
   const [permission, requestCameraPermission] = useCameraPermissions();
   const scanned = useRef(false);
   const { width } = useWindowDimensions();
   const narrow = width < NARROW_WIDTH_DP;
 
   async function verify(value = key) {
+    const wrong = invalidKeyChars(value);
+    if (wrong.length) {
+      setError(`Há caracteres que não existem nas chaves (${wrong.join(' ')}): elas não usam 0, O, 1, I nem L. Confirme o que escreveu.`);
+      return;
+    }
     setBusy(true);
     setError('');
     try {
@@ -144,7 +152,7 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
               </View>
               <View style={{ flexDirection: 'row', gap: vw(1.5), alignItems: 'center' }}>
                 <Paragraph>Aponte para o QR da chave no painel.</Paragraph>
-                <SmallButton title="Trocar câmara" onPress={() => setFacing((side) => (side === 'front' ? 'back' : 'front'))} />
+                <SmallButton title="Virar câmara" onPress={() => setFacing((side) => (side === 'front' ? 'back' : 'front'))} />
                 <SmallButton title="Cancelar" onPress={() => setScanning(false)} />
               </View>
             </View>
@@ -173,6 +181,10 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
                 placeholderTextColor={colors.ink3}
                 autoCapitalize="characters"
                 autoCorrect={false}
+                spellCheck={false}
+                autoComplete="off"
+                importantForAutofill="no"
+                keyboardType="visible-password"
                 accessibilityLabel="Chave de ativação"
                 style={{ fontFamily: fonts.bodyBold, fontSize: vw(2.1), letterSpacing: vw(0.3), paddingHorizontal: vw(1.8), paddingVertical: vw(1.3), borderRadius: vw(1.4), borderWidth: 1.5, borderColor: colors.fieldBorder, backgroundColor: colors.surface, color: colors.ink }}
               />
