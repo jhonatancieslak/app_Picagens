@@ -282,7 +282,7 @@ export interface TeamMapWeek {
   equipa: TeamRef;
   inicio: string;
   fim: string;
-  membros: { id: string; nome: string; iniciais: string; dias: (string | null)[]; faltas: number }[];
+  membros: { id: string; nome: string; iniciais: string; dias: (string | null)[]; horas?: (string | null)[]; faltas: number }[];
 }
 
 /** Ano só para ver: faltas por mês de cada pessoa (doc 224). */

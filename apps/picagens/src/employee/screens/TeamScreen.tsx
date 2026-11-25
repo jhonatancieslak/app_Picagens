@@ -465,7 +465,7 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
                     return (
                       <Pressable key={i} onPress={() => setPerson({ id: m.id, nome: m.nome })} accessibilityRole="button"
                         style={{ flex: 1, height: 36, borderRadius: 8, alignItems: 'center', justifyContent: 'center', backgroundColor: cell?.bg ?? 'transparent' }}>
-                        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12.5, color: cell?.fg ?? colors.ink3 }}>{code === '-' ? '–' : code ?? ''}</Text>
+                        <Text numberOfLines={1} style={{ fontFamily: fonts.bodyBold, fontSize: m.horas?.[i] ? 11 : 12.5, color: cell?.fg ?? colors.ink3 }}>{m.horas?.[i] ?? (code === '-' ? '–' : code ?? '')}</Text>
                       </Pressable>
                     );
                   })}
