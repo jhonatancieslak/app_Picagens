@@ -25,8 +25,8 @@ import { enqueueEmployeePunch } from '../queue';
 import { Avatar, AvatarPhoto, Button, Chip, ChipTone } from '../ui';
 
 const WEEK_CHART_HEIGHT = 84;
-/** O relógio mostra horas e minutos: basta atualizar umas vezes por minuto. */
-const CLOCK_TICK_MS = 10 * 1000;
+/** O relógio mostra os segundos (pedido do Jhonatan, 25/11): atualiza a cada segundo. */
+const CLOCK_TICK_MS = 1000;
 const PUNCH_FEEDBACK_MS = 1100;
 /** Volta a perguntar ao servidor se está no local quando se moveu isto (ou passou este tempo). */
 const RECHECK_METERS = 15;
@@ -274,7 +274,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.action]} />}
       >
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 52, lineHeight: 56, letterSpacing: -1, color: colors.ink, fontVariant: ['tabular-nums'] }}>{clock(now)}</Text>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 64, lineHeight: 70, letterSpacing: -1.5, color: colors.ink, fontVariant: ['tabular-nums'] }}>{clock(now)}<Text style={{ fontSize: 34, color: colors.ink3, letterSpacing: -0.5 }}>:{String(now.getSeconds()).padStart(2, '0')}</Text></Text>
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.ink2, marginTop: 6, textAlign: 'center' }}>{subline}</Text>
           {placeStatus ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: placeStatus.color, marginTop: 6, textAlign: 'center' }}>{placeStatus.text}</Text> : null}
           {pending ? <View style={{ marginTop: 8 }}><Chip tone="warn" label={`${pending} por enviar`} /></View> : null}

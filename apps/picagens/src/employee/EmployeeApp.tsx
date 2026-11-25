@@ -25,7 +25,7 @@ import { DocumentsScreen } from './screens/DocumentsScreen';
 import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { TermosScreen } from './screens/TermosScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
-import { MessagesScreen } from './screens/MessagesScreen';
+import { ConfirmRecordsView, MessageView, MissingExitView } from './screens/NotificationViews';
 import { NotificationsScreen } from './screens/NotificationsScreen';
 import { EsqueciPinScreen } from './screens/EsqueciPinScreen';
 import { PinScreen } from './screens/PinScreen';
@@ -35,7 +35,10 @@ import { RequestsScreen } from './screens/RequestsScreen';
 import { TeamPin, TeamScreen } from './screens/TeamScreen';
 import { TodayScreen, parseHours } from './screens/TodayScreen';
 import { clearSession, getCachedDashboard, getCachedMe, getEmployeeToken, saveCachedDashboard, saveSession } from './storage';
-import { AvatarPhoto, FadeIn, useToast } from './ui';
+import { Avatar, AvatarPhoto, FadeIn, useToast } from './ui';
+
+/** Ecrãs abertos a partir de uma notificação (artboard p2311-notificacoes). */
+type NotifView = { kind: 'mensagem'; id: string } | { kind: 'saida'; date: string } | { kind: 'vistos' };
 
 type Tab = 'today' | 'records' | 'requests' | 'documents' | 'notifications' | 'team';
 
@@ -44,7 +47,7 @@ const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
   { key: 'records', label: 'Registos', Icon: ChartIcon },
   { key: 'requests', label: 'Pedidos', Icon: CalendarIcon },
   { key: 'documents', label: 'Documentos', Icon: DocumentIcon },
-  { key: 'notifications', label: 'Notificações', Icon: BellIcon },
+  { key: 'notifications', label: 'Avisos', Icon: BellIcon },
 ];
 
 const TEAM_TAB = { key: 'team' as Tab, label: 'Equipa', Icon: TeamIcon };
@@ -64,7 +67,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [tab, setTab] = useState<Tab>('today');
   const [profile, setProfile] = useState(false);
-  const [messages, setMessages] = useState(false);
+  const [notifView, setNotifView] = useState<NotifView | null>(null);
   const [pinScreen, setPinScreen] = useState(false);
   const [forgotPin, setForgotPin] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
@@ -89,7 +92,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setDashboard(null);
     setTab('today');
     setProfile(false);
-    setMessages(false);
+    setNotifView(null);
     setPinScreen(false);
     setForgotPin(false);
     setTeamPin(null);
@@ -161,7 +164,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setForgotPin(false);
     setProfile(false);
     setContract(null);
-    setMessages(false);
+    setNotifView(null);
     setTab(screen === 'mensagens' ? 'notifications' : TAB_OF_PUSH[screen]);
   }, []);
 
@@ -214,7 +217,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (forgotPin) { setForgotPin(false); return true; }
       if (pinScreen) { setPinScreen(false); return true; }
-      if (messages) { setMessages(false); return true; }
+      if (notifView) { setNotifView(null); return true; }
       if (profile) { setProfile(false); return true; }
       if (contract) { setContract(null); return true; }
       if (tab === 'today') return false;
@@ -222,11 +225,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract, messages, pinScreen, forgotPin]);
+  }, [tab, profile, contract, notifView, pinScreen, forgotPin]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
-    setMessages(false);
+    setNotifView(null);
     if (notice.acao === 'contrato' && notice.id) {
       setContract(notice.id);
       setTab('documents');
@@ -239,12 +242,16 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const openNotification = useCallback((item: NotificationItem) => {
     const [where, id] = item.destino;
     setProfile(false);
-    if (where === 'mensagem') { setMessages(true); return; }
+    // Cada tipo abre o seu ecrã (artboard p2311-notificacoes): a mensagem lê-se aqui e fica lida; a saída em falta vai direta
+    // ao pedido de correção desse dia; os registos por confirmar abrem a confirmação.
+    if (where === 'mensagem' && id) { setNotifView({ kind: 'mensagem', id }); return; }
+    if (where === 'registos' && id) { setNotifView({ kind: 'saida', date: id }); return; }
+    if (where === 'vistos') { setNotifView({ kind: 'vistos' }); return; }
     if (where === 'contrato' && id) setContract(id);
     setTab(where === 'registos' || where === 'vistos' ? 'records' : where === 'pedidos' ? 'requests' : 'documents');
   }, []);
 
-  if (splash) return <><StatusBar style="dark" /><Splash /></>;
+  if (splash) return <><StatusBar style="light" /><Splash /></>;
 
   if (updateRequired) return <View style={{ flex: 1, backgroundColor: colors.bg }}><UpdateRequiredScreen url={me?.url_atualizacao} /></View>;
 
@@ -291,9 +298,15 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const activeTab: Tab = tab === 'team' && !teams.length ? 'today' : tab;
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
-  const overlay = forgotPin ? 'forgotPin' : pinScreen ? 'pin' : messages ? 'messages' : profile ? 'profile' : null;
+  const overlay = forgotPin ? 'forgotPin' : pinScreen ? 'pin' : notifView ? 'notif' : profile ? 'profile' : null;
   const screenKey = overlay ?? activeTab;
   const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
+  const avatar = (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
+      <Avatar name={me.colaborador.nome} count={0} onPress={() => setProfile(true)} photo={photo} size={36} />
+    </View>
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -303,10 +316,14 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
         <FadeIn deps={screenKey}>
           {forgotPin ? <EsqueciPinScreen token={token} me={me} onBack={() => setForgotPin(false)} onAuthError={onAuthError} onSession={startSession} /> : null}
           {!forgotPin && pinScreen ? <PinScreen token={token} onBack={() => setPinScreen(false)} onAuthError={onAuthError} /> : null}
-          {!forgotPin && !pinScreen && messages ? (
-            <MessagesScreen token={token} onBack={() => setMessages(false)} onRead={refreshDashboard} onAuthError={onAuthError} />
+          {!forgotPin && !pinScreen && notifView ? (
+            <>
+              {notifView.kind === 'mensagem' ? <MessageView token={token} id={notifView.id} avatar={avatar} onBack={() => setNotifView(null)} onRead={refreshDashboard} onAuthError={onAuthError} /> : null}
+              {notifView.kind === 'saida' ? <MissingExitView token={token} date={notifView.date} avatar={avatar} onBack={() => setNotifView(null)} onSent={() => { setNotifView(null); refreshDashboard(); }} onAuthError={onAuthError} /> : null}
+              {notifView.kind === 'vistos' ? <ConfirmRecordsView token={token} avatar={avatar} onBack={() => setNotifView(null)} onDone={() => { setNotifView(null); refreshDashboard(); }} onCorrection={() => { setNotifView(null); setTab('records'); }} onAuthError={onAuthError} /> : null}
+            </>
           ) : null}
-          {!forgotPin && !pinScreen && !messages && profile ? (
+          {!forgotPin && !pinScreen && !notifView && profile ? (
             <ProfileScreen
               token={token}
               me={me}
@@ -386,7 +403,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
                 style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 56, transform: [{ scale: pressed ? 0.96 : 1 }] })}
               >
                 {active ? <View style={{ position: 'absolute', top: -7, width: 26, height: 3, borderRadius: 2, backgroundColor: colors.band }} /> : null}
-                <View style={{ borderRadius: 10, padding: 4, backgroundColor: active ? colors.bandSoft : 'transparent' }}>
+                <View style={{ padding: 4 }}>
                   <Icon size={22} color={active ? colors.band : colors.ink3} />
                   {badge ? (
                     <View style={{ position: 'absolute', top: -2, right: -4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, backgroundColor: colors.ok, alignItems: 'center', justifyContent: 'center' }}>

@@ -116,7 +116,7 @@ function PinGate({ token, onPin, onAuthError }: { token: string; onPin: (pin: Te
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 14 }}>
-      <Header subtitle="Chefe de equipa" title="Equipa" />
+      <Header variante="faixaLogo" subtitle="Chefe de equipa" title="Equipa" />
       <Muted size={15}>Aqui vê dados de outras pessoas. Confirme o seu PIN (o mesmo do tablet da obra). Pedimos de novo a cada 12 horas.</Muted>
       <OtpCells value={'•'.repeat(value.length)} length={PIN_LENGTH} />
       {busy ? <ActivityIndicator color={colors.action} /> : <ErrorText>{error}</ErrorText>}
@@ -221,7 +221,7 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
         contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 12 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { load(); loadCounts(); }} />}
       >
-        <Header variante="faixa" subtitle={current?.local ? `Chefe de equipa · ${current.local}` : 'Chefe de equipa'} title={current?.nome ?? 'Equipa'} />
+        <Header variante="faixaLogo" subtitle={current?.local ? `Chefe de equipa · ${current.local}` : 'Chefe de equipa'} title={current?.nome ?? 'Equipa'} />
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Pill label="Alertas de hoje" active={false} onPress={() => setEcra('alertas')} />

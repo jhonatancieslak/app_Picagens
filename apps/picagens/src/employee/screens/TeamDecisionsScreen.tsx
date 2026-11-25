@@ -38,7 +38,7 @@ export function TeamDecisionsScreen({ token, pinToken, equipa, onBack, onAuthErr
   const lista = pedidos ?? [];
   return (
     <View style={{ flex: 1, backgroundColor: CHEFE.fundo }}>
-      <Header variante="faixa" title="Correções" subtitle="Decide o chefe desta equipa. Fica registado." onVoltar={onBack} />
+      <Header variante="faixaLogo" title="Correções" subtitle="Decide o chefe desta equipa. Fica registado." onVoltar={onBack} />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
         {erro ? <Text style={{ color: colors.danger, fontFamily: 'Inter_400Regular' }}>{erro}</Text> : null}
         {pedidos && lista.length === 0 ? (

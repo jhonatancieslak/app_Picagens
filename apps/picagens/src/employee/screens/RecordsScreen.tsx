@@ -71,21 +71,21 @@ function CorrectionCard({ token, day, onClose, onSent, onAuthError }: { token: s
   }
 
   return (
-    <Card style={{ padding: 14, gap: 10, borderColor: colors.action }}>
+    <Card style={{ padding: 14, gap: 10, borderColor: colors.band }}>
       <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Pedir correção · {dayLabel(day.data)}</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
         {CORRECTION_TYPES.map(({ value, label }) => (
           <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: type === value }} onPress={() => setType(value)}
-            style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', borderColor: type === value ? colors.action : colors.line, backgroundColor: type === value ? colors.actionSoft : colors.surface }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: type === value ? colors.action : colors.ink2 }}>{label}</Text>
+            style={{ minHeight: 44, paddingHorizontal: 14, borderRadius: 12, borderWidth: 1.5, justifyContent: 'center', borderColor: type === value ? colors.band : colors.line, backgroundColor: type === value ? colors.bandSoft : colors.surface }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: type === value ? colors.band : colors.ink2 }}>{label}</Text>
           </Pressable>
         ))}
       </View>
       <Field label="Hora certa" value={time} onChangeText={setTime} placeholder="18:00" keyboardType="numbers-and-punctuation" maxLength={5} />
       <Field label="Motivo" value={reason} onChangeText={setReason} placeholder="Ex.: esqueci-me de picar a saída" maxLength={300} />
       {error ? <ErrorText>{error}</ErrorText> : null}
-      <Button primary title={sending ? 'A enviar…' : 'Enviar pedido'} busy={sending} onPress={send} />
-      <Button ghost title="Cancelar" onPress={onClose} />
+      <Button primary tone="verde" title={sending ? 'A enviar…' : 'Enviar pedido'} busy={sending} onPress={send} />
+      <Button ghost tone="faixa" title="Cancelar" onPress={onClose} />
     </Card>
   );
 }
@@ -169,7 +169,7 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120, gap: 12 }}
-        refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.action]} />}
+        refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.band]} />}
       >
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <WeekArrow label="‹" accessibilityLabel="Semana anterior" onPress={() => { setCorrecting(null); setOffset(offset - 1); }} />
@@ -289,7 +289,7 @@ function VistoCard({ token, visto, declaration, onConfirmed, onAuthError }: {
   }
 
   return (
-    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 4, borderLeftColor: colors.action, borderRadius: 18, padding: 14, gap: 10 }}>
+    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 4, borderLeftColor: colors.band, borderRadius: 18, padding: 14, gap: 10 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Confirmar horas {period}</Text>
@@ -303,7 +303,7 @@ function VistoCard({ token, visto, declaration, onConfirmed, onAuthError }: {
         </View>
       ) : null}
       {!open ? (
-        <Button primary title="Rever e confirmar" onPress={() => setOpen(true)} />
+        <Button primary tone="verde" title="Rever e confirmar" onPress={() => setOpen(true)} />
       ) : (
         <>
           {(visto.dias ?? []).map((day) => (
@@ -315,14 +315,14 @@ function VistoCard({ token, visto, declaration, onConfirmed, onAuthError }: {
             </View>
           ))}
           <Pressable accessibilityRole="checkbox" accessibilityState={{ checked }} onPress={() => setChecked(!checked)} style={{ flexDirection: 'row', gap: 10, alignItems: 'flex-start', marginTop: 4 }}>
-            <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: checked ? colors.action : colors.line, backgroundColor: checked ? colors.action : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+            <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: checked ? colors.band : colors.line, backgroundColor: checked ? colors.band : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
               {checked ? <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, fontSize: 13 }}>✓</Text> : null}
             </View>
             <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.ink }}>{declaration}</Text>
           </Pressable>
           <Muted size={12}>Se algo estiver errado, não confirme: peça a correção ao gestor (ou em "Pedir registo em falta" na página da empresa).</Muted>
           <ErrorText>{error}</ErrorText>
-          <Button primary title={busy ? 'A confirmar…' : 'Confirmar'} busy={busy} disabled={!checked} onPress={confirm} />
+          <Button primary tone="verde" title={busy ? 'A confirmar…' : 'Confirmar'} busy={busy} disabled={!checked} onPress={confirm} />
         </>
       )}
     </View>

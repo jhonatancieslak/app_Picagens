@@ -26,7 +26,7 @@ export function TeamAlertsScreen({ token, pinToken, equipa, onBack, onAuthError 
   const lista = alertas ?? [];
   return (
     <View style={{ flex: 1, backgroundColor: CHEFE.fundo }}>
-      <Header variante="faixa" title="Alertas da equipa" subtitle="Atrasos e saídas antes da hora prevista" onVoltar={onBack} />
+      <Header variante="faixaLogo" title="Alertas da equipa" subtitle="Atrasos e saídas antes da hora prevista" onVoltar={onBack} />
       <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
         {erro ? <Text style={{ color: colors.danger, fontFamily: fonts.body }}>{erro}</Text> : null}
         <CartaoChefe>
