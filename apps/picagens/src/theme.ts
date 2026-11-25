@@ -71,3 +71,16 @@ export const tabBarHeight = (bottomInset: number) => tabBar.paddingTop + tabBar.
 /** O botão de picar tem sempre esta altura e este sítio (pedido do Jhonatan, 26/11): só mudam o texto, o ícone e a cor. */
 export const punchButton = { height: 72, radius: 12, padding: 12, margin: 20 };
 export const punchFooterHeight = punchButton.height + punchButton.padding * 2 + 1;
+
+/** O Hoje alinhado ao painel (doc 252, artboards V4HojeSimples e V4Alinhamento): neutros frios dos tokens (`coresPainel`), linha de 1 px, sem sombras. */
+export const painel = {
+  papel: tokens.coresPainel.papel,
+  superficie: tokens.coresPainel.superficie,
+  linha: tokens.coresPainel.linha,
+  texto: tokens.coresPainel.texto,
+  texto2: tokens.coresPainel.texto2,
+  texto3: tokens.coresPainel.texto3,
+  faltaFundo: tokens.coresPainel.faltaFundo,
+  faltaTexto: tokens.coresPainel.falta,
+};
+export const painelForma = { cartao: 6, botao: 12 };

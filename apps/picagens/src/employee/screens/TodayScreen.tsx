@@ -18,7 +18,7 @@ import { HojeSkeleton } from '../../components/Skeleton';
 import PunchButton, { PunchKind } from '../../components/PunchButton';
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
-import { colors, fonts, punchButton, punchFooterHeight, tabBarHeight } from '../../theme';
+import { colors, fonts, painel, painelForma, punchButton, punchFooterHeight, tabBarHeight } from '../../theme';
 import { BankBalance, DayPunch, Dashboard, Me, Notice, PlaceCheck, PunchPayload, PunchType, TeamRef, TomorrowShift, WeekSummary, employeeApi } from '../api';
 import { TeamHomeCards } from './TeamHomeCards';
 import { FIX_ERROR_MESSAGES, Fix, addressOf, isFreshFix, readPosition, watchPosition } from '../location';
@@ -26,7 +26,6 @@ import { enqueueEmployeePunch } from '../queue';
 import { CorrectionCard } from './RecordsScreen';
 import { Avatar, AvatarPhoto, Button, Chip, ChipTone } from '../ui';
 
-const WEEK_CHART_HEIGHT = 84;
 /** O relógio mostra os segundos (pedido do Jhonatan, 25/11): atualiza a cada segundo. */
 const CLOCK_TICK_MS = 1000;
 const PUNCH_FEEDBACK_MS = 1100;
@@ -172,6 +171,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   const canBreak = next === 'pausa_inicio'; // pausa à mão: depois da entrada pode-se iniciar a pausa ou sair direto
   const isExit = next === 'saida' || canBreak || onBreak; // em serviço (inclui a pausa)
   const [confirmBreak, setConfirmBreak] = useState(false);
+  const [mapOpen, setMapOpen] = useState(false); // «Ver mapa»: o mapa grande saiu do Hoje e abre numa folha
   const [missing, setMissing] = useState(false); // «Esqueci-me de picar»: pedido de correção do dia de hoje, sem sair do Hoje
   const minutes = parseHours(dashboard?.horas_hoje ?? '0h00');
   const punches = dashboard?.picagens_hoje ?? [];
@@ -278,51 +278,45 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     : place?.dentro === false ? { text: 'Fora do local de trabalho', color: colors.warnInk }
     : null;
 
+  const progress = week?.carga_texto ? Math.min(parseHours(week.total_texto) / (parseHours(week.carga_texto) || 1), 1) : null;
+  const where: { text: string; warn: boolean } = fixError && fixError !== 'denied' && fixError !== 'disabled'
+    ? { text: FIX_ERROR_MESSAGES[fixError], warn: true }
+    : place?.dentro === true ? { text: `No raio do posto${place.distancia !== undefined ? ` · ${distanceLabel(place.distancia)}` : ''}`, warn: false }
+    : place?.dentro === false ? { text: `Está a ${distanceLabel(place.distancia ?? 0)} do local`, warn: true }
+    : { text: 'A confirmar a sua posição…', warn: false };
+
   return (
-    <View style={{ flex: 1 }}>
-      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 20, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Logo height={26} white />
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
-            <Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} photo={photo} size={36} />
-          </View>
+    <View style={{ flex: 1, backgroundColor: painel.papel }}>
+      {/* Topo plano (V4HojeSimples): logótipo e perfil, sem faixa nem gradiente. */}
+      <View style={{ backgroundColor: painel.superficie, paddingTop: insets.top + 10, paddingHorizontal: 20, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: painel.linha, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Logo height={24} />
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: painel.texto }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
+          <Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} photo={photo} size={36} />
         </View>
-        {week ? (
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 }} accessibilityLabel="Dias da semana">
-            {week.dias.map((day) => (
-              <View key={day.rotulo} style={{ alignItems: 'center', gap: 6, minWidth: 40, opacity: day.hoje ? 1 : 0.8 }}>
-                <View style={{ width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: day.hoje ? colors.surface : 'transparent' }}>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: day.hoje ? colors.band : colors.surface }}>{day.numero}</Text>
-                </View>
-                <Text style={{ fontFamily: day.hoje ? fonts.bodyBold : fonts.bodyMedium, fontSize: 12, color: colors.surface }}>{day.rotulo}</Text>
-              </View>
-            ))}
-          </View>
-        ) : null}
       </View>
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: tabBarHeight(insets.bottom) + punchFooterHeight + 12, gap: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: tabBarHeight(insets.bottom) + punchFooterHeight + 12, gap: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.action]} />}
       >
         <View style={{ alignItems: 'center' }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 64, lineHeight: 70, letterSpacing: -1.5, color: colors.ink, fontVariant: ['tabular-nums'] }}>{clock(now)}<Text style={{ fontSize: 34, color: colors.ink3, letterSpacing: -0.5 }}>:{String(now.getSeconds()).padStart(2, '0')}</Text></Text>
-          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: colors.ink2, marginTop: 6, textAlign: 'center' }}>{subline}</Text>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 56, lineHeight: 62, letterSpacing: -1.5, color: painel.texto, fontVariant: ['tabular-nums'] }}>{clock(now)}<Text style={{ fontSize: 30, color: painel.texto3, letterSpacing: -0.5 }}>:{String(now.getSeconds()).padStart(2, '0')}</Text></Text>
+          <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 15, color: painel.texto2, marginTop: 4, textAlign: 'center' }}>{subline}</Text>
           {placeStatus ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: placeStatus.color, marginTop: 6, textAlign: 'center' }}>{placeStatus.text}</Text> : null}
           {pending ? <View style={{ marginTop: 8 }}><Chip tone="warn" label={`${pending} por enviar`} /></View> : null}
         </View>
 
-        {dashboard ? <DayCard punches={punches} bank={dashboard.banco_horas ?? null} tomorrow={dashboard.amanha ?? null} onSchedule={onSchedule} /> : null}
+        {dashboard ? <DayCard punches={punches} week={week} progress={progress} bank={dashboard.banco_horas ?? null} tomorrow={dashboard.amanha ?? null} onSchedule={onSchedule} /> : null}
 
         {fixError === 'denied' || fixError === 'disabled' ? (
-          <View style={{ gap: 10, padding: 16, borderRadius: 18, backgroundColor: colors.warnSoft }}>
+          <View style={{ gap: 10, padding: 14, borderRadius: painelForma.cartao, backgroundColor: painel.faltaFundo, borderWidth: 1, borderColor: painel.linha }}>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <PinIcon size={20} color={colors.warnInk} />
               <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.warnInk }}>Localização desligada</Text>
             </View>
-            <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>
+            <Text style={{ fontFamily: fonts.body, fontSize: 13, color: painel.texto2 }}>
               {me.opcoes.localizacao_obrigatoria ? 'A sua empresa pede a localização para picar.' : 'Sem localização, o gestor não vê se estava no local.'} Só é lida no momento em que toca em Picar.
             </Text>
             <View style={{ alignSelf: 'flex-start' }}>
@@ -337,18 +331,24 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
             </View>
           </View>
         ) : (
-          <PlaceMap place={place} fix={fix} address={address} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
+          // O mapa grande saiu do Hoje: uma linha com o local e «Ver mapa» (o mapa abre numa folha).
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 14, borderRadius: painelForma.cartao, borderWidth: 1, borderColor: painel.linha, backgroundColor: where.warn ? painel.faltaFundo : painel.superficie }}>
+            <PinIcon size={20} color={where.warn ? colors.warnInk : colors.okInk} />
+            <Text style={{ flex: 1, fontFamily: fonts.bodyMedium, fontSize: 14, color: where.warn ? colors.warnInk : painel.texto }}>{where.text}</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Ver mapa" onPress={() => setMapOpen(true)} hitSlop={8} style={{ minHeight: 44, justifyContent: 'center' }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.band }}>Ver mapa</Text>
+            </Pressable>
+          </View>
         )}
 
-        {week ? <WeekCard week={week} /> : null}
         {team ? <TeamHomeCards token={token} pinToken={team.pinToken} teams={team.teams} onOpenTeam={team.onOpen} onAuthError={onAuthError} /> : null}
 
         {urgent ? (
           <Pressable accessibilityRole="button" onPress={() => onNotice(urgent)}
-            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 56, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.surface, elevation: 2, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 56, paddingVertical: 12, paddingHorizontal: 14, borderRadius: painelForma.cartao, borderWidth: 1, borderColor: painel.linha, backgroundColor: painel.superficie, transform: [{ scale: pressed ? 0.98 : 1 }] })}>
             <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{urgent.titulo}</Text>
-              <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink3, marginTop: 2 }}>{urgent.detalhe}</Text>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: painel.texto }}>{urgent.titulo}</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: painel.texto3, marginTop: 2 }}>{urgent.detalhe}</Text>
             </View>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.band }}>
               {urgent.acao === 'contrato' ? 'Assinar' : urgent.acao === 'correcao' ? 'Corrigir' : 'Ver'}
@@ -367,7 +367,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         </View>
         <Modal visible={confirmBreak} transparent animationType="fade" onRequestClose={() => setConfirmBreak(false)}>
           <View style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: colors.surface, borderRadius: 22, padding: 22, gap: 12 }}>
+            <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 22, gap: 12 }}>
               <Text style={{ fontFamily: fonts.bodyBold, fontSize: 20, color: colors.ink }}>Iniciar pausa agora?</Text>
               <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.ink2 }}>A pausa começa às {clock(now)}. Pode retomar quando quiser. A pausa não entra nas horas trabalhadas.</Text>
               <Button ghost tone="faixa" title="Cancelar" onPress={() => setConfirmBreak(false)} />
@@ -380,7 +380,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       </ScrollView>
 
       {/* Botão de picar fixo (pedido do Jhonatan, 26/11): por cima do menu, fora da área que rola, sempre no mesmo sítio e com a mesma altura. */}
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: tabBarHeight(insets.bottom), paddingHorizontal: punchButton.margin, paddingVertical: punchButton.padding, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.line }}>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: tabBarHeight(insets.bottom), paddingHorizontal: punchButton.margin, paddingVertical: punchButton.padding, backgroundColor: painel.papel, borderTopWidth: 1, borderTopColor: painel.linha }}>
         <PunchButton
           kind={punchKind}
           disabled={Boolean(blocked) || (online && !dashboard)}
@@ -404,6 +404,21 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* «Ver mapa»: o mapa de antes, agora numa folha. */}
+      <Modal visible={mapOpen} animationType="slide" onRequestClose={() => setMapOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: painel.papel, paddingTop: insets.top + 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingBottom: 10 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 18, color: painel.texto }}>Mapa</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Fechar o mapa" onPress={() => setMapOpen(false)} style={{ minHeight: 44, justifyContent: 'center', paddingLeft: 12 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.band }}>Fechar</Text>
+            </Pressable>
+          </View>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: insets.bottom + 20 }}>
+            <PlaceMap place={place} fix={fix} address={address} error={fixError ? FIX_ERROR_MESSAGES[fixError] : ''} onRecenter={locate} />
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -417,7 +432,7 @@ function Shortcut({ icon, label, onPress, disabled = false }: { icon: React.Reac
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => ({ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6, borderRadius: 16, backgroundColor: colors.surface, elevation: 2, opacity: disabled ? 0.5 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+      style={({ pressed }) => ({ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6, borderRadius: painelForma.cartao, borderWidth: 1, borderColor: painel.linha, backgroundColor: painel.superficie, opacity: disabled ? 0.5 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
     >
       {icon}
       <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.band, textAlign: 'center' }}>{label}</Text>
@@ -433,14 +448,16 @@ const humanHours = (text: string) => {
 
 /** «Esta semana»: barras por dia, o dia de hoje a escuro, os futuros vazios e a meta diária a tracejado (artboard v9). */
 /** Cartão «Hoje» (artboard V4HojeSimples, doc 252): o que já picou hoje, o banco de horas e o turno de amanhã. O saldo é só do próprio. */
-function DayCard({ punches, bank, tomorrow, onSchedule }: { punches: DayPunch[]; bank: BankBalance | null; tomorrow: TomorrowShift | null; onSchedule: () => void }) {
+function DayCard({ punches, week, progress, bank, tomorrow, onSchedule }: { punches: DayPunch[]; week: WeekSummary | undefined; progress: number | null; bank: BankBalance | null; tomorrow: TomorrowShift | null; onSchedule: () => void }) {
   const { entrada, saida } = dayEntryExit(punches);
   const next = tomorrow ? tomorrowText(tomorrow) : null;
-  const label = `Hoje: entrada ${entrada ?? 'por registar'}, saída ${saida ?? 'por registar'}.${bank ? ` Banco de horas ${formatBank(bank.saldo_minutos)}.` : ''}${next ? ` ${next.title}: ${next.value}.` : ''}`;
-  const small = { fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.ink3 } as const;
-  const big = (muted: boolean) => ({ fontFamily: fonts.bodyBold, fontSize: 20, color: muted ? colors.ink3 : colors.ink, fontVariant: ['tabular-nums' as const], marginTop: 2 });
+  const weekText = week ? `${humanHours(week.total_texto)}${week.carga_texto ? ` de ${humanHours(week.carga_texto)}` : ''}` : null;
+  const label = `Hoje: entrada ${entrada ?? 'por registar'}, saída ${saida ?? 'por registar'}.${weekText ? ` Esta semana ${weekText}.` : ''}${bank ? ` Banco de horas ${formatBank(bank.saldo_minutos)}.` : ''}${next ? ` ${next.title}: ${next.value}.` : ''}`;
+  const small = { fontFamily: fonts.bodyMedium, fontSize: 12, color: painel.texto3 } as const;
+  const big = (muted: boolean) => ({ fontFamily: fonts.bodyBold, fontSize: 20, color: muted ? painel.texto3 : painel.texto, fontVariant: ['tabular-nums' as const], marginTop: 2 });
+  const divider = { borderTopWidth: 1, borderTopColor: painel.linha, paddingTop: 10 };
   return (
-    <View accessibilityLabel={label} style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 14, gap: 12, elevation: 2 }}>
+    <View accessibilityLabel={label} style={{ backgroundColor: painel.superficie, borderRadius: painelForma.cartao, borderWidth: 1, borderColor: painel.linha, padding: 14, gap: 12 }}>
       <View style={{ flexDirection: 'row', gap: 10 }}>
         <View style={{ flex: 1 }}>
           <Text style={small}>Entrada</Text>
@@ -451,8 +468,21 @@ function DayCard({ punches, bank, tomorrow, onSchedule }: { punches: DayPunch[];
           <Text style={big(!saida)}>{saida ?? '--:--'}</Text>
         </View>
       </View>
+      {weekText ? (
+        <View style={divider}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: painel.texto }}>Esta semana</Text>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: painel.texto2, fontVariant: ['tabular-nums'] }}>{weekText}</Text>
+          </View>
+          {progress !== null ? (
+            <View style={{ height: 6, borderRadius: 3, backgroundColor: painel.linha, marginTop: 8, overflow: 'hidden' }}>
+              <View style={{ height: 6, width: `${Math.round(progress * 100)}%`, backgroundColor: colors.band }} />
+            </View>
+          ) : null}
+        </View>
+      ) : null}
       {bank || next ? (
-        <View style={{ flexDirection: 'row', gap: 10, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 10 }}>
+        <View style={{ flexDirection: 'row', gap: 10, ...divider }}>
           {bank ? (
             <View style={{ flex: 1 }}>
               <Text style={small}>Banco de horas</Text>
@@ -474,31 +504,6 @@ function DayCard({ punches, bank, tomorrow, onSchedule }: { punches: DayPunch[];
   );
 }
 
-function WeekCard({ week }: { week: WeekSummary }) {
-  const total = week.carga_texto ? `${humanHours(week.total_texto)} de ${humanHours(week.carga_texto)}` : humanHours(week.total_texto);
-  return (
-    <View accessibilityLabel={`Esta semana, ${total}`} style={{ backgroundColor: colors.surface, borderRadius: 18, paddingTop: 14, paddingHorizontal: 16, paddingBottom: 12, elevation: 2 }}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Esta semana</Text>
-        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink2 }}>{total}</Text>
-      </View>
-      <View style={{ height: WEEK_CHART_HEIGHT, marginTop: 10, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' }} importantForAccessibility="no-hide-descendants">
-        {week.meta_altura ? <View style={{ position: 'absolute', left: 0, right: 0, bottom: week.meta_altura, borderTopWidth: 1, borderStyle: 'dashed', borderColor: colors.line }} /> : null}
-        {week.dias.map((day) => (
-          <View key={day.rotulo} style={{ flex: 1, maxWidth: 34, alignItems: 'center', justifyContent: 'flex-end' }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 11, color: colors.ink2, marginBottom: 4, fontVariant: ['tabular-nums'] }}>{day.futuro ? '' : day.texto}</Text>
-            <View style={{ width: '100%', height: day.altura, borderTopLeftRadius: 8, borderTopRightRadius: 8, borderBottomLeftRadius: 4, borderBottomRightRadius: 4, backgroundColor: day.hoje ? colors.band : day.minutos ? colors.ok : colors.skeleton }} />
-          </View>
-        ))}
-      </View>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 }}>
-        {week.dias.map((day) => (
-          <Text key={day.rotulo} style={{ flex: 1, maxWidth: 34, textAlign: 'center', fontFamily: day.hoje ? fonts.bodyBold : fonts.bodyMedium, fontSize: 12, color: day.hoje ? colors.band : colors.ink3 }}>{day.rotulo}</Text>
-        ))}
-      </View>
-    </View>
-  );
-}
 
 const MAP_HEIGHT = 112;
 const TILE_PX = 256;
