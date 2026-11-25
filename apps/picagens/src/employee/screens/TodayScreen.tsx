@@ -8,7 +8,7 @@ import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Animated, Easing, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AppState, Animated, Easing, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
@@ -19,7 +19,7 @@ import SlideAction from '../../components/SlideAction';
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
-import { Dashboard, Me, Notice, PlaceCheck, PunchPayload, WeekSummary, employeeApi } from '../api';
+import { Dashboard, Me, Notice, PlaceCheck, PunchPayload, PunchType, WeekSummary, employeeApi } from '../api';
 import { FIX_ERROR_MESSAGES, Fix, addressOf, isFreshFix, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
 import { Avatar, AvatarPhoto, Button, Chip, ChipTone } from '../ui';
@@ -141,7 +141,10 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   // Cada picagem na fila ainda não está no «Hoje» do servidor: um número ímpar delas troca entrada/saída.
   const lastKnown = dashboard?.proximo_tipo ?? 'entrada';
   const next = pending % 2 ? (lastKnown === 'saida' ? 'entrada' : 'saida') : lastKnown;
-  const isExit = next === 'saida';
+  const onBreak = next === 'pausa_fim';
+  const canBreak = next === 'pausa_inicio'; // pausa à mão: depois da entrada pode-se iniciar a pausa ou sair direto
+  const isExit = next === 'saida' || canBreak || onBreak; // em serviço (inclui a pausa)
+  const [confirmBreak, setConfirmBreak] = useState(false);
   const minutes = parseHours(dashboard?.horas_hoje ?? '0h00');
   const punches = dashboard?.picagens_hoje ?? [];
   const dayClosed = punches.length > 0 && !isExit;
@@ -158,7 +161,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
   const blocked = place?.dentro === false && place.bloqueio;
 
-  async function punch() {
+  async function punch(wanted?: PunchType) {
     if (state !== 'idle') return;
     if (blocked) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -168,7 +171,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     const tappedAt = new Date().toISOString();
     setState('locating');
     const position = isFreshFix(fix) ? { fix } : await readPosition();
-    let payload: PunchPayload = { chave: Crypto.randomUUID() };
+    let payload: PunchPayload = { chave: Crypto.randomUUID(), ...(wanted ? { tipo: wanted } : {}) };
     if ('fix' in position) {
       const taken = position.fix;
       setFix(taken);
@@ -233,11 +236,13 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
   const week = dashboard?.semana;
   const firstEntry = punches.find((p) => p.tipo === 'entrada');
-  const verb = ({ entrada: 'entrar', saida: 'sair', pausa_inicio: 'iniciar a pausa', pausa_fim: 'terminar a pausa' } as Record<string, string>)[next] ?? 'picar';
+  const verb = ({ entrada: 'entrar', saida: 'sair', pausa_inicio: 'sair', pausa_fim: 'retomar' } as Record<string, string>)[next] ?? 'picar';
+  const breakSince = [...punches].reverse().find((p) => p.tipo === 'pausa_inicio')?.hora;
   const workedText = `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
   const subline = isExit ? `${firstEntry ? `entrou às ${firstEntry.hora} · ` : ''}${workedText} hoje` : `agora${me.local ? ` · ${me.local}` : ''}`;
   const placeStatus: { text: string; color: string } | null = !online ? { text: 'Sem rede · a picagem fica guardada', color: colors.warnInk }
     : blocked ? { text: `Está a ${distanceLabel(place?.distancia ?? 0)} do local`, color: colors.danger }
+    : onBreak ? { text: `Em pausa${breakSince ? ` desde ${breakSince}` : ''}`, color: colors.warnInk }
     : isExit ? { text: 'Em serviço', color: colors.ok }
     : dayClosed ? { text: 'Dia terminado. Bom descanso.', color: colors.ink2 }
     : place?.dentro === true ? { text: 'Está no local de trabalho', color: colors.ink2 }
@@ -324,11 +329,24 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           // Deslizar para a ação seguinte (artboard v9): verde para entrar, vermelho-escuro para sair.
           <SlideAction
             label={`Deslize para ${verb}`}
-            color={next === 'saida' ? colors.danger : next === 'pausa_fim' ? colors.warn : colors.ok}
+            color={next === 'saida' || canBreak ? colors.danger : next === 'pausa_fim' ? colors.warn : colors.ok}
             disabled={Boolean(blocked) || state !== 'idle' || (online && !dashboard)}
-            onConfirm={punch}
+            onConfirm={() => punch(canBreak ? 'saida' : undefined)}
           />
         )}
+        {canBreak ? (
+          <Button ghost tone="faixa" title="Iniciar pausa" disabled={Boolean(blocked) || state !== 'idle'} onPress={() => setConfirmBreak(true)} />
+        ) : null}
+        <Modal visible={confirmBreak} transparent animationType="fade" onRequestClose={() => setConfirmBreak(false)}>
+          <View style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: 24 }}>
+            <View style={{ backgroundColor: colors.surface, borderRadius: 22, padding: 22, gap: 12 }}>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 20, color: colors.ink }}>Iniciar pausa agora?</Text>
+              <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.ink2 }}>A pausa começa às {clock(now)}. Pode retomar quando quiser. A pausa não entra nas horas trabalhadas.</Text>
+              <Button ghost tone="faixa" title="Cancelar" onPress={() => setConfirmBreak(false)} />
+              <Button primary tone="verde" title="Iniciar pausa" onPress={() => { setConfirmBreak(false); punch('pausa_inicio'); }} />
+            </View>
+          </View>
+        </Modal>
 
         {me.opcoes.ver_pin ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>

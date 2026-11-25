@@ -126,6 +126,8 @@ export interface PunchPayload {
   loc_idade_ms?: number;
   offline_em?: string;
   colaborador_id?: string;
+  /** Pausa à mão: «saida» depois da entrada salta a pausa (o servidor decide o resto da sequência). */
+  tipo?: PunchType;
   /** Android: posição de uma app de GPS falso (Location.mocked). O servidor marca-a e recusa-a com bloqueio. */
   simulado?: boolean;
 }
