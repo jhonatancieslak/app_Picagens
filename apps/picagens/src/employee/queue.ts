@@ -28,8 +28,9 @@ function writeQueue(items: QueuedPunch[]) {
   indexFile.write(JSON.stringify(items));
 }
 
-export function enqueueEmployeePunch(payload: PunchPayload) {
-  writeQueue([...readQueue(), { ...payload, id: Crypto.randomUUID(), offline_em: new Date().toISOString() }]);
+/** `tappedAt`: hora do toque no botão (não a de quando a leitura da posição acabou). */
+export function enqueueEmployeePunch(payload: PunchPayload, tappedAt: string = new Date().toISOString()) {
+  writeQueue([...readQueue(), { ...payload, id: Crypto.randomUUID(), offline_em: tappedAt }]);
 }
 
 export const pendingEmployeePunches = () => readQueue().length;

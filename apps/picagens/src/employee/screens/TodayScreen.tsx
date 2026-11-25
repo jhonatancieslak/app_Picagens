@@ -18,7 +18,7 @@ import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { Dashboard, DayPunch, Me, Notice, PlaceCheck, PunchPayload, employeeApi } from '../api';
-import { FIX_ERROR_MESSAGES, Fix, addressOf, readPosition, watchPosition } from '../location';
+import { FIX_ERROR_MESSAGES, Fix, addressOf, isFreshFix, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
 import { Avatar, AvatarPhoto, Button, Chip, ChipTone, Header } from '../ui';
 
@@ -194,8 +194,9 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       toast({ tone: 'err', icon: <PinIcon size={26} color="#fff" />, title: `Está a ${distanceLabel(place?.distancia ?? 0)} do local`, text: 'A empresa só aceita picagens dentro do local. Aproxime-se e tente de novo.' });
       return;
     }
+    const tappedAt = new Date().toISOString();
     setState('locating');
-    const position = await readPosition();
+    const position = isFreshFix(fix) ? { fix } : await readPosition();
     let payload: PunchPayload = {};
     if ('fix' in position) {
       const taken = position.fix;
@@ -213,7 +214,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
     const queue = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
-      enqueueEmployeePunch(payload);
+      enqueueEmployeePunch(payload, tappedAt);
       onQueued();
       finish('queued');
       setResultado({ tone: 'queued', title: `${label} guardada às ${clock(new Date())}`, text: 'Envia sozinha quando houver rede.' });

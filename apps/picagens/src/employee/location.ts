@@ -15,6 +15,12 @@ export interface Fix {
 
 const WATCH_INTERVAL_MS = 20 * 1000;
 const WATCH_DISTANCE_M = 10;
+/** Limites para picar depressa (o servidor recusa posições com mais de 120 s quando a empresa bloqueia fora do local). */
+const FRESH_FIX_MAX_AGE_MS = 60 * 1000;
+const RECENT_FIX_MAX_AGE_MS = 60 * 1000;
+const RECENT_FIX_MAX_ERROR_M = 100;
+const STALE_FIX_MAX_AGE_MS = 5 * 60 * 1000;
+const FIX_TIMEOUT_MS = 4 * 1000;
 
 const toFix = (position: Location.LocationObject): Fix => ({
   lat: position.coords.latitude,
@@ -31,11 +37,24 @@ export async function readPosition(): Promise<FixResult> {
   if (!permission.granted) return { error: 'denied' };
   if (!(await Location.hasServicesEnabledAsync())) return { error: 'disabled' };
   try {
-    return { fix: toFix(await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High })) };
+    // Rápido primeiro: uma posição recente do sistema basta (o servidor decide pela idade e precisão que recebe).
+    const recent = await Location.getLastKnownPositionAsync({ maxAge: RECENT_FIX_MAX_AGE_MS, requiredAccuracy: RECENT_FIX_MAX_ERROR_M });
+    if (recent) return { fix: toFix(recent) };
+    // Leitura nova com limite de tempo: o GPS a frio dentro de um edifício não pode prender o botão de picar.
+    const fresh = await Promise.race([
+      Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), FIX_TIMEOUT_MS)),
+    ]);
+    if (fresh) return { fix: toFix(fresh) };
+    const stale = await Location.getLastKnownPositionAsync({ maxAge: STALE_FIX_MAX_AGE_MS });
+    return stale ? { fix: toFix(stale) } : { error: 'unavailable' };
   } catch {
     return { error: 'unavailable' };
   }
 }
+
+/** Posição já lida pelo ecrã Hoje, ainda fresca: picar não precisa de esperar por nova leitura. */
+export const isFreshFix = (fix: Fix | null | undefined): fix is Fix => !!fix && Date.now() - fix.takenAt < FRESH_FIX_MAX_AGE_MS;
 
 /** Segue a posição enquanto o ecrã está aberto (só com a permissão já dada; não pede). Devolve a função para parar. */
 export async function watchPosition(onFix: (fix: Fix) => void): Promise<() => void> {
