@@ -76,7 +76,7 @@ interface Props {
   onPin: () => void;
   toast: (message: { tone: 'ok' | 'queued' | 'err'; title: string; text?: string; icon?: React.ReactNode }) => void;
   /** Só para chefes de equipa: a equipa a mostrar no Hoje (artboard AppChefeHoje) e a prova do PIN do separador Equipa. */
-  team?: { ref: TeamRef; pinToken: string | null; onOpen: () => void };
+  team?: { teams: TeamRef[]; pinToken: string | null; onOpen: () => void };
 }
 
 export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onPin, toast, team }: Props) {
@@ -313,7 +313,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         )}
 
         {week ? <WeekCard week={week} /> : null}
-        {team ? <TeamHomeCards token={token} pinToken={team.pinToken} team={team.ref} onOpenTeam={team.onOpen} onAuthError={onAuthError} /> : null}
+        {team ? <TeamHomeCards token={token} pinToken={team.pinToken} teams={team.teams} onOpenTeam={team.onOpen} onAuthError={onAuthError} /> : null}
 
         {urgent ? (
           <Pressable accessibilityRole="button" onPress={() => onNotice(urgent)}

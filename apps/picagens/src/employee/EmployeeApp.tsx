@@ -352,7 +352,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               photo={photo}
               onRefresh={refreshDashboard}
               onProfile={() => setProfile(true)}
-              team={teams.length ? { ref: teams[0], pinToken: teamPin && teamPin.until > Date.now() ? teamPin.token : null, onOpen: () => setTab('team') } : undefined}
+              team={teams.length ? { teams, pinToken: teamPin && teamPin.until > Date.now() ? teamPin.token : null, onOpen: () => setTab('team') } : undefined}
               onQueued={() => setPending(pendingEmployeePunches())}
               onAuthError={onAuthError}
               onPin={() => setPinScreen(true)}

@@ -14,18 +14,23 @@ interface Props {
   token: string;
   /** Prova do PIN válida (separador Equipa), ou null. */
   pinToken: string | null;
-  team: TeamRef;
+  /** Equipas do chefe; com mais de uma aparece a escolha da equipa. */
+  teams: TeamRef[];
   onOpenTeam: () => void;
   onAuthError: (error: unknown) => boolean;
 }
 
-export function TeamHomeCards({ token, pinToken, team, onOpenTeam, onAuthError }: Props) {
+export function TeamHomeCards({ token, pinToken, teams, onOpenTeam, onAuthError }: Props) {
+  const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
+  const team = teams.find((item) => item.id === teamId) ?? teams[0];
   const [today, setToday] = useState<TeamToday | null>(null);
   const [alerts, setAlerts] = useState<TeamAlert[] | null>(null);
   const [missing, setMissing] = useState<TeamMissing | null>(null);
   const [requests, setRequests] = useState<TeamRequests | null>(null);
 
   useEffect(() => {
+    setToday(null);
+    setAlerts(null);
     if (!pinToken) return;
     let alive = true;
     Promise.all([teamApi.today(token, pinToken, team.id), teamApi.alerts(token, pinToken, team.id), teamApi.missing(token, pinToken, team.id), teamApi.requests(token, pinToken, team.id)])
@@ -37,6 +42,17 @@ export function TeamHomeCards({ token, pinToken, team, onOpenTeam, onAuthError }
     return () => { alive = false; };
   }, [token, pinToken, team.id, onAuthError]);
 
+  const chooser = teams.length > 1 ? (
+    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+      {teams.map((item) => (
+        <Pressable key={item.id} accessibilityRole="radio" accessibilityState={{ selected: item.id === team.id }} onPress={() => setTeamId(item.id)}
+          style={{ minHeight: 40, paddingHorizontal: 14, borderRadius: 20, borderWidth: 1.5, borderColor: item.id === team.id ? colors.band : colors.fieldBorder, backgroundColor: item.id === team.id ? colors.band : colors.surface, justifyContent: 'center' }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: item.id === team.id ? colors.surface : colors.ink }}>{item.nome}</Text>
+        </Pressable>
+      ))}
+    </View>
+  ) : null;
+
   if (!pinToken) {
     return (
       <Pressable accessibilityRole="button" onPress={onOpenTeam} style={({ pressed }) => ({ borderRadius: 18, backgroundColor: colors.surface, padding: 16, gap: 4, elevation: 2, opacity: pressed ? 0.85 : 1 })}>
@@ -46,7 +62,7 @@ export function TeamHomeCards({ token, pinToken, team, onOpenTeam, onAuthError }
       </Pressable>
     );
   }
-  if (!today || !alerts) return <Bloco style={{ height: 150, borderRadius: 18 }} />;
+  if (!today || !alerts) return <>{chooser}<Bloco style={{ height: 150, borderRadius: 18 }} /></>;
 
   const notPunched = today.membros.filter((m) => m.estado === 'por_comecar' || m.estado === 'em_falta_entrada').length;
   const toForgive = missing?.faltas.length ?? 0;
@@ -55,6 +71,7 @@ export function TeamHomeCards({ token, pinToken, team, onOpenTeam, onAuthError }
 
   return (
     <>
+      {chooser}
       <View style={{ borderRadius: 18, backgroundColor: colors.surface, padding: 16, gap: 12, elevation: 2 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{team.nome}, agora</Text>
