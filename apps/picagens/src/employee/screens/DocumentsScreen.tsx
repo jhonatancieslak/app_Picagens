@@ -9,7 +9,7 @@ import { ActivityIndicator, Image, Pressable, RefreshControl, ScrollView, Text, 
 
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { SignaturePad } from '../../components/SignaturePad';
-import { Bloco, ListaSkeleton } from '../../components/Skeleton';
+import { Bloco, DocumentosSkeleton } from '../../components/Skeleton';
 import { ApiError, NetworkError, appVersion } from '../../http';
 import { colors, fonts } from '../../theme';
 import { Contract, Documents, Me, employeeApi } from '../api';
@@ -101,7 +101,7 @@ export function DocumentsScreen({ token, me, avatar, openContract, onContractClo
           </View>
         ) : null}
         {error ? <ErrorText>{error}</ErrorText> : null}
-        {loading && !data ? <ListaSkeleton /> : null}
+        {loading && !data ? <DocumentosSkeleton /> : null}
         {data && !pending.length && !docs.length ? <Muted>Ainda não há documentos para si.</Muted> : null}
         {pending.length ? (
           <View>

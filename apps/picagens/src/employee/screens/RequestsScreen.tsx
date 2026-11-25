@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Image, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
-import { ListaSkeleton } from '../../components/Skeleton';
+import { PedidosSkeleton } from '../../components/Skeleton';
 import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { RequestLine, Requests, employeeApi } from '../api';
@@ -128,7 +128,7 @@ export function RequestsScreen({ token, name, photo, onProfile, onAuthError }: P
         </View>
 
         {error ? <ErrorText>{error}</ErrorText> : null}
-        {loading && !data ? <ListaSkeleton /> : null}
+        {loading && !data ? <PedidosSkeleton /> : null}
         {data && !lines.length ? <Muted>{tab === 'proximos' ? 'Não tem pedidos por decidir nem férias por vir.' : 'Ainda não tem pedidos passados.'}</Muted> : null}
         <View>
           {lines.map((line, index) => <Line key={line.id} line={line} zebra={index % 2 === 1} />)}

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 
 import { ApiError, NetworkError } from '../../http';
-import { ListaSkeleton } from '../../components/Skeleton';
+import { RegistosSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { MonthRecords, PunchType, Visto, employeeApi } from '../api';
 import { Avatar, AvatarPhoto, Button, Card, ErrorText, Field, Header, Muted } from '../ui';
@@ -208,7 +208,7 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
         </Pressable>
 
         {error ? <ErrorText>{error}</ErrorText> : null}
-        {loading && !data ? <ListaSkeleton /> : null}
+        {loading && !data ? <RegistosSkeleton /> : null}
 
         {data || Object.keys(daysByDate).length ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 4, paddingHorizontal: 16, elevation: 2 }}>

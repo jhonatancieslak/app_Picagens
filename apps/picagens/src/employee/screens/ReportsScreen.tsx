@@ -9,6 +9,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'rea
 
 import { ApiError, NetworkError, appVersion } from '../../http';
 import { colors, fonts } from '../../theme';
+import { RelatorioSkeleton } from '../../components/Skeleton';
 import { ReportChoice, ReportOptions, ReportView, employeeApi } from '../api';
 import { BarraRodape, Button, ErrorText, Field, Header } from '../ui';
 
@@ -164,7 +165,7 @@ export function ReportsScreen({ token, avatar, onBack, onAuthError }: { token: s
           );
         })}
       </View>
-      {!options && !message ? <ActivityIndicator color={colors.band} /> : null}
+      {!options && !message ? <RelatorioSkeleton /> : null}
       <PeriodSheet visible={sheet} options={options} choice={choice} onClose={() => setSheet(false)} onPick={(next) => { setChoice(next); setSheet(false); }} />
     </Frame>
   );
