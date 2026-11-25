@@ -316,7 +316,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       <StatusBar style="dark" />
       {toast.node}
       <View style={{ flex: 1 }}>
-        <FadeIn deps={screenKey}>
+        <FadeIn deps={screenKey} fromRight={overlay === 'profile'}>
           {forgotPin ? <EsqueciPinScreen token={token} me={me} onBack={() => setForgotPin(false)} onAuthError={onAuthError} onSession={startSession} /> : null}
           {!forgotPin && pinScreen ? <PinScreen token={token} onBack={() => setPinScreen(false)} onAuthError={onAuthError} /> : null}
           {!forgotPin && !pinScreen && notifView ? (
