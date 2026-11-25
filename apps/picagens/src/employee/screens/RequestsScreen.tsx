@@ -74,6 +74,18 @@ export function RequestsScreen({ token, name, photo, onProfile, onAuthError }: P
     load();
   }, [load]);
 
+  /** Cancela um pedido ainda por decidir (doc 253). Devolve o texto do erro, ou null se correu bem. */
+  async function cancelRequest(line: RequestLine): Promise<string | null> {
+    try {
+      await employeeApi.cancelRequest(token, line.tipo, line.id);
+      setSent({ tone: 'ok', title: 'Pedido cancelado', text: 'O pedido deixou de estar à espera de decisão. Fica guardado em «Passados».' });
+      await load();
+      return null;
+    } catch (exc) {
+      return onAuthError(exc) ? null : errorText(exc);
+    }
+  }
+
   const avatar = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
       <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
@@ -131,7 +143,7 @@ export function RequestsScreen({ token, name, photo, onProfile, onAuthError }: P
         {loading && !data ? <PedidosSkeleton /> : null}
         {data && !lines.length ? <Muted>{tab === 'proximos' ? 'Não tem pedidos por decidir nem férias por vir.' : 'Ainda não tem pedidos passados.'}</Muted> : null}
         <View>
-          {lines.map((line, index) => <Line key={line.id} line={line} zebra={index % 2 === 1} />)}
+          {lines.map((line, index) => <Line key={line.id} line={line} zebra={index % 2 === 1} onCancel={cancelRequest} />)}
         </View>
       </ScrollView>
       <BarraRodape aboveMenu>
@@ -145,17 +157,48 @@ export function RequestsScreen({ token, name, photo, onProfile, onAuthError }: P
   );
 }
 
-function Line({ line, zebra }: { line: RequestLine; zebra: boolean }) {
+function Line({ line, zebra, onCancel }: { line: RequestLine; zebra: boolean; onCancel: (line: RequestLine) => Promise<string | null> }) {
   const pill = PILL[line.tom] ?? PILL.espera;
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  async function confirmCancel() {
+    setBusy(true);
+    setError('');
+    const message = await onCancel(line);
+    setBusy(false);
+    if (message) setError(message);
+    else setConfirming(false);
+  }
+
   return (
-    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: zebra ? colors.zebra : 'transparent', marginHorizontal: zebra ? -10 : 0, paddingHorizontal: zebra ? 10 : 0 }}>
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{line.titulo}</Text>
-        <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink3, marginTop: 2 }}>{line.sub}</Text>
+    <View style={{ borderBottomWidth: 1, borderBottomColor: colors.line, backgroundColor: zebra ? colors.zebra : 'transparent', marginHorizontal: zebra ? -10 : 0, paddingHorizontal: zebra ? 10 : 0 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingVertical: 12 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 16, color: colors.ink }}>{line.titulo}</Text>
+          <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink3, marginTop: 2 }}>{line.sub}</Text>
+        </View>
+        <View style={{ backgroundColor: pill.bg, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 11 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: pill.fg }}>{line.estado_texto}</Text>
+        </View>
       </View>
-      <View style={{ backgroundColor: pill.bg, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 11 }}>
-        <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: pill.fg }}>{line.estado_texto}</Text>
-      </View>
+      {line.pode_cancelar ? (
+        confirming ? (
+          <View style={{ gap: 8, paddingBottom: 12 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>Cancelar este pedido?</Text>
+            {error ? <ErrorText>{error}</ErrorText> : null}
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              <View style={{ flex: 1 }}><Button ghost tone="faixa" title="Não" disabled={busy} onPress={() => setConfirming(false)} /></View>
+              <View style={{ flex: 1 }}><Button ghost danger title={busy ? 'A cancelar…' : 'Sim, cancelar'} busy={busy} onPress={confirmCancel} /></View>
+            </View>
+          </View>
+        ) : (
+          <Pressable accessibilityRole="button" accessibilityLabel={`Cancelar pedido: ${line.titulo}`} onPress={() => setConfirming(true)} style={{ minHeight: 44, justifyContent: 'center', paddingBottom: 4 }}>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.danger }}>Cancelar pedido</Text>
+          </Pressable>
+        )
+      ) : null}
     </View>
   );
 }

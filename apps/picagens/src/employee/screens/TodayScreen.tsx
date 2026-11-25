@@ -42,13 +42,8 @@ const metersBetween = (a: Fix, b: Fix) => {
   return Math.hypot(x, y) * 6_371_000;
 };
 
-/** "7h30" (formato do servidor) → minutos. */
-export const parseHours = (text: string) => {
-  const match = /^(\d+)h(\d{2})$/.exec(text ?? '');
-  return match ? Number(match[1]) * 60 + Number(match[2]) : 0;
-};
-
-export const formatHours = (minutes: number) => `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}`;
+export { formatHours, parseHours } from '../hours';
+import { parseHours } from '../hours';
 
 const clock = (date: Date) => `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
 
@@ -101,12 +96,14 @@ interface Props {
   /** Atalhos do Hoje (doc 252): «Pedir férias ou baixa» abre os Pedidos e «Relatórios» abre os Relatórios. */
   onGoRequests: () => void;
   onReports: () => void;
+  /** «Ver horário» do cartão do Hoje: abre Registos › Horário. */
+  onSchedule: () => void;
   toast: (message: { tone: 'ok' | 'queued' | 'err'; title: string; text?: string; icon?: React.ReactNode }) => void;
   /** Só para chefes de equipa: a equipa a mostrar no Hoje (artboard AppChefeHoje) e a prova do PIN do separador Equipa. */
   team?: { teams: TeamRef[]; pinToken: string | null; onOpen: () => void };
 }
 
-export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onGoRequests, onReports, toast, team }: Props) {
+export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onGoRequests, onReports, onSchedule, toast, team }: Props) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
@@ -317,7 +314,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           {pending ? <View style={{ marginTop: 8 }}><Chip tone="warn" label={`${pending} por enviar`} /></View> : null}
         </View>
 
-        {dashboard ? <DayCard punches={punches} bank={dashboard.banco_horas ?? null} tomorrow={dashboard.amanha ?? null} /> : null}
+        {dashboard ? <DayCard punches={punches} bank={dashboard.banco_horas ?? null} tomorrow={dashboard.amanha ?? null} onSchedule={onSchedule} /> : null}
 
         {fixError === 'denied' || fixError === 'disabled' ? (
           <View style={{ gap: 10, padding: 16, borderRadius: 18, backgroundColor: colors.warnSoft }}>
@@ -436,7 +433,7 @@ const humanHours = (text: string) => {
 
 /** «Esta semana»: barras por dia, o dia de hoje a escuro, os futuros vazios e a meta diária a tracejado (artboard v9). */
 /** Cartão «Hoje» (artboard V4HojeSimples, doc 252): o que já picou hoje, o banco de horas e o turno de amanhã. O saldo é só do próprio. */
-function DayCard({ punches, bank, tomorrow }: { punches: DayPunch[]; bank: BankBalance | null; tomorrow: TomorrowShift | null }) {
+function DayCard({ punches, bank, tomorrow, onSchedule }: { punches: DayPunch[]; bank: BankBalance | null; tomorrow: TomorrowShift | null; onSchedule: () => void }) {
   const { entrada, saida } = dayEntryExit(punches);
   const next = tomorrow ? tomorrowText(tomorrow) : null;
   const label = `Hoje: entrada ${entrada ?? 'por registar'}, saída ${saida ?? 'por registar'}.${bank ? ` Banco de horas ${formatBank(bank.saldo_minutos)}.` : ''}${next ? ` ${next.title}: ${next.value}.` : ''}`;
@@ -466,6 +463,9 @@ function DayCard({ punches, bank, tomorrow }: { punches: DayPunch[]; bank: BankB
             <View style={{ flex: 1 }}>
               <Text style={small}>{next.title}</Text>
               <Text style={{ ...big(false), fontSize: 16 }}>{next.value}</Text>
+              <Pressable accessibilityRole="button" accessibilityLabel="Ver horário" onPress={onSchedule} hitSlop={8} style={{ minHeight: 32, justifyContent: 'center' }}>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.band }}>Ver horário</Text>
+              </Pressable>
             </View>
           ) : null}
         </View>

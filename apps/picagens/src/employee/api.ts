@@ -103,6 +103,32 @@ export interface TomorrowShift {
   feriado: string | null;
 }
 
+/** `GET /horario` (doc 253): um dia do horário do próprio. */
+export interface ScheduleDay {
+  data: string;
+  dia: string;
+  hoje: boolean;
+  passado: boolean;
+  tipo: 'trabalho' | 'folga' | 'ferias' | 'baixa' | 'feriado' | 'sem_horario';
+  inicio: string | null;
+  fim: string | null;
+  pausa_inicio: string | null;
+  pausa_fim: string | null;
+  minutos: number;
+  local: string | null;
+  feriado: string | null;
+  ferias_pedido: boolean;
+}
+
+export interface ScheduleWeek {
+  inicio: string;
+  fim: string;
+  dias: ScheduleDay[];
+  minutos_planeados: number;
+  anterior: string;
+  seguinte: string;
+}
+
 /** `GET /painel` e `/registos` › `banco_horas` (doc 253): só o saldo do próprio; `null` sem banco calculado ou se a empresa o esconde. */
 export interface BankBalance {
   saldo_minutos: number;
@@ -182,6 +208,8 @@ export type RequestState = 'pendente' | 'aprovada' | 'rejeitada';
 export interface RequestLine {
   tipo: 'ferias' | 'baixa'; id: string; titulo: string; sub: string; estado: RequestState; estado_texto: string; tom: string;
   pode_alterar: boolean; inicio_iso: string; fim_iso: string;
+  /** Só por decidir (doc 253): o próprio colaborador pode cancelar. */
+  pode_cancelar?: boolean;
 }
 export interface VacationBalance { ano: number; direito: number; gozadas: number; marcadas: number; em_analise: number; por_gozar: number; por_marcar: number }
 
@@ -388,6 +416,12 @@ export const employeeApi = {
   confirmVisto: (token: string, visto: Visto, assinatura?: string) =>
     request<{ mensagem: string }>('POST', '/registos/visto', { inicio: visto.inicio, fim: visto.fim, hash: visto.hash, confirmo: true, ...(assinatura ? { assinatura } : {}) }, token),
   requests: (token: string) => request<Requests>('GET', '/pedidos', undefined, token),
+  /** Cancela um pedido do próprio ainda por decidir (doc 253). */
+  cancelRequest: (token: string, tipo: 'ferias' | 'baixa', id: string) =>
+    request<{ ok: boolean; mensagem: string }>('POST', `/pedidos/${tipo}/${encodeURIComponent(id)}/cancelar`, {}, token),
+  /** «Meu horário»: a semana do próprio; `semana` = qualquer dia dessa semana (AAAA-MM-DD), sem ele a de hoje. */
+  schedule: (token: string, semana?: string) =>
+    request<{ ok: boolean; semana: ScheduleWeek }>('GET', `/horario${semana ? `?semana=${encodeURIComponent(semana)}` : ''}`, undefined, token),
   /** «São N dias úteis. Ficam-lhe M dias de férias por gozar.» (`depois` = null sem direito configurado). */
   vacationDays: (token: string, inicio: string, fim: string) =>
     request<{ dias: number; depois: number | null }>('GET', `/pedidos/ferias/dias?inicio=${inicio}&fim=${fim}`, undefined, token),

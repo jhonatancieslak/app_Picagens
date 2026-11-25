@@ -34,7 +34,8 @@ import { RecordsScreen } from './screens/RecordsScreen';
 import { ReportsScreen } from './screens/ReportsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
 import { TeamPin, TeamScreen } from './screens/TeamScreen';
-import { TodayScreen, parseHours } from './screens/TodayScreen';
+import { parseHours } from './hours';
+import { TodayScreen } from './screens/TodayScreen';
 import { clearSession, getCachedDashboard, getCachedMe, getEmployeeToken, saveCachedDashboard, saveSession } from './storage';
 import { Avatar, AvatarPhoto, FadeIn, useToast } from './ui';
 
@@ -70,6 +71,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [profile, setProfile] = useState(false);
   const [notifView, setNotifView] = useState<NotifView | null>(null);
   const [reports, setReports] = useState(false);
+  const [recordsSection, setRecordsSection] = useState<'registos' | 'horario'>('registos'); // «Registos | Horário»
   const [pinScreen, setPinScreen] = useState(false);
   const [forgotPin, setForgotPin] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
@@ -357,6 +359,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onQueued={() => setPending(pendingEmployeePunches())}
               onAuthError={onAuthError}
               onGoRequests={() => setTab('requests')}
+              onSchedule={() => { setRecordsSection('horario'); setTab('records'); }}
               onReports={() => { setTab('records'); setReports(true); }}
               toast={toast.show}
             />
@@ -365,7 +368,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
             <ReportsScreen token={token} avatar={avatar} onBack={() => setReports(false)} onAuthError={onAuthError} />
           ) : null}
           {!overlay && activeTab === 'records' && !reports ? (
-            <RecordsScreen onReports={() => setReports(true)} token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
+            <RecordsScreen section={recordsSection} onSection={setRecordsSection} onReports={() => setReports(true)} token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
               weeklyMinutes={dashboard?.semana?.carga_texto ? parseHours(dashboard.semana.carga_texto) || null : null}
               onSignMonth={() => setNotifView({ kind: 'vistos' })} onAuthError={onAuthError} />
           ) : null}

@@ -10,7 +10,8 @@ import { RegistosSkeleton } from '../../components/Skeleton';
 import { colors, fonts } from '../../theme';
 import { MonthRecords, PunchType, Visto, employeeApi } from '../api';
 import { Avatar, AvatarPhoto, Button, Card, ErrorText, Field, Header, Muted } from '../ui';
-import { formatHours, parseHours } from './TodayScreen';
+import { ScheduleBody, SectionSwitch } from './ScheduleScreen';
+import { formatHours, parseHours } from '../hours';
 
 const WEEKDAYS = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
@@ -96,7 +97,10 @@ const WORKING_DAYS = 5;
 
 /** Registos, semana (artboard p2311-registos, aprovado 24/11): semana anterior/seguinte, total contra as horas previstas
  * e um dia por linha com entrada e saída. Dias sem saída pedem a correção ali mesmo. Os vistos por confirmar ficam no topo. */
-export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onSignMonth, onReports, onAuthError }: {
+export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onSignMonth, onReports, onAuthError, section, onSection }: {
+  /** «Registos | Horário» (doc 252): o horário vive no mesmo separador. */
+  section: 'registos' | 'horario';
+  onSection: (section: 'registos' | 'horario') => void;
   /** Abre os Relatórios (artboard p2311-relatorio-v2). */
   onReports: () => void;
   token: string; name: string; photo: AvatarPhoto | null; onProfile: () => void; weeklyMinutes: number | null;
@@ -157,24 +161,38 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
   const rangeText = `${monday.getDate()}${monday.getMonth() !== sunday.getMonth() ? ` de ${WEEKDAYS_LONG_MONTHS[monday.getMonth()]}` : ''} a ${sunday.getDate()} de ${WEEKDAYS_LONG_MONTHS[sunday.getMonth()]}`;
   const isCurrentWeek = offset === 0;
 
+  const header = (
+    <Header
+      variante="faixaLogo"
+      title="Registos"
+      subtitle={section === 'horario' ? 'O seu horário' : 'As suas horas desta semana'}
+      right={(
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
+          <Avatar name={name} count={0} onPress={onProfile} photo={photo} size={36} />
+        </View>
+      )}
+    />
+  );
+  const switcher = <SectionSwitch section={section} onChange={onSection} />;
+  if (section === 'horario') {
+    return (
+      <View style={{ flex: 1 }}>
+        {header}
+        <ScheduleBody token={token} switcher={switcher} onAuthError={onAuthError} />
+      </View>
+    );
+  }
+
   return (
     <View style={{ flex: 1 }}>
-      <Header
-        variante="faixaLogo"
-        title="Registos"
-        subtitle="As suas horas desta semana"
-        right={(
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
-            <Avatar name={name} count={0} onPress={onProfile} photo={photo} size={36} />
-          </View>
-        )}
-      />
+      {header}
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 120, gap: 12 }}
         refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.band]} />}
       >
+        {switcher}
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <WeekArrow label="‹" accessibilityLabel="Semana anterior" onPress={() => { setCorrecting(null); setOffset(offset - 1); }} />
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{rangeText}</Text>
