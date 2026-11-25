@@ -16,7 +16,7 @@ import { BellIcon, CalendarIcon, ChartIcon, ClockIcon, DocumentIcon, TeamIcon } 
 import { QUEUE_RETRY_MS } from '../config';
 import { ApiError } from '../http';
 import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
-import { colors, fonts } from '../theme';
+import { colors, fonts, tabBar } from '../theme';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
 import { Dashboard, Me, Notice, NotificationItem, Session, employeeApi } from './api';
 import { PushScreen, onPushOpened, onPushReceived, registerForPush, unregisterPush } from './push';
@@ -337,6 +337,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onBack={() => setProfile(false)}
               onLogout={logout}
               onForgotPin={() => setForgotPin(true)}
+              onPin={() => setPinScreen(true)}
             />
           ) : null}
           {!overlay && activeTab === 'today' ? (
@@ -355,7 +356,8 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               team={teams.length ? { teams, pinToken: teamPin && teamPin.until > Date.now() ? teamPin.token : null, onOpen: () => setTab('team') } : undefined}
               onQueued={() => setPending(pendingEmployeePunches())}
               onAuthError={onAuthError}
-              onPin={() => setPinScreen(true)}
+              onGoRequests={() => setTab('requests')}
+              onReports={() => { setTab('records'); setReports(true); }}
               toast={toast.show}
             />
           ) : null}
@@ -396,7 +398,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       {!overlay ? (
         <View
           accessibilityRole="tablist"
-          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingHorizontal: 2, paddingBottom: insets.bottom + 8 }}
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: tabBar.paddingTop, paddingHorizontal: 2, paddingBottom: insets.bottom + tabBar.paddingBottomExtra }}
         >
           {tabs.map(({ key, label, Icon }) => {
             const active = activeTab === key;
@@ -408,7 +410,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={badge ? `${label}, ${badge} por resolver` : label}
                 onPress={() => { setTab(key); setContract(null); }}
-                style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 56, transform: [{ scale: pressed ? 0.96 : 1 }] })}
+                style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: tabBar.tabMinHeight, transform: [{ scale: pressed ? 0.96 : 1 }] })}
               >
                 {active ? <View style={{ position: 'absolute', top: -7, width: 26, height: 3, borderRadius: 2, backgroundColor: colors.band }} /> : null}
                 <View style={{ padding: 4 }}>

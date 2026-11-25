@@ -46,8 +46,8 @@ const CORRECTION_TYPES: { value: PunchType; label: string }[] = [
 const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 
 /** Pedido de correção de um dia: tipo, hora certa e motivo (o gestor aprova em Picagens › Pedidos de correção). */
-function CorrectionCard({ token, day, onClose, onSent, onAuthError }: { token: string; day: Day; onClose: () => void; onSent: (message: string) => void; onAuthError: (error: unknown) => boolean }) {
-  const [type, setType] = useState<PunchType>(day.completo ? 'entrada' : 'saida');
+export function CorrectionCard({ token, day, initialType, onClose, onSent, onAuthError }: { token: string; day: Pick<Day, 'data' | 'completo'>; initialType?: PunchType; onClose: () => void; onSent: (message: string) => void; onAuthError: (error: unknown) => boolean }) {
+  const [type, setType] = useState<PunchType>(initialType ?? (day.completo ? 'entrada' : 'saida'));
   const [time, setTime] = useState('');
   const [reason, setReason] = useState('');
   const [sending, setSending] = useState(false);

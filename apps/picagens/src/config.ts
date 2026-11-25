@@ -21,3 +21,5 @@ export const SICK_LEAVE_PHOTO_MAX_PX = 1600;
 export const SICK_LEAVE_JPEG_QUALITY = 0.7;
 /** Prazo em que o servidor ainda aceita uma picagem feita sem rede (picagem_service.py). */
 export const OFFLINE_MAX_HOURS = 48;
+/** Botão de picar do Hoje: segundos para «Desfazer» antes de a picagem sair (doc 252; decidido 26/11). */
+export const PUNCH_UNDO_SECONDS = 5;

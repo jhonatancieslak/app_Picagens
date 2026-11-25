@@ -64,3 +64,10 @@ export const fonts = {
 };
 
 export const radius = { sm: 10, md: 16, lg: 22, pill: 999 };
+
+/** Barra de separadores (EmployeeApp) e botão de picar fixo do Hoje: as medidas num só sítio, para o botão ficar sempre por cima do menu. */
+export const tabBar = { paddingTop: 6, tabMinHeight: 56, paddingBottomExtra: 8, border: 1 };
+export const tabBarHeight = (bottomInset: number) => tabBar.paddingTop + tabBar.tabMinHeight + tabBar.paddingBottomExtra + tabBar.border + bottomInset;
+/** O botão de picar tem sempre esta altura e este sítio (pedido do Jhonatan, 26/11): só mudam o texto, o ícone e a cor. */
+export const punchButton = { height: 72, radius: 12, padding: 12, margin: 20 };
+export const punchFooterHeight = punchButton.height + punchButton.padding * 2 + 1;

@@ -31,11 +31,13 @@ interface Props {
   onLogout: () => void;
   /** Abre «Esqueci o meu PIN» (artboard p2311-esqueci-pin). */
   onForgotPin: () => void;
+  /** «Ver o meu PIN» (saiu do Hoje a 26/11, doc 252): só com `me.opcoes.ver_pin` (a empresa tem tablet ou PC de picagem). */
+  onPin: () => void;
 }
 
 type View_ = 'main' | 'dados' | 'alterar' | 'termos' | 'privacidade' | 'apagar';
 
-export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pending, onBack, onLogout, onForgotPin }: Props) {
+export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pending, onBack, onLogout, onForgotPin, onPin }: Props) {
   const [view, setView] = useState<View_>('main');
   const [keep, setKeep] = useState(true);
   const [choosingPhoto, setChoosingPhoto] = useState(false);
@@ -132,6 +134,7 @@ export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pendi
         <Text style={sectionStyle}>A minha conta</Text>
         <View style={listStyle}>
           <MenuRow icon={<UserIcon size={22} color={colors.band} />} label="Meus dados" onPress={() => setView('dados')} />
+          {me.opcoes.ver_pin ? <MenuRow icon={<KeyIcon size={22} color={colors.band} />} label="Ver o meu PIN" onPress={onPin} /> : null}
           <MenuRow icon={<KeyIcon size={22} color={colors.band} />} label="Esqueci o meu PIN" onPress={onForgotPin} />
           <MenuRow icon={<ShieldIcon size={22} color={colors.band} />} label="Política de privacidade" onPress={() => setView('privacidade')} />
           <MenuRow icon={<DocumentIcon size={22} color={colors.band} />} label="Termos de uso" onPress={() => setView('termos')} />

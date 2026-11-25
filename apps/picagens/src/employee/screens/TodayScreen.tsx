@@ -8,21 +8,22 @@ import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Animated, Easing, Image, Linking, Modal, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AppState, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import { KeyIcon, PinIcon, RecenterIcon } from '../../components/icons';
+import { CalendarIcon, ChartIcon, PauseIcon, PenIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
 import { HojeSkeleton } from '../../components/Skeleton';
-import SlideAction from '../../components/SlideAction';
+import PunchButton, { PunchKind } from '../../components/PunchButton';
 import ResultSheet, { ResultadoPicar } from '../../components/ResultSheet';
 import { ApiError, NetworkError } from '../../http';
-import { colors, fonts } from '../../theme';
+import { colors, fonts, punchButton, punchFooterHeight, tabBarHeight } from '../../theme';
 import { Dashboard, Me, Notice, PlaceCheck, PunchPayload, PunchType, TeamRef, WeekSummary, employeeApi } from '../api';
 import { TeamHomeCards } from './TeamHomeCards';
 import { FIX_ERROR_MESSAGES, Fix, addressOf, isFreshFix, readPosition, watchPosition } from '../location';
 import { enqueueEmployeePunch } from '../queue';
+import { CorrectionCard } from './RecordsScreen';
 import { Avatar, AvatarPhoto, Button, Chip, ChipTone } from '../ui';
 
 const WEEK_CHART_HEIGHT = 84;
@@ -72,14 +73,15 @@ interface Props {
   onProfile: () => void;
   onQueued: () => void;
   onAuthError: (error: unknown) => boolean;
-  /** «Ver o meu PIN» (2.5.0): só aparece com `me.opcoes.ver_pin` (a empresa tem tablet ou PC de picagem). */
-  onPin: () => void;
+  /** Atalhos do Hoje (doc 252): «Pedir férias ou baixa» abre os Pedidos e «Relatórios» abre os Relatórios. */
+  onGoRequests: () => void;
+  onReports: () => void;
   toast: (message: { tone: 'ok' | 'queued' | 'err'; title: string; text?: string; icon?: React.ReactNode }) => void;
   /** Só para chefes de equipa: a equipa a mostrar no Hoje (artboard AppChefeHoje) e a prova do PIN do separador Equipa. */
   team?: { teams: TeamRef[]; pinToken: string | null; onOpen: () => void };
 }
 
-export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onPin, toast, team }: Props) {
+export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onGoRequests, onReports, toast, team }: Props) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
@@ -148,6 +150,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
   const canBreak = next === 'pausa_inicio'; // pausa à mão: depois da entrada pode-se iniciar a pausa ou sair direto
   const isExit = next === 'saida' || canBreak || onBreak; // em serviço (inclui a pausa)
   const [confirmBreak, setConfirmBreak] = useState(false);
+  const [missing, setMissing] = useState(false); // «Esqueci-me de picar»: pedido de correção do dia de hoje, sem sair do Hoje
   const minutes = parseHours(dashboard?.horas_hoje ?? '0h00');
   const punches = dashboard?.picagens_hoje ?? [];
   const dayClosed = punches.length > 0 && !isExit;
@@ -164,14 +167,15 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
   const blocked = place?.dentro === false && place.bloqueio;
 
-  async function punch(wanted?: PunchType) {
+  /** `toque` = hora em que se tocou no botão (antes da contagem de «Desfazer»): é a hora da picagem guardada sem rede. */
+  async function punch(wanted?: PunchType, toque?: string) {
     if (state !== 'idle') return;
     if (blocked) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       setResultado({ tone: 'err', title: 'Não foi possível picar', text: `Está a ${distanceLabel(place?.distancia ?? 0)} do posto${place?.raio ? `. Tem de estar a menos de ${place.raio} metros` : ''}. Aproxime-se e tente de novo.` });
       return;
     }
-    const tappedAt = new Date().toISOString();
+    const tappedAt = toque ?? new Date().toISOString();
     setState('locating');
     const position = isFreshFix(fix) ? { fix } : await readPosition();
     let payload: PunchPayload = { chave: Crypto.randomUUID(), ...(wanted ? { tipo: wanted } : {}) };
@@ -187,7 +191,6 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       return;
     }
     payload.colaborador_id = me.colaborador.id;
-    const label = LABELS[next] ?? 'Picagem';
 
     const queue = () => {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
@@ -239,7 +242,8 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
   const week = dashboard?.semana;
   const firstEntry = punches.find((p) => p.tipo === 'entrada');
-  const verb = ({ entrada: 'entrar', saida: 'sair', pausa_inicio: 'sair', pausa_fim: 'retomar' } as Record<string, string>)[next] ?? 'picar';
+  const punchKind: PunchKind = next === 'saida' || canBreak ? 'saida' : next === 'pausa_fim' ? 'retomar' : 'entrada';
+  const todayIso = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const breakSince = [...punches].reverse().find((p) => p.tipo === 'pausa_inicio')?.hora;
   const workedText = `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, '0')}`;
   const subline = isExit ? `${firstEntry ? `entrou às ${firstEntry.hora} · ` : ''}${workedText} hoje` : `agora${me.local ? ` · ${me.local}` : ''}`;
@@ -278,7 +282,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: 110, gap: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 12, paddingBottom: tabBarHeight(insets.bottom) + punchFooterHeight + 12, gap: 12 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.action]} />}
       >
         <View style={{ alignItems: 'center' }}>
@@ -328,19 +332,15 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           </Pressable>
         ) : null}
 
-        {(
-          // Sempre visível (pedido de 25/11): bloqueado enquanto envia ou quando o local não deixa picar.
-          // Deslizar para a ação seguinte (artboard v9): verde para entrar, vermelho-escuro para sair.
-          <SlideAction
-            label={`Deslize para ${verb}`}
-            color={next === 'saida' || canBreak ? colors.danger : next === 'pausa_fim' ? colors.warn : colors.ok}
-            disabled={Boolean(blocked) || state !== 'idle' || (online && !dashboard)}
-            onConfirm={() => punch(canBreak ? 'saida' : undefined)}
-          />
-        )}
-        {canBreak ? (
-          <Button ghost tone="faixa" title="Iniciar pausa" disabled={Boolean(blocked) || state !== 'idle'} onPress={() => setConfirmBreak(true)} />
-        ) : null}
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Shortcut icon={<PenIcon size={22} color={colors.band} />} label="Esqueci-me de picar" onPress={() => setMissing(true)} />
+          <Shortcut icon={<CalendarIcon size={22} color={colors.band} />} label="Pedir férias ou baixa" onPress={onGoRequests} />
+          {canBreak ? (
+            <Shortcut icon={<PauseIcon size={22} color={colors.band} />} label="Iniciar pausa" disabled={Boolean(blocked) || state !== 'idle'} onPress={() => setConfirmBreak(true)} />
+          ) : (
+            <Shortcut icon={<ChartIcon size={22} color={colors.band} />} label="Relatórios" onPress={onReports} />
+          )}
+        </View>
         <Modal visible={confirmBreak} transparent animationType="fade" onRequestClose={() => setConfirmBreak(false)}>
           <View style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: 24 }}>
             <View style={{ backgroundColor: colors.surface, borderRadius: 22, padding: 22, gap: 12 }}>
@@ -352,22 +352,52 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           </View>
         </Modal>
 
-        {me.opcoes.ver_pin ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
-            <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
-              <KeyIcon size={22} color={colors.action} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>PIN de picagem</Text>
-              <Text style={{ fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>Para picar no tablet ou no computador da empresa.</Text>
-            </View>
-            <Button ghost title="Ver o meu PIN" onPress={onPin} />
-          </View>
-        ) : null}
-
         <ResultSheet resultado={resultado} onClose={fecharResultado} />
       </ScrollView>
+
+      {/* Botão de picar fixo (pedido do Jhonatan, 26/11): por cima do menu, fora da área que rola, sempre no mesmo sítio e com a mesma altura. */}
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: tabBarHeight(insets.bottom), paddingHorizontal: punchButton.margin, paddingVertical: punchButton.padding, backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.line }}>
+        <PunchButton
+          kind={punchKind}
+          disabled={Boolean(blocked) || (online && !dashboard)}
+          busy={state !== 'idle'}
+          reason={blocked ? 'indisponível aqui' : undefined}
+          onConfirm={(tappedAt) => punch(canBreak ? 'saida' : undefined, tappedAt)}
+        />
+      </View>
+
+      <Modal visible={missing} transparent animationType="slide" onRequestClose={() => setMissing(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end' }}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: '90%' }} contentContainerStyle={{ padding: 16 }}>
+            <CorrectionCard
+              token={token}
+              day={{ data: todayIso, completo: false }}
+              initialType={next === 'entrada' ? 'entrada' : 'saida'}
+              onClose={() => setMissing(false)}
+              onAuthError={onAuthError}
+              onSent={(message) => { setMissing(false); toast({ tone: 'ok', title: 'Pedido enviado', text: message }); }}
+            />
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
+  );
+}
+
+/** Atalho do dia a dia (doc 252): ícone e texto, alvo de pelo menos 64 px. */
+function Shortcut({ icon, label, onPress, disabled = false }: { icon: React.ReactNode; label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => ({ flex: 1, minHeight: 64, alignItems: 'center', justifyContent: 'center', gap: 4, padding: 6, borderRadius: 16, backgroundColor: colors.surface, elevation: 2, opacity: disabled ? 0.5 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] })}
+    >
+      {icon}
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.band, textAlign: 'center' }}>{label}</Text>
+    </Pressable>
   );
 }
 
