@@ -50,15 +50,16 @@ interface ButtonProps {
   disabled?: boolean;
   icon?: ReactNode;
   /** `verde`: botão principal dos ecrãs novos de 24/11 (artboards p2311-*); sem isto mantém o azul do protótipo v6. */
-  tone?: 'verde';
+  tone?: 'verde' | 'faixa';
 }
 
 /** Botões do protótipo: .btn (azul), .btn.ghost (branco com texto azul), .btn.link (só texto). */
 export function Button({ title, onPress, primary, danger, ghost, link, busy, disabled, icon, tone }: ButtonProps) {
   const solid = primary || (!ghost && !link && !danger);
   const green = tone === 'verde';
+  const outline = tone === 'faixa' && !solid && !link;  // botão «alt» dos artboards: branco, contorno e texto escuros
   const background = link ? 'transparent' : solid ? (green ? colors.ok : colors.action) : colors.surface;
-  const foreground = solid ? '#fff' : danger ? colors.danger : link && green ? colors.ok : colors.action;
+  const foreground = solid ? '#fff' : danger ? colors.danger : link && green ? colors.ok : tone === 'faixa' ? colors.band : colors.action;
   return (
     <Pressable
       accessibilityRole="button"
@@ -66,7 +67,7 @@ export function Button({ title, onPress, primary, danger, ghost, link, busy, dis
       onPress={onPress}
       disabled={disabled || busy}
       style={({ pressed }) => ({
-        minHeight: link ? 44 : green ? 56 : 52,
+        minHeight: link ? 44 : green || outline ? 56 : 52,
         borderRadius: 16,
         paddingHorizontal: 18,
         alignItems: 'center',
@@ -74,8 +75,8 @@ export function Button({ title, onPress, primary, danger, ghost, link, busy, dis
         flexDirection: 'row',
         gap: 8,
         backgroundColor: background,
-        borderWidth: !solid && !link ? 1 : 0,
-        borderColor: colors.line,
+        borderWidth: !solid && !link ? (outline ? 1.5 : 1) : 0,
+        borderColor: outline ? colors.band : colors.line,
         opacity: disabled ? 0.55 : 1,
         transform: [{ scale: pressed && !link ? 0.97 : 1 }],
       })}

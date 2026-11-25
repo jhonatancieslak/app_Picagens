@@ -3,6 +3,7 @@
 // → empresa encontrada + NIF + PIN + "Manter sessão". Alternativa: o link de acesso do email (abre a app sozinho;
 // senão cola-se aqui). No canto, "Quiosque" pergunta antes de passar este aparelho a tablet da empresa.
 // 2.5.0 (canvas 28): "Esqueci o PIN" → NIF → código de 6 números no email → PIN novo mostrado uma vez → entra.
+import * as Application from 'expo-application';
 import { ReactNode, useEffect, useState } from 'react';
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +16,7 @@ import { colors, fonts } from '../../theme';
 import { Company, Session, employeeApi } from '../api';
 import { PinShown } from './PinScreen';
 import { getKeepSession, getLastCompanyCode, saveKeepSession, saveLastCompanyCode } from '../storage';
-import { BackLink, BarraRodape, Button, Card, ErrorText, FadeIn, Field, Header, Hint, Muted, NumPad, OtpCells, PadField, Title, Toggle, applyKey } from '../ui';
+import { BarraRodape, Button, Card, ErrorText, FadeIn, Field, Header, Hint, Muted, NumPad, OtpCells, PadField, Title, Toggle, applyKey } from '../ui';
 
 const COMPANY_CODE_LENGTH = 6;
 const NIF_LENGTH = 9;
@@ -203,18 +204,18 @@ export function LoginScreen({ link, onSession, onKiosk }: Props) {
 
   if (step === 'welcome') {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <View style={{ flex: 1, backgroundColor: colors.surface }}>
         {corner}
         <FadeIn deps={step}>
-          <View style={{ flex: 1, justifyContent: 'space-between', padding: 22, paddingTop: insets.top + 40, paddingBottom: insets.bottom + 26, gap: 16 }}>
-            <View style={{ gap: 18, marginTop: 18 }}>
+          <View style={{ flex: 1, justifyContent: 'space-between', paddingHorizontal: 22, paddingTop: insets.top + 84, paddingBottom: insets.bottom + 26, gap: 16 }}>
+            <View style={{ gap: 18 }}>
               <Logo height={41} />
               <Title size={30}>Picar o ponto, sem papéis.</Title>
               <Muted size={15}>Entre com o código da sua empresa, o seu NIF e o seu PIN. Só precisa de fazer isto uma vez.</Muted>
             </View>
             <View style={{ gap: 10 }}>
-              <Button primary icon={<KeyIcon size={20} color="#fff" />} title="Entrar com o código da empresa" onPress={startCode} />
-              <Button ghost icon={<MailIcon size={20} color={colors.action} />} title="Recebi um link por email" onPress={() => go('link')} />
+              <Button primary tone="verde" icon={<KeyIcon size={20} color={colors.surface} />} title="Entrar com o código da empresa" onPress={startCode} />
+              <Button ghost tone="faixa" icon={<MailIcon size={20} color={colors.band} />} title="Recebi um link por email" onPress={() => go('link')} />
               <Hint>Não sabe o código? Peça-o ao encarregado ou veja no cartaz da obra.</Hint>
             </View>
           </View>
@@ -277,83 +278,103 @@ export function LoginScreen({ link, onSession, onKiosk }: Props) {
     );
   }
 
+  // Código, dados, link e quiosque (artboard p2311-abertura 3, 4, 8 e 9): faixa com logótipo e voltar, corpo e barra de
+  // botões fixa. O «Quiosque» no canto mantém-se nos passos de colaborador (a versão «sem quiosque» é só proposta).
+  const titles = { code: 'Código da empresa', credentials: 'Os seus dados', link: 'Link do email', kiosk: 'Quiosque' } as const;
+  const back = {
+    code: () => go('welcome'),
+    credentials: () => { setCode(''); go('code'); },
+    link: () => go('welcome'),
+    kiosk: () => go('welcome'),
+  } as const;
+  const faixaStep = step === 'code' || step === 'credentials' || step === 'link' || step === 'kiosk' ? step : 'code';
+
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <Header variante="faixaLogo" subtitle="" title={titles[faixaStep]} onVoltar={back[faixaStep]} />
       {corner}
       <FadeIn deps={step}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 16, paddingTop: insets.top + 14, paddingBottom: insets.bottom + 20, gap: 14 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ flexGrow: 1, padding: 20, paddingTop: 16, gap: 14 }} keyboardShouldPersistTaps="handled">
           {step === 'code' ? (
             <>
-              <BackLink label="Voltar" onPress={() => go('welcome')} />
-              <View>
-                <Title>Código da empresa</Title>
-                <Text style={{ fontFamily: fonts.body, fontSize: 14, color: colors.ink2, marginTop: 4 }}>São 6 números. Cada empresa tem o seu.</Text>
-              </View>
+              <Muted size={15}>São 6 números. Cada empresa tem o seu.</Muted>
               <OtpCells value={code} />
               <ErrorText>{busy ? '' : error}</ErrorText>
               {busy ? <Hint>A procurar a empresa…</Hint> : null}
               <NumPad onKey={codeKey} />
-              <Hint>Não sabe o código? Peça-o ao encarregado ou veja no cartaz da obra.</Hint>
             </>
           ) : null}
 
           {step === 'credentials' && company ? (
             <>
-              <BackLink label="Mudar de empresa" onPress={() => { setCode(''); go('code'); }} />
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.okSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}>
                 <View style={{ width: 34, height: 34, borderRadius: 10, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                   {company.logo_url ? <Image source={{ uri: company.logo_url }} style={{ width: 30, height: 30 }} resizeMode="contain" /> : <OkIcon size={18} color={colors.ok} />}
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ok }}>Empresa encontrada · código {company.codigo.slice(0, 3)} {company.codigo.slice(3)}</Text>
+                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ok }}>Empresa encontrada · código {company.codigo.slice(0, 3)} {company.codigo.slice(3)}</Text>
                   <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }} numberOfLines={2}>{company.nome}</Text>
                 </View>
               </View>
-              <Title size={24}>Os seus dados</Title>
               <PadField label="O seu NIF" value={groupNif(nif)} placeholder="9 dígitos" active={field === 'nif'} onPress={() => setField('nif')} />
               <PadField label="PIN (o mesmo do tablet da obra)" value={'•'.repeat(pin.length)} placeholder="4 dígitos" active={field === 'pin'} error={Boolean(error)} onPress={() => setField('pin')} />
               <ErrorText>{error}</ErrorText>
-              <Toggle title="Manter sessão neste telemóvel" subtitle="Abre sempre em Hoje, sem pedir o PIN. Se entrar noutro telemóvel, este sai." value={keep} onChange={setKeep} />
+              <Toggle title="Manter sessão neste telemóvel" subtitle="Abre sempre em Hoje, sem pedir o PIN." value={keep} onChange={setKeep} />
               <NumPad onKey={credentialKey} />
-              <Button primary title={busy ? 'A entrar…' : 'Entrar'} busy={busy} disabled={nif.length !== NIF_LENGTH || pin.length !== PIN_LENGTH} onPress={enter} />
-              <Button link title="Esqueci o PIN" onPress={() => go('forgot')} />
             </>
           ) : null}
 
           {step === 'link' ? (
             <>
-              <BackLink label="Voltar" onPress={() => go('welcome')} />
-              <Title>Link do email</Title>
-              <Muted size={14}>Abra neste telemóvel o email da sua empresa e toque em "Ativar o meu acesso": a app abre e entra sozinha. Se abrir o navegador, copie o link e cole-o aqui.</Muted>
+              <Muted size={15}>Abra neste telemóvel o email da sua empresa e toque em «Ativar o meu acesso»: a app abre e entra sozinha. Se abrir o navegador, copie o link e cole-o aqui.</Muted>
               <Field label="Link de acesso" value={pasted} onChangeText={setPasted} placeholder="https://picagens.pt/app/colaborador/…" autoCapitalize="none" autoCorrect={false} keyboardType="url" />
               <ErrorText>{error}</ErrorText>
-              <Button primary title={busy ? 'A entrar…' : 'Entrar'} busy={busy} disabled={!pasted.trim()} onPress={() => activate(pasted)} />
-              <Button link icon={<KeyIcon size={18} color={colors.action} />} title="Entrar com o código da empresa" onPress={startCode} />
             </>
           ) : null}
 
           {step === 'kiosk' ? (
-            <>
-              <BackLink label="Voltar" onPress={() => go('welcome')} />
-              <View style={{ gap: 12, paddingTop: 30 }}>
-                <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
-                  <TabletIcon size={30} color={colors.action} />
-                </View>
-                <Title size={24}>Usar como quiosque?</Title>
-                <Muted>Para o tablet da empresa, fixo na entrada da obra. Todos os colaboradores picam aqui só com o PIN.</Muted>
-                <Card style={{ paddingVertical: 12, paddingHorizontal: 14, gap: 6 }}>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.ink }}>Vai precisar de</Text>
-                  <Need>A <B>chave de ativação</B> que o gestor gera no painel (ou o QR)</Need>
-                  <Need>Wi-Fi ou dados móveis</Need>
-                  <Need>A app passa a horizontal e pede a câmara</Need>
-                </Card>
-                <Button primary icon={<TabletIcon size={20} color="#fff" />} title="Configurar como quiosque" onPress={onKiosk} />
-                <Button link title="Sou colaborador" onPress={() => go('welcome')} />
+            <View style={{ gap: 14, paddingTop: 6 }}>
+              <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
+                <TabletIcon size={30} color={colors.band} />
               </View>
-            </>
+              <Title size={24}>Usar como quiosque?</Title>
+              <Muted size={14}>Para o tablet da empresa, fixo na entrada da obra. Todos os colaboradores picam aqui só com o PIN.</Muted>
+              <Card style={{ paddingVertical: 12, paddingHorizontal: 14, gap: 6 }}>
+                <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13.5, color: colors.ink }}>Vai precisar de</Text>
+                <Need>A <B>chave de ativação</B> que o gestor gera no painel (ou o QR)</Need>
+                <Need>Wi-Fi ou dados móveis</Need>
+                <Need>A app passa a horizontal e pede a câmara</Need>
+              </Card>
+            </View>
           ) : null}
         </ScrollView>
       </FadeIn>
+      <BarraRodape>
+        {step === 'code' ? (
+          <>
+            <Button primary tone="verde" title="Continuar" busy={busy} disabled={code.length !== COMPANY_CODE_LENGTH} onPress={() => findCompany(code)} />
+            <Hint>Não sabe o código? Peça-o ao encarregado ou veja no cartaz da obra.</Hint>
+          </>
+        ) : null}
+        {step === 'credentials' ? (
+          <>
+            <Button primary tone="verde" title={busy ? 'A entrar…' : 'Entrar'} busy={busy} disabled={nif.length !== NIF_LENGTH || pin.length !== PIN_LENGTH} onPress={enter} />
+            <Button link tone="verde" title="Esqueci o PIN" onPress={() => go('forgot')} />
+          </>
+        ) : null}
+        {step === 'link' ? (
+          <>
+            <Button primary tone="verde" title={busy ? 'A entrar…' : 'Entrar'} busy={busy} disabled={!pasted.trim()} onPress={() => activate(pasted)} />
+            <Button link tone="verde" title="Entrar com o código da empresa" onPress={startCode} />
+          </>
+        ) : null}
+        {step === 'kiosk' ? (
+          <>
+            <Button primary tone="verde" title="Configurar como quiosque" onPress={onKiosk} />
+            <Button link tone="verde" title="Sou colaborador" onPress={() => go('welcome')} />
+          </>
+        ) : null}
+      </BarraRodape>
     </KeyboardAvoidingView>
   );
 }
@@ -364,17 +385,19 @@ function Need({ children }: { children: ReactNode }) {
   return <Text style={{ fontFamily: fonts.body, fontSize: 13.5, color: colors.ink2 }}>• {children}</Text>;
 }
 
-/** Ecrã de abertura com o logótipo (".splash"), 1,3 s. 2.5.1: «desenvolvido por» Cieslak Sistemas, discreto (30 %),
- * só aqui (canvas A1 n.º 1, aprovado 22/10). */
+/** Abertura de 1,3 s (artboard p2311-abertura n.º 1): fundo escuro, logótipo branco, «A abrir…» e, em baixo, «desenvolvido
+ * por» Cieslak Sistemas (discreto) com a versão e o build. */
 export function Splash() {
   return (
-    <Pressable style={{ flex: 1, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center', gap: 14 }}>
-      <Logo height={45} />
-      <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink3 }}>A abrir…</Text>
-      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 34, alignItems: 'center', gap: 6 }}>
-        <Text style={{ fontFamily: fonts.body, fontSize: 10.5, color: colors.ink3, opacity: 0.8 }}>desenvolvido por</Text>
-        <Image source={require('../../../assets/logo-cieslak.png')} style={{ height: 22, width: 22 * (297 / 86), opacity: 0.3 }}
-          resizeMode="contain" accessibilityLabel="Cieslak Sistemas" />
+    <Pressable style={{ flex: 1, backgroundColor: colors.band, alignItems: 'center', justifyContent: 'center', gap: 18 }}>
+      <Logo height={45} white />
+      <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.surface, opacity: 0.7 }}>A abrir…</Text>
+      <View style={{ position: 'absolute', left: 0, right: 0, bottom: 34, alignItems: 'center', gap: 10 }}>
+        <Image source={require('../../../assets/logo-cieslak.png')} style={{ height: 22, width: 22 * (297 / 86), opacity: 0.5, tintColor: colors.surface }}
+          resizeMode="contain" accessibilityLabel="Desenvolvido por Cieslak Sistemas" />
+        <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 12, color: colors.surface, opacity: 0.6 }}>
+          Versão {Application.nativeApplicationVersion} · build {Application.nativeBuildVersion}
+        </Text>
       </View>
     </Pressable>
   );

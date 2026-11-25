@@ -133,7 +133,7 @@ export function EsqueciPinScreen({ token, me, onBack, onAuthError, onSession }: 
         {step === 'email' ? (
           <>
             <Button primary tone="verde" title={busy ? 'A enviar…' : 'Enviar código para o meu email'} busy={busy} disabled={!maskedEmail} onPress={sendCode} />
-            <Button ghost title="Cancelar" onPress={onBack} />
+            <Button ghost tone="faixa" title="Cancelar" onPress={onBack} />
           </>
         ) : null}
         {step === 'code' ? (

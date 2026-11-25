@@ -9,7 +9,7 @@ import NetInfo from '@react-native-community/netinfo';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, AppState, BackHandler, Linking, Pressable, Text, View } from 'react-native';
+import { AppState, BackHandler, Linking, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BellIcon, CalendarIcon, ChartIcon, ClockIcon, DocumentIcon, TeamIcon } from '../components/icons';
@@ -249,11 +249,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   if (updateRequired) return <View style={{ flex: 1, backgroundColor: colors.bg }}><UpdateRequiredScreen url={me?.url_atualizacao} /></View>;
 
   if (token === undefined) {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg }}>
-        <ActivityIndicator color={colors.action} />
-      </View>
-    );
+    return <><StatusBar style="light" /><Splash /></>;
   }
 
   if (!token || !me) {
