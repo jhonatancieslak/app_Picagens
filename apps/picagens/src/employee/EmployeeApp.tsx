@@ -313,12 +313,9 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               photo={photo}
               onMeChange={changeMe}
               onAuthError={onAuthError}
-              notices={notices}
               pending={pending}
               onBack={() => setProfile(false)}
-              onNotice={openNotice}
               onLogout={logout}
-              onInfo={(title, text) => toast.show({ tone: 'ok', title, text })}
               onForgotPin={() => setForgotPin(true)}
             />
           ) : null}

@@ -86,6 +86,11 @@ export interface NotificationItem {
 }
 export interface Notifications { por_resolver: NotificationItem[]; anteriores: NotificationItem[] }
 
+/** Perfil › Meus dados (servidor: o mesmo serviço da PWA). Nome e NIF só o RH altera. */
+export interface ProfileData { nome: string; nif: string; nif_texto: string; email: string; telefone: string; telefone_texto: string; morada: string }
+export interface ProfileInput { telefone: string; email: string; morada: string }
+export interface LegalDocument { titulo: string; aviso: string; versao: string; seccoes: { titulo: string; texto: string }[] }
+
 export interface Dashboard {
   semana?: WeekSummary;
   /** Etiqueta do separador «Notificações». */
@@ -324,6 +329,11 @@ export const employeeApi = {
     request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/assinar`, { nome, codigo, li_e_aceito: true }, token),
   requestCorrection: (token: string, payload: CorrectionPayload) =>
     request<{ id: string; mensagem: string }>('POST', '/registos/correcao', payload, token),
+  profileData: (token: string) => request<ProfileData & { ok: boolean }>('GET', '/eu/dados', undefined, token),
+  saveProfileData: (token: string, body: ProfileInput) => request<ProfileData & { ok: boolean }>('POST', '/eu/dados', body, token),
+  legal: (token: string, which: 'termos' | 'privacidade') => request<LegalDocument & { ok: boolean }>('GET', `/legal/${which}`, undefined, token),
+  /** Apagar a própria conta: pede o PIN; os registos de ponto, pedidos e documentos ficam 5 anos (art. 202.º CT). */
+  deleteAccount: (token: string, pin: string) => request<{ ok: boolean }>('POST', '/eu/apagar', { pin }, token),
   notifications: (token: string) => request<Notifications & { ok: boolean }>('GET', '/notificacoes', undefined, token),
   messages: (token: string) => request<{ nao_lidas: number; mensagens: Message[] }>('GET', '/mensagens', undefined, token),
   readMessage: (token: string, id: string) => request<{ ok: boolean }>('POST', `/mensagens/${encodeURIComponent(id)}/lida`, {}, token),
