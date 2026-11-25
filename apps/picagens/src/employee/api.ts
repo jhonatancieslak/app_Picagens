@@ -267,6 +267,8 @@ export interface TeamRequests {
     tipo: 'ferias' | 'baixa'; id: string; colaborador_id: string; nome: string; iniciais: string;
     data_inicio: string | null; data_fim: string | null; tipo_ferias: string | null;
     parecer: { sentido: OpinionSense; nota: string | null } | null;
+    /** Com libertação do RH o chefe aprova ou recusa; sem ela dá só parecer (artboard AppChefeLiberacao). */
+    pode_decidir?: boolean;
   }[];
   correcoes: { id: string; colaborador_id: string; nome: string; iniciais: string; data: string; tipo: MissingType; hora: string; estado: RequestState }[];
 }
@@ -444,6 +446,8 @@ export const teamApi = {
     request<TeamPunches>('GET', `/equipa/picagens${teamQuery(equipa, data ? `data=${encodeURIComponent(data)}` : '')}`, undefined, token, undefined, teamHeaders(pinToken)),
   propose: (token: string, pinToken: string, body: TeamCorrection) =>
     request<{ id: string; mensagem: string }>('POST', '/equipa/correcoes', body, token, undefined, teamHeaders(pinToken)),
+  decideRequest: (token: string, pinToken: string, tipo: 'ferias' | 'baixa', id: string, aprovar: boolean) =>
+    request<{ ok: boolean; mensagem: string }>('POST', `/equipa/pedidos/${tipo}/${encodeURIComponent(id)}/decidir`, { aprovar }, token, undefined, teamHeaders(pinToken)),
   opinion: (token: string, pinToken: string, tipo: 'ferias' | 'baixa', id: string, sentido: OpinionSense) =>
     request<{ mensagem: string }>('POST', `/equipa/pedidos/${tipo}/${encodeURIComponent(id)}/parecer`, { sentido }, token, undefined, teamHeaders(pinToken)),
 };

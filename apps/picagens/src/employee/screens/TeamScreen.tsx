@@ -224,8 +224,20 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
     load();
   };
 
+  const decideRequest = async (tipo: 'ferias' | 'baixa', id: string, aprovar: boolean) => {
+    try {
+      const result = await teamApi.decideRequest(token, pinToken, tipo, id, aprovar);
+      toast({ tone: 'ok', title: aprovar ? 'Pedido aprovado' : 'Pedido recusado', text: result.mensagem });
+    } catch (exc) {
+      if (needsPin(exc)) { onPinExpired(); return; }
+      if (!onAuthError(exc)) toast({ tone: 'err', title: 'Não foi decidido', text: errorText(exc) });
+    }
+    load();
+    loadCounts();
+  };
+
   const missingCount = missing?.faltas.length ?? 0;
-  const opinionCount = requests?.pedidos.filter((p) => !p.parecer).length ?? 0;
+  const opinionCount = requests?.pedidos.filter((p) => p.pode_decidir || !p.parecer).length ?? 0;
   const current = teams.find((t) => t.id === team) ?? teams[0];
 
   const authOrPin = (exc: unknown) => { if (needsPin(exc)) { onPinExpired(); return true; } return onAuthError(exc); };
@@ -391,7 +403,7 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
         {tab === 'requests' && requests ? (
           <>
             <Card style={{ padding: 14, gap: 12 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>Férias e baixas para parecer</Text>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>Férias e baixas</Text>
               {requests.pedidos.length ? requests.pedidos.map((p, index) => {
                 const sense = p.parecer?.sentido;
                 const dates = `${datePt(p.data_inicio)}${p.data_fim ? ` a ${datePt(p.data_fim)}` : ' (sem data de fim)'}`;
@@ -402,11 +414,19 @@ function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, t
                       <Chip tone={p.tipo === 'ferias' ? 'hol' : 'neutral'} label={p.tipo === 'ferias' ? 'Férias' : 'Baixa'} />
                     </View>
                     <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink2 }}>{dates}{p.tipo_ferias ? ` · ${p.tipo_ferias}` : ''}</Text>
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
-                      <SenseButton label="Favorável" chosen={sense === 'favoravel'} good onPress={() => giveOpinion(p.tipo, p.id, 'favoravel')} />
-                      <SenseButton label="Desfavorável" chosen={sense === 'desfavoravel'} onPress={() => giveOpinion(p.tipo, p.id, 'desfavoravel')} />
-                    </View>
-                    {sense ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.ink3 }}>Parecer enviado. A decisão final é do RH.</Text> : null}
+                    {p.pode_decidir ? (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <SenseButton label="Recusar" chosen={false} onPress={() => decideRequest(p.tipo, p.id, false)} />
+                        <SenseButton label="Aprovar" chosen={false} good onPress={() => decideRequest(p.tipo, p.id, true)} />
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <SenseButton label="Favorável" chosen={sense === 'favoravel'} good onPress={() => giveOpinion(p.tipo, p.id, 'favoravel')} />
+                        <SenseButton label="Desfavorável" chosen={sense === 'desfavoravel'} onPress={() => giveOpinion(p.tipo, p.id, 'desfavoravel')} />
+                      </View>
+                    )}
+                    {p.pode_decidir ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.ink3 }}>Decide o chefe desta equipa. Fica registado com o seu nome.</Text> : null}
+                    {sense && !p.pode_decidir ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.ink3 }}>Parecer enviado. A decisão final é do RH.</Text> : null}
                   </View>
                 );
               }) : <Muted size={13.5}>Sem pedidos pendentes nesta equipa.</Muted>}
