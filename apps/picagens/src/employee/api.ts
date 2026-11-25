@@ -149,7 +149,19 @@ export interface Visto {
 
 export type RequestState = 'pendente' | 'aprovada' | 'rejeitada';
 
+/** Linha da lista de Pedidos (servidor: o mesmo serviço da PWA). `tom`: espera | ok | nao. */
+export interface RequestLine {
+  tipo: 'ferias' | 'baixa'; id: string; titulo: string; sub: string; estado: RequestState; estado_texto: string; tom: string;
+  pode_alterar: boolean; inicio_iso: string; fim_iso: string;
+}
+export interface VacationBalance { ano: number; direito: number; gozadas: number; marcadas: number; em_analise: number; por_gozar: number; por_marcar: number }
+
 export interface Requests {
+  /** Artboard p2311-pedidos-v2: saldo (null sem direito configurado), «Próximos» e «Passados», e quantos esperam decisão. */
+  saldo?: VacationBalance | null;
+  proximos?: RequestLine[];
+  passados?: RequestLine[];
+  pendentes?: number;
   ferias: { id: string; data_inicio: string; data_fim: string; estado: RequestState; tipo_ferias_id: string | null; data_inicio_aprovada: string | null; data_fim_aprovada: string | null }[];
   baixas: { id: string; data_inicio: string; data_fim: string | null; estado: RequestState; motivo_rejeicao: string | null }[];
   tipos_ferias: { id: string; nome: string }[];
@@ -194,8 +206,9 @@ export interface SickLeaveBody {
   data_inicio: string;
   data_fim?: string;
   motivo?: string;
-  documento: string;
-  documento_nome: string;
+  /** Atestado opcional (24/11): sem foto, a baixa segue na mesma. */
+  documento?: string;
+  documento_nome?: string;
 }
 
 // ── Chefe de equipa (doc 62, 2.4.0): só presença e faltas da equipa, nunca saldos, horas, fotos ou GPS ──
@@ -297,6 +310,9 @@ export const employeeApi = {
   confirmVisto: (token: string, visto: Visto) =>
     request<{ mensagem: string }>('POST', '/registos/visto', { inicio: visto.inicio, fim: visto.fim, hash: visto.hash, confirmo: true }, token),
   requests: (token: string) => request<Requests>('GET', '/pedidos', undefined, token),
+  /** «São N dias úteis. Ficam-lhe M dias de férias por gozar.» (`depois` = null sem direito configurado). */
+  vacationDays: (token: string, inicio: string, fim: string) =>
+    request<{ dias: number; depois: number | null }>('GET', `/pedidos/ferias/dias?inicio=${inicio}&fim=${fim}`, undefined, token),
   requestVacation: (token: string, data_inicio: string, data_fim: string, tipo_ferias_id?: string) =>
     request<{ id: string; mensagem: string }>('POST', '/pedidos/ferias', { data_inicio, data_fim, tipo_ferias_id }, token),
   requestSickLeave: (token: string, body: SickLeaveBody) => request<{ id: string; mensagem: string }>('POST', '/pedidos/baixa', body, token, UPLOAD_TIMEOUT_MS),

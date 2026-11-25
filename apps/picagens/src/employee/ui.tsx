@@ -266,10 +266,13 @@ export function Avatar({ name, count, onPress, size = 38, photo }: { name: strin
 }
 
 /** Barra fixa em baixo com os botões do ecrã (artboards de 24/11: fundo branco, linha por cima). */
-export function BarraRodape({ children }: { children: ReactNode }) {
+/** Altura do menu de baixo da app (sem a margem do sistema): as barras de botões dos separadores sobem acima dele. */
+export const MENU_SPACE = 70;
+
+export function BarraRodape({ children, aboveMenu }: { children: ReactNode; aboveMenu?: boolean }) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14, paddingHorizontal: 20, paddingBottom: insets.bottom + 14, gap: 10 }}>
+    <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 14, paddingHorizontal: 20, paddingBottom: aboveMenu ? 14 : insets.bottom + 14, marginBottom: aboveMenu ? MENU_SPACE + insets.bottom : 0, gap: 10 }}>
       {children}
     </View>
   );

@@ -34,6 +34,10 @@ export const colors = {
   bandSoft: tokens.cores.faixaSuave,
   zebra: tokens.cores.zebra,
   fieldBorder: tokens.cores.bordaCampo,
+  /** Texto e fundo das pílulas de estado (aprovado, recusado). */
+  okInk: tokens.cores.verdeTexto,
+  dangerInk: tokens.cores.vermelhoTexto,
+  dangerPill: tokens.cores.vermelhoFundo,
   /** Ícones da folha de resultado: sucesso, fila sem rede e erro (fundo e traço). */
   okIconBg: tokens.cores.verdeIcone,
   warnIconBg: tokens.cores.ambarIcone,

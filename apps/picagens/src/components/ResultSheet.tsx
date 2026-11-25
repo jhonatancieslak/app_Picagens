@@ -16,6 +16,8 @@ export interface ResultadoPicar {
   hora?: string;
   /** Só sem rede: quantas picagens esperam envio («1 picagem à espera de envio»). */
   pendentes?: number;
+  /** Texto do botão principal (por omissão «Continuar» ou, no erro, «Tentar de novo»). */
+  botao?: string;
   /** Só no erro: segunda ação, a contornar (ex.: «Pedir correção ao chefe»). */
   secundario?: { label: string; onPress: () => void };
 }
@@ -73,7 +75,7 @@ export default function ResultSheet({ resultado, onClose }: { resultado: Resulta
           </View>
         ) : null}
         <View style={{ alignSelf: 'stretch', gap: 10, marginTop: 20 }}>
-          <Button primary tone="verde" title={resultado.tone === 'err' ? 'Tentar de novo' : 'Continuar'} onPress={onClose} />
+          <Button primary tone="verde" title={resultado.botao ?? (resultado.tone === 'err' ? 'Tentar de novo' : 'Continuar')} onPress={onClose} />
           {resultado.secundario ? <Button ghost title={resultado.secundario.label} onPress={resultado.secundario.onPress} /> : null}
         </View>
         {resultado.tone === 'ok' ? (

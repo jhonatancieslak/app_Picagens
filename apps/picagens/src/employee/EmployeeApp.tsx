@@ -345,7 +345,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
             <RecordsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
               weeklyMinutes={dashboard?.semana?.carga_texto ? parseHours(dashboard.semana.carga_texto) || null : null} onAuthError={onAuthError} />
           ) : null}
-          {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} onAuthError={onAuthError} /> : null}
+          {!overlay && activeTab === 'requests' ? <RequestsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)} onAuthError={onAuthError} /> : null}
           {!overlay && activeTab === 'documents' ? (
             <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
           ) : null}
