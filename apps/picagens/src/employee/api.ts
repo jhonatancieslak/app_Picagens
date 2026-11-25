@@ -73,8 +73,23 @@ export interface DayPunch {
 export interface WeekDay { numero: number; rotulo: string; minutos: number; texto: string; hoje: boolean; futuro: boolean; altura: number }
 export interface WeekSummary { dias: WeekDay[]; total_texto: string; carga_texto: string | null; meta_altura: number | null }
 
+/** Separador «Notificações» (servidor: o mesmo serviço da PWA). `destino` = [onde, id?]. */
+export type NotificationKind = 'assinar' | 'saida' | 'vistos' | 'mensagem' | 'assinado' | 'ferias';
+export interface NotificationItem {
+  tipo: NotificationKind;
+  titulo: string;
+  sub: string;
+  acao: string;
+  novo: boolean;
+  destino: [string, string?];
+  quando: string | null;
+}
+export interface Notifications { por_resolver: NotificationItem[]; anteriores: NotificationItem[] }
+
 export interface Dashboard {
   semana?: WeekSummary;
+  /** Etiqueta do separador «Notificações». */
+  notificacoes_por_resolver?: number;
   proximo_tipo: PunchType;
   horas_hoje: string;
   data: string;
@@ -293,6 +308,7 @@ export const employeeApi = {
     request<{ mensagem: string }>('POST', `/contratos/${encodeURIComponent(id)}/assinar`, { nome, codigo, li_e_aceito: true }, token),
   requestCorrection: (token: string, payload: CorrectionPayload) =>
     request<{ id: string; mensagem: string }>('POST', '/registos/correcao', payload, token),
+  notifications: (token: string) => request<Notifications & { ok: boolean }>('GET', '/notificacoes', undefined, token),
   messages: (token: string) => request<{ nao_lidas: number; mensagens: Message[] }>('GET', '/mensagens', undefined, token),
   readMessage: (token: string, id: string) => request<{ ok: boolean }>('POST', `/mensagens/${encodeURIComponent(id)}/lida`, {}, token),
   readAllMessages: (token: string) => request<{ marcadas: number }>('POST', '/mensagens/lidas', {}, token),

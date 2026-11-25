@@ -31,6 +31,7 @@ export const colors = {
   queueBg: tokens.cores.filaFundo,
   bandBlock: tokens.cores.faixaBloco,
   bandLine: tokens.cores.faixaContorno,
+  bandSoft: tokens.cores.faixaSuave,
   /** Ícones da folha de resultado: sucesso, fila sem rede e erro (fundo e traço). */
   okIconBg: tokens.cores.verdeIcone,
   warnIconBg: tokens.cores.ambarIcone,

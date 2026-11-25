@@ -12,7 +12,7 @@ import { AppState, Animated, Easing, Image, Linking, Pressable, RefreshControl, 
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
-import { BellIcon, KeyIcon, PinIcon, RecenterIcon } from '../../components/icons';
+import { KeyIcon, PinIcon, RecenterIcon } from '../../components/icons';
 import { Logo } from '../../components/ui';
 import { HojeSkeleton } from '../../components/Skeleton';
 import SlideAction from '../../components/SlideAction';
@@ -66,8 +66,6 @@ interface Props {
   /** Primeiro aviso urgente (saída em falta, horas por confirmar, contrato): mostrado no topo. */
   urgent: Notice | null;
   onNotice: (notice: Notice) => void;
-  unreadMessages: number;
-  onMessages: () => void;
   photo: AvatarPhoto | null;
   onRefresh: () => Promise<void>;
   onProfile: () => void;
@@ -78,7 +76,7 @@ interface Props {
   toast: (message: { tone: 'ok' | 'queued' | 'err'; title: string; text?: string; icon?: React.ReactNode }) => void;
 }
 
-export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, unreadMessages, onMessages, photo, onRefresh, onProfile, onQueued, onAuthError, onPin, toast }: Props) {
+export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onPin, toast }: Props) {
   const insets = useSafeAreaInsets();
   const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
@@ -252,15 +250,6 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
           <Logo height={26} white />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-            <Pressable accessibilityRole="button" accessibilityLabel={unreadMessages ? `Mensagens, ${unreadMessages} por ler` : 'Mensagens'} onPress={onMessages} hitSlop={8}
-              style={({ pressed }) => ({ width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.bandLine, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}>
-              <BellIcon size={20} color={colors.surface} />
-              {unreadMessages ? (
-                <View style={{ position: 'absolute', top: -4, right: -5, minWidth: 18, height: 18, paddingHorizontal: 4, borderRadius: 9, backgroundColor: colors.ok, borderWidth: 2, borderColor: colors.band, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10, color: colors.surface }}>{unreadMessages}</Text>
-                </View>
-              ) : null}
-            </Pressable>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
             <Avatar name={me.colaborador.nome} count={notices} onPress={onProfile} photo={photo} size={36} />
           </View>

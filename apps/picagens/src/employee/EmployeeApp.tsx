@@ -12,13 +12,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, AppState, BackHandler, Linking, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CalendarIcon, ChartIcon, ClockIcon, DocumentIcon, TeamIcon } from '../components/icons';
+import { BellIcon, CalendarIcon, ChartIcon, ClockIcon, DocumentIcon, TeamIcon } from '../components/icons';
 import { QUEUE_RETRY_MS } from '../config';
 import { ApiError } from '../http';
 import { UpdateRequiredScreen } from '../kiosk/screens/InfoScreens';
 import { colors, fonts } from '../theme';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
-import { Dashboard, Me, Notice, Session, employeeApi } from './api';
+import { Dashboard, Me, Notice, NotificationItem, Session, employeeApi } from './api';
 import { PushScreen, onPushOpened, onPushReceived, registerForPush, unregisterPush } from './push';
 import { clearEmployeeQueue, flushEmployeeQueue, pendingEmployeePunches } from './queue';
 import { DocumentsScreen } from './screens/DocumentsScreen';
@@ -26,6 +26,7 @@ import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { TermosScreen } from './screens/TermosScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
+import { NotificationsScreen } from './screens/NotificationsScreen';
 import { EsqueciPinScreen } from './screens/EsqueciPinScreen';
 import { PinScreen } from './screens/PinScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -36,13 +37,14 @@ import { TodayScreen } from './screens/TodayScreen';
 import { clearSession, getCachedDashboard, getCachedMe, getEmployeeToken, saveCachedDashboard, saveSession } from './storage';
 import { AvatarPhoto, FadeIn, useToast } from './ui';
 
-type Tab = 'today' | 'records' | 'requests' | 'documents' | 'team';
+type Tab = 'today' | 'records' | 'requests' | 'documents' | 'notifications' | 'team';
 
 const TABS: { key: Tab; label: string; Icon: typeof ClockIcon }[] = [
   { key: 'today', label: 'Hoje', Icon: ClockIcon },
   { key: 'records', label: 'Registos', Icon: ChartIcon },
   { key: 'requests', label: 'Pedidos', Icon: CalendarIcon },
   { key: 'documents', label: 'Documentos', Icon: DocumentIcon },
+  { key: 'notifications', label: 'Notificações', Icon: BellIcon },
 ];
 
 const TEAM_TAB = { key: 'team' as Tab, label: 'Equipa', Icon: TeamIcon };
@@ -159,12 +161,8 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setForgotPin(false);
     setProfile(false);
     setContract(null);
-    if (screen === 'mensagens') {
-      setMessages(true);
-    } else {
-      setMessages(false);
-      setTab(TAB_OF_PUSH[screen]);
-    }
+    setMessages(false);
+    setTab(screen === 'mensagens' ? 'notifications' : TAB_OF_PUSH[screen]);
   }, []);
 
   useEffect(() => onPushOpened(openPush), [openPush]);
@@ -235,6 +233,15 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     } else {
       setTab('records');
     }
+  }, []);
+
+  /** Cada notificação diz para onde leva (`destino`, do servidor); aqui só se escolhe o separador da app. */
+  const openNotification = useCallback((item: NotificationItem) => {
+    const [where, id] = item.destino;
+    setProfile(false);
+    if (where === 'mensagem') { setMessages(true); return; }
+    if (where === 'contrato' && id) setContract(id);
+    setTab(where === 'registos' || where === 'vistos' ? 'records' : where === 'pedidos' ? 'requests' : 'documents');
   }, []);
 
   if (splash) return <><StatusBar style="dark" /><Splash /></>;
@@ -329,8 +336,6 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               notices={dashboard?.avisos_total ?? 0}
               urgent={notices[0] ?? null}
               onNotice={openNotice}
-              unreadMessages={dashboard?.mensagens_nao_lidas ?? 0}
-              onMessages={() => setMessages(true)}
               photo={photo}
               onRefresh={refreshDashboard}
               onProfile={() => setProfile(true)}
@@ -345,6 +350,9 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
           {!overlay && activeTab === 'documents' ? (
             <DocumentsScreen token={token} me={me} openContract={contract} onContractClosed={() => { setContract(null); refreshDashboard(); }} onAuthError={onAuthError} />
           ) : null}
+          {!overlay && activeTab === 'notifications' ? (
+            <NotificationsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)} onOpen={openNotification} onChanged={refreshDashboard} onAuthError={onAuthError} />
+          ) : null}
           {!overlay && activeTab === 'team' ? (
             <TeamScreen token={token} teams={teams} pin={teamPin} onPin={setTeamPin} onAuthError={onAuthError} toast={toast.show} />
           ) : null}
@@ -355,7 +363,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
         <Pressable
           accessibilityRole="button"
           onPress={() => Linking.openURL(me.url_atualizacao || DEFAULT_UPDATE_URL)}
-          style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + (overlay ? 14 : 86), zIndex: 4, elevation: 7, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.actionSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}
+          style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + (overlay ? 14 : 92), zIndex: 4, elevation: 7, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.actionSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}
         >
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.action }}>Nova versão disponível · {me.versao_atual}</Text>
@@ -366,25 +374,31 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       ) : null}
       {!overlay ? (
         <View
-          style={{
-            position: 'absolute', left: 12, right: 12, bottom: insets.bottom + 14, flexDirection: 'row',
-            backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 22, padding: 6,
-            shadowColor: '#101828', shadowOpacity: 0.12, shadowRadius: 16, shadowOffset: { width: 0, height: 8 }, elevation: 6,
-          }}
+          accessibilityRole="tablist"
+          style={{ position: 'absolute', left: 0, right: 0, bottom: 0, flexDirection: 'row', backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 6, paddingHorizontal: 2, paddingBottom: insets.bottom + 8 }}
         >
           {tabs.map(({ key, label, Icon }) => {
             const active = activeTab === key;
+            const badge = key === 'notifications' ? dashboard?.notificacoes_por_resolver ?? 0 : 0;
             return (
               <Pressable
                 key={key}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={label}
+                accessibilityLabel={badge ? `${label}, ${badge} por resolver` : label}
                 onPress={() => { setTab(key); setContract(null); }}
-                style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 2, minHeight: 52, paddingVertical: 7, borderRadius: 16, backgroundColor: active ? colors.actionSoft : 'transparent', transform: [{ scale: pressed ? 0.96 : 1 }] })}
+                style={({ pressed }) => ({ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3, minHeight: 56, transform: [{ scale: pressed ? 0.96 : 1 }] })}
               >
-                <Icon size={22} color={active ? colors.action : colors.ink3} />
-                <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 11, color: active ? colors.action : colors.ink3 }}>{label}</Text>
+                {active ? <View style={{ position: 'absolute', top: -7, width: 26, height: 3, borderRadius: 2, backgroundColor: colors.band }} /> : null}
+                <View style={{ borderRadius: 10, padding: 4, backgroundColor: active ? colors.bandSoft : 'transparent' }}>
+                  <Icon size={22} color={active ? colors.band : colors.ink3} />
+                  {badge ? (
+                    <View style={{ position: 'absolute', top: -2, right: -4, minWidth: 16, height: 16, paddingHorizontal: 4, borderRadius: 8, backgroundColor: colors.ok, alignItems: 'center', justifyContent: 'center' }}>
+                      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 10, color: colors.surface }}>{badge}</Text>
+                    </View>
+                  ) : null}
+                </View>
+                <Text numberOfLines={1} style={{ fontFamily: active ? fonts.bodyBold : fonts.bodyMedium, fontSize: 11, color: active ? colors.band : colors.ink3 }}>{label}</Text>
               </Pressable>
             );
           })}
