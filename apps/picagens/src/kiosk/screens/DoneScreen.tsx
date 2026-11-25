@@ -34,15 +34,15 @@ export function DoneScreen({ info, onClose }: { info: DoneInfo; onClose: () => v
   const background = BACKGROUND[info.kind];
   return (
     <View accessibilityLiveRegion="assertive" style={{ flex: 1, backgroundColor: background, alignItems: 'center', justifyContent: 'center', gap: vw(1.1) }}>
-      <View style={{ width: vw(11), height: vw(11), borderRadius: 999, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' }}>
+      <View style={{ width: vw(11), height: vw(11), borderRadius: 999, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' }}>
         {info.kind === 'refused' ? (
           <Text style={{ fontFamily: fonts.display, fontSize: vw(6), color: background }}>!</Text>
         ) : (
           <CheckIcon size={vw(5.4)} color={background} />
         )}
       </View>
-      {info.name ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(3.4), color: '#fff' }}>{info.name}</Text> : null}
-      <Text style={{ fontFamily: fonts.display, fontSize: vw(info.kind === 'refused' ? 4.5 : 8), color: '#fff', letterSpacing: -1, textAlign: 'center' }}>{info.label}</Text>
+      {info.name ? <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(3.4), color: colors.surface }}>{info.name}</Text> : null}
+      <Text style={{ fontFamily: fonts.display, fontSize: vw(info.kind === 'refused' ? 4.5 : 8), color: colors.surface, letterSpacing: -1, textAlign: 'center' }}>{info.label}</Text>
       <Text style={{ fontFamily: fonts.body, fontSize: vw(1.9), color: 'rgba(255,255,255,.94)', maxWidth: vw(60), textAlign: 'center' }}>{info.message}</Text>
       <View style={{ position: 'absolute', bottom: vw(3) }}>
         <Logo white height={vw(3.2)} />

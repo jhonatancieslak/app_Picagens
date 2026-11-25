@@ -9,8 +9,9 @@ import { ReactNode, useRef, useState } from 'react';
 import { Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 
 import { ApiError, KeyCheck, NetworkError, api } from '../api';
-import { ClipboardIcon, PhoneIcon, QrIcon } from '../../components/icons';
-import { BigButton, CornerButton, Heading, Logo, Paragraph, useVw } from '../../components/ui';
+import { ClipboardIcon, QrIcon } from '../../components/icons';
+import { BigButton, Heading, LinkButton, Logo, Paragraph, useVw } from '../../components/ui';
+import { BAR_HEIGHT_VW } from '../TopBar';
 import { colors, fonts } from '../../theme';
 
 const KEY_LENGTH = 12;
@@ -114,40 +115,31 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
     setError('');
   }
 
+  const keyBox = (
+    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.6), padding: vw(1.8), gap: vw(0.6) }}>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.7), color: colors.ink }}>Onde está a chave?</Text>
+      <Paragraph>O gestor gera-a no painel da empresa: Empresa › Picagem e app › Computadores e tablets › Tablet de quiosque.</Paragraph>
+      <Paragraph>Aparece como texto e como QR, e pode ser enviada por email. Serve uma só vez e expira em 7 dias.</Paragraph>
+    </View>
+  );
+
   return (
     <View style={{ flex: 1 }}>
-      <CornerButton label="Sou colaborador" icon={<PhoneIcon size={16} color={colors.ink2} />} onPress={onBack} top={14} />
-      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: vw(5), paddingVertical: vw(4) }}>
-      <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', gap: vw(4) }}>
+      <View style={{ height: vw(BAR_HEIGHT_VW), backgroundColor: colors.band, borderBottomLeftRadius: vw(2.1), borderBottomRightRadius: vw(2.1), justifyContent: 'center', paddingHorizontal: vw(2.7), elevation: 6 }}>
+        <Logo white height={vw(2.9)} />
+      </View>
+      <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: vw(5.8), paddingVertical: vw(3) }}>
+      <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', gap: vw(4.8) }}>
         <View style={{ flex: narrow ? 0 : 1, gap: vw(1.5) }}>
-          <Logo height={vw(4.5)} />
-          <Steps current={step} />
           <Heading>Ligar este tablet</Heading>
           <Paragraph>Só se faz uma vez. Depois o tablet fica na obra e os colaboradores picam aqui com o PIN.</Paragraph>
-          <View style={{ flexDirection: 'row', gap: vw(1) }}>
-            <TextInput
-              value={key}
-              onChangeText={(text) => { setKey(formatKey(text)); setError(''); if (step) restart(); }}
-              placeholder="XXXX-XXXX-XXXX"
-              placeholderTextColor={colors.ink3}
-              autoCapitalize="characters"
-              autoCorrect={false}
-              accessibilityLabel="Chave de ativação"
-              style={{ flex: 1, fontFamily: fonts.display, fontSize: vw(2.4), letterSpacing: vw(0.3), paddingHorizontal: vw(1.6), paddingVertical: vw(1.2), borderRadius: vw(1.6), borderWidth: 2, borderColor: colors.line, backgroundColor: colors.surface, color: colors.ink }}
-            />
-            <SmallButton icon={<ClipboardIcon size={vw(2.1)} color={colors.action} />} title="Colar" onPress={paste} />
-          </View>
-          <Text accessibilityRole="alert" style={{ minHeight: vw(2.3), color: colors.danger, fontFamily: fonts.bodyBold, fontSize: vw(1.5) }}>{error}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: vw(1.5) }}>
-            <BigButton primary small title={busy && step === 0 ? 'A verificar…' : 'Ligar tablet'} onPress={() => verify()} disabled={busy || key.length < KEY_LENGTH + 2 || step > 0} />
-            <SmallButton icon={<QrIcon size={vw(2.1)} color={colors.action} />} title="Ler QR do painel" onPress={startScan} />
-          </View>
+          {keyBox}
         </View>
 
-        <View style={{ flex: narrow ? 0 : 1.05, gap: vw(1.6) }}>
+        <View style={{ flex: narrow ? 0 : 1, gap: vw(1.4) }}>
           {scanning ? (
             <View style={{ gap: vw(1) }}>
-              <View style={{ aspectRatio: 4 / 3, borderRadius: vw(1.8), overflow: 'hidden', backgroundColor: '#232A35' }}>
+              <View style={{ aspectRatio: 4 / 3, borderRadius: vw(1.8), overflow: 'hidden', backgroundColor: colors.band }}>
                 <CameraView style={{ flex: 1 }} facing={facing} barcodeScannerSettings={{ barcodeTypes: ['qr'] }} onBarcodeScanned={onScan} />
               </View>
               <View style={{ flexDirection: 'row', gap: vw(1.5), alignItems: 'center' }}>
@@ -165,49 +157,37 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
               <Fact label="Nome" value={`Tablet “${found.tablet}”`} />
               <Fact label="Acessos" value={found.acessos.limite ? `${found.acessos.em_uso} de ${found.acessos.limite} do plano` : `${found.acessos.em_uso} (plano sem limite)`} />
               <Paragraph>Não se tiram fotos nem se reconhece o rosto. A câmara só é usada se ler o QR com «Ler QR do painel».</Paragraph>
+              <Text accessibilityRole="alert" style={{ minHeight: vw(2.3), color: colors.danger, fontFamily: fonts.bodyBold, fontSize: vw(1.5) }}>{error}</Text>
               <View style={{ flexDirection: 'row', gap: vw(1.2) }}>
                 <BigButton primary small title={busy ? 'A ligar…' : 'Ligar este tablet'} onPress={activate} disabled={busy} />
                 <BigButton small title="Não é esta empresa" onPress={restart} />
               </View>
             </View>
           ) : (
-            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: vw(1.6), padding: vw(1.8), gap: vw(0.9) }}>
-              <View style={{ flexDirection: 'row', gap: vw(1.6), alignItems: 'center' }}>
-                <View style={{ width: vw(9), height: vw(9), borderRadius: vw(1.4), borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
-                  <QrIcon size={vw(6)} color={colors.ink} />
-                </View>
-                <View style={{ flex: 1, gap: vw(0.5) }}>
-                  <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.7), color: colors.ink }}>Onde está a chave?</Text>
-                  <Paragraph>O gestor gera-a no painel da empresa: Empresa › Picagem e app › Computadores e tablets › Tablet de quiosque.</Paragraph>
-                </View>
+            <>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.5), color: colors.ink2 }}>Chave de ativação</Text>
+              <TextInput
+                value={key}
+                onChangeText={(text) => { setKey(formatKey(text)); setError(''); if (step) restart(); }}
+                placeholder="XXXX-XXXX-XXXX"
+                placeholderTextColor={colors.ink3}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                accessibilityLabel="Chave de ativação"
+                style={{ fontFamily: fonts.bodyBold, fontSize: vw(2.1), letterSpacing: vw(0.3), paddingHorizontal: vw(1.8), paddingVertical: vw(1.3), borderRadius: vw(1.4), borderWidth: 1.5, borderColor: colors.fieldBorder, backgroundColor: colors.surface, color: colors.ink }}
+              />
+              <View style={{ flexDirection: 'row', gap: vw(1) }}>
+                <View style={{ flex: 1 }}><SmallButton wide icon={<ClipboardIcon size={vw(2.1)} color={colors.band} />} title="Colar" onPress={paste} /></View>
+                <View style={{ flex: 1 }}><SmallButton wide icon={<QrIcon size={vw(2.1)} color={colors.band} />} title="Ler QR do painel" onPress={startScan} /></View>
               </View>
-              <Paragraph>Aparece como texto e como QR, e pode ser enviada por email. Serve uma só vez e expira em 7 dias.</Paragraph>
-            </View>
+              <Text accessibilityRole="alert" style={{ minHeight: vw(2.3), color: colors.danger, fontFamily: fonts.bodyBold, fontSize: vw(1.5) }}>{error}</Text>
+              <BigButton primary small title={busy ? 'A verificar…' : 'Ligar tablet'} onPress={() => verify()} disabled={busy || key.length < KEY_LENGTH + 2} />
+              <LinkButton title="Sou colaborador" onPress={onBack} />
+            </>
           )}
         </View>
       </View>
       </ScrollView>
-    </View>
-  );
-}
-
-function Steps({ current }: { current: Step }) {
-  const vw = useVw();
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: vw(1) }} accessibilityLabel={`Passo ${current + 1} de 3`}>
-      {['Chave', 'Confirmar', 'Ativar'].map((label, index) => {
-        const done = index < current;
-        const on = index === current;
-        return (
-          <View key={label} style={{ flexDirection: 'row', alignItems: 'center', gap: vw(0.6) }}>
-            {index ? <View style={{ width: vw(2), height: 2, backgroundColor: colors.line }} /> : null}
-            <View style={{ width: vw(2.4), height: vw(2.4), borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: done ? colors.ok : on ? colors.action : colors.line }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.2), color: done || on ? '#fff' : colors.ink2 }}>{done ? '✓' : index + 1}</Text>
-            </View>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.35), color: on ? colors.ink : colors.ink3 }}>{label}</Text>
-          </View>
-        );
-      })}
     </View>
   );
 }
@@ -222,16 +202,16 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SmallButton({ title, icon, onPress }: { title: string; icon?: ReactNode; onPress: () => void }) {
+function SmallButton({ title, icon, onPress, wide }: { title: string; icon?: ReactNode; onPress: () => void; wide?: boolean }) {
   const vw = useVw();
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: vw(0.7), paddingHorizontal: vw(1.4), paddingVertical: vw(1), borderRadius: vw(1.4), borderWidth: 2, borderColor: colors.line, backgroundColor: colors.surface, opacity: pressed ? 0.8 : 1 })}
+      style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: vw(0.7), paddingHorizontal: vw(1.4), paddingVertical: vw(1.2), borderRadius: vw(1.4), borderWidth: 1.5, borderColor: colors.band, backgroundColor: colors.surface, opacity: pressed ? 0.8 : 1, ...(wide ? { alignSelf: 'stretch' } : null) })}
     >
       {icon}
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.45), color: colors.action }}>{title}</Text>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.5), color: colors.band }}>{title}</Text>
     </Pressable>
   );
 }

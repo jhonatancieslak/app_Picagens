@@ -33,6 +33,7 @@ export const colors = {
   bandLine: tokens.cores.faixaContorno,
   bandSoft: tokens.cores.faixaSuave,
   zebra: tokens.cores.zebra,
+  fieldBorder: tokens.cores.bordaCampo,
   /** Ícones da folha de resultado: sucesso, fila sem rede e erro (fundo e traço). */
   okIconBg: tokens.cores.verdeIcone,
   warnIconBg: tokens.cores.ambarIcone,

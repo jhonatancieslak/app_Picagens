@@ -16,7 +16,7 @@ import { QueueStatus, clearQueue, enqueuePunch, flushQueue, purgeExpiredQueue, q
 import { AdminScreen, ScreenSettingsScreen } from './screens/AdminScreens';
 import { DoneInfo, DoneScreen } from './screens/DoneScreen';
 import { DEFAULT_UPDATE_URL, isNewer } from '../update';
-import { SuspendedScreen, UpdateRequiredScreen } from './screens/InfoScreens';
+import { LockedScreen, SuspendedScreen, UpdateRequiredScreen } from './screens/InfoScreens';
 import { PadScreen } from './screens/PadScreen';
 import { SetupScreen } from './screens/SetupScreen';
 import { WaitScreen } from './screens/WaitScreen';
@@ -26,7 +26,10 @@ import {
 } from './storage';
 import { colors, fonts } from '../theme';
 
-type Screen = 'wait' | 'pin' | 'done' | 'adminCode' | 'admin' | 'screenSettings';
+type Screen = 'wait' | 'pin' | 'done' | 'locked' | 'adminCode' | 'admin' | 'screenSettings';
+
+/** «Tente novamente em 5 minutos» → 5 (o servidor só diz os minutos do bloqueio). */
+const minutesFromMessage = (message: string) => Number(/(\d+)\s*minuto/.exec(message)?.[1]) || 5;
 
 const NIGHT_START_HOUR = 20;
 const NIGHT_END_HOUR = 6;
@@ -45,6 +48,7 @@ export function KioskApp({ onLeave }: Props) {
   const [online, setOnline] = useState(true);
   const [screen, setScreen] = useState<Screen>('wait');
   const [padError, setPadError] = useState('');
+  const [lockMinutes, setLockMinutes] = useState(5);
   const [padBusy, setPadBusy] = useState(false);
   const [done, setDone] = useState<DoneInfo | null>(null);
   const [queue, setQueue] = useState<QueueStatus>({ pending: 0, rejected: 0 });
@@ -191,14 +195,19 @@ export function KioskApp({ onLeave }: Props) {
       finishPunch({
         kind: 'ok',
         name: result.nome,
-        label: `${result.rotulo} · ${result.hora}`,
+        label: `${result.rotulo} ${result.hora}`,
         message: 'Registada. Bom trabalho!',
       });
     } catch (error) {
       if (error instanceof NetworkError) return queueOffline();
       if (handleAuthErrors(error)) return;
-      if (error instanceof ApiError && (error.status === 404 || error.status === 429)) {
-        setPadError(error.status === 404 ? 'PIN inválido. Tente de novo.' : error.message);
+      if (error instanceof ApiError && error.status === 429) {
+        setLockMinutes(minutesFromMessage(error.message));
+        setScreen('locked');
+        return;
+      }
+      if (error instanceof ApiError && error.status === 404) {
+        setPadError('PIN incorreto. Tente de novo.');
         setScreen('pin');
         return;
       }
@@ -245,7 +254,7 @@ export function KioskApp({ onLeave }: Props) {
 
   return (
     <Shell>
-      {screen !== 'done' ? <TopBar company={config.empresa} place={config.local} online={online} onAdmin={inAdmin ? undefined : () => openPad('adminCode')} /> : null}
+      {screen !== 'done' && screen !== 'locked' ? <TopBar company={config.empresa} place={config.local} online={online} onAdmin={inAdmin ? undefined : () => openPad('adminCode')} /> : null}
       {screen === 'wait' ? (
         <WaitScreen tabletName={config.tablet} place={config.local} address={config.local_morada ?? null} onPin={() => openPad('pin')} dimmed={dimmed} onWake={() => setWokeAt(Date.now())} />
       ) : null}
@@ -265,6 +274,7 @@ export function KioskApp({ onLeave }: Props) {
           }}
         />
       ) : null}
+      {screen === 'locked' ? <LockedScreen minutes={lockMinutes} onOther={() => setScreen('wait')} /> : null}
       {screen === 'done' && done ? <DoneScreen info={done} onClose={() => setScreen('wait')} /> : null}
       {screen === 'admin' ? (
         <AdminScreen

@@ -75,7 +75,7 @@ export function Keypad({ onKey }: { onKey: (key: string) => void }) {
           style={({ pressed }) => [
             styles.key,
             { width: vw(9.2), height: vw(8), borderRadius: vw(1.8) },
-            key === 'ok' && { backgroundColor: colors.action, borderColor: colors.action },
+            key === 'ok' && { backgroundColor: colors.ok, borderColor: colors.ok },
             pressed && { transform: [{ translateY: 2 }], opacity: 0.85 },
           ]}
         >
@@ -94,7 +94,7 @@ export function Keypad({ onKey }: { onKey: (key: string) => void }) {
   );
 }
 
-export function Dots({ length, filled }: { length: number; filled: number }) {
+export function Dots({ length, filled, error }: { length: number; filled: number; error?: boolean }) {
   const vw = useVw();
   return (
     <View style={{ flexDirection: 'row', gap: vw(1.3), marginVertical: vw(0.8) }} accessibilityLabel={`${filled} de ${length} algarismos`}>
@@ -106,8 +106,8 @@ export function Dots({ length, filled }: { length: number; filled: number }) {
             height: vw(2.3),
             borderRadius: vw(2),
             borderWidth: 2.5,
-            borderColor: index < filled ? colors.action : colors.line,
-            backgroundColor: index < filled ? colors.action : colors.surface,
+            borderColor: error ? colors.danger : index < filled ? colors.band : colors.line,
+            backgroundColor: index < filled ? (error ? colors.danger : colors.band) : colors.surface,
           }}
         />
       ))}

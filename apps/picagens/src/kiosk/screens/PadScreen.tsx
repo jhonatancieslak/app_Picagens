@@ -7,6 +7,7 @@ import { Text, View } from 'react-native';
 import { ADMIN_CODE_MAX_LENGTH, IDLE_TIMEOUT_SECONDS, PIN_LENGTH } from '../../config';
 import { Dots, Heading, Keypad, LinkButton, Paragraph, useVw } from '../../components/ui';
 import { colors, fonts } from '../../theme';
+import { BAR_HEIGHT_VW } from '../TopBar';
 
 export type PadMode = 'pin' | 'admin';
 
@@ -57,12 +58,12 @@ export function PadScreen({ mode, error, busy, onSubmit, onBack }: Props) {
   }
 
   return (
-    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingTop: vw(6), paddingHorizontal: vw(4), paddingBottom: vw(2) }}>
+    <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingTop: vw(BAR_HEIGHT_VW + 1.5), paddingHorizontal: vw(4), paddingBottom: vw(2) }}>
       <View style={{ flex: 1, gap: vw(1.1) }}>
         <LinkButton title="‹ Voltar" onPress={onBack} />
         <Heading>{TEXTS[mode].title}</Heading>
         <Paragraph>{TEXTS[mode].hint}</Paragraph>
-        <Dots length={mode === 'pin' ? PIN_LENGTH : Math.max(4, code.length)} filled={code.length} />
+        <Dots length={mode === 'pin' ? PIN_LENGTH : Math.max(4, code.length)} filled={code.length} error={Boolean(error) && !busy} />
         <Text accessibilityRole="alert" style={{ minHeight: vw(2.3), fontFamily: fonts.bodyBold, fontSize: vw(1.65), color: colors.danger }}>
           {busy ? '' : error}
         </Text>

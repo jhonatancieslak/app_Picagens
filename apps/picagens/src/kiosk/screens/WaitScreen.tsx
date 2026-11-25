@@ -7,6 +7,7 @@ import { Platform, Pressable, Text, View } from 'react-native';
 import { KeypadIcon } from '../../components/icons';
 import { BigButton, useVw } from '../../components/ui';
 import { colors, fonts } from '../../theme';
+import { BAR_HEIGHT_VW } from '../TopBar';
 
 const WEEKDAYS = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
 const MONTHS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
@@ -42,7 +43,7 @@ export function WaitScreen({ tabletName, place, address, onPin, dimmed, onWake }
   }, []);
 
   return (
-    <View style={{ flex: 1, flexDirection: 'row' }}>
+    <View style={{ flex: 1, flexDirection: 'row', paddingTop: vw(BAR_HEIGHT_VW) }}>
       <View style={{ flex: 1.15, justifyContent: 'center', paddingLeft: vw(4), paddingRight: vw(3), gap: vw(0.8) }}>
         <Text style={{ fontFamily: fonts.display, fontSize: vw(13), color: colors.ink, letterSpacing: -4 }} accessibilityLabel={`São ${now.getHours()} e ${now.getMinutes()}`}>
           {two(now.getHours())}:{two(now.getMinutes())}
@@ -59,7 +60,7 @@ export function WaitScreen({ tabletName, place, address, onPin, dimmed, onWake }
           </View>
         ) : null}
         {/* 2.5.0 (canvas 26): o PIN não se cria no tablet (aparelho partilhado); vê-se na app ou no link do email. */}
-        <View style={{ marginTop: vw(1.6), alignSelf: 'flex-start', maxWidth: '92%', backgroundColor: colors.actionSoft, borderRadius: vw(1.6), padding: vw(1.4), gap: vw(0.3) }}>
+        <View style={{ marginTop: vw(1.6), alignSelf: 'flex-start', maxWidth: '92%', backgroundColor: colors.surface, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.band, borderRadius: vw(1.6), padding: vw(1.4), gap: vw(0.3) }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: vw(1.6), color: colors.ink }}>Não sabe o seu PIN?</Text>
           <Text style={{ fontFamily: fonts.body, fontSize: vw(1.45), color: colors.ink2 }}>Abra a app ou o link que recebeu por email e toque em «Ver o meu PIN».</Text>
         </View>
