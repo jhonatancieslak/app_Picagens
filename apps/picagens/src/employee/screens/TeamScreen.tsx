@@ -3,7 +3,7 @@
 // mostrar dados de outras pessoas (prova válida 12 h, só em memória); depois Hoje · Picagens · Faltas · Pedidos · Mapa
 // (Picagens = 2.7.0, canvas 45: corrigir hora errada ou entrada/saída trocada numa picagem que existe).
 // O chefe vê presença e faltas, nunca saldos, horas, fotos ou GPS; propõe correções e dá parecer, o RH decide.
-import { useCallback, useEffect, useState } from 'react';
+import { ReactNode, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -74,8 +74,10 @@ const scheduleTime = (horario: string | null, tipo: MissingType) => (horario ? h
 const errorText = (exc: unknown) => (exc instanceof NetworkError ? 'Sem rede. Puxe para atualizar quando houver ligação.' : exc instanceof ApiError ? exc.message : 'Não foi possível carregar.');
 const needsPin = (exc: unknown) => exc instanceof ApiError && exc.status === 401 && exc.data.pin_necessario === true;
 
-export function TeamScreen({ token, teams, pin, onPin, onAuthError, toast }: {
+export function TeamScreen({ token, teams, pin, onPin, onAuthError, toast, avatar }: {
   token: string;
+  /** Avatar do utilizador, no canto direito da faixa (como nos outros ecrãs). */
+  avatar?: ReactNode;
   teams: TeamRef[];
   pin: TeamPin | null;
   onPin: (pin: TeamPin | null) => void;
@@ -83,11 +85,11 @@ export function TeamScreen({ token, teams, pin, onPin, onAuthError, toast }: {
   toast: (message: ToastMessage) => void;
 }) {
   const valid = pin && pin.until > Date.now() ? pin.token : null;
-  if (!valid) return <PinGate token={token} onPin={onPin} onAuthError={onAuthError} />;
-  return <TeamBody token={token} pinToken={valid} teams={teams} onPinExpired={() => onPin(null)} onAuthError={onAuthError} toast={toast} />;
+  if (!valid) return <PinGate token={token} avatar={avatar} onPin={onPin} onAuthError={onAuthError} />;
+  return <TeamBody token={token} avatar={avatar} pinToken={valid} teams={teams} onPinExpired={() => onPin(null)} onAuthError={onAuthError} toast={toast} />;
 }
 
-function PinGate({ token, onPin, onAuthError }: { token: string; onPin: (pin: TeamPin) => void; onAuthError: (error: unknown) => boolean }) {
+function PinGate({ token, avatar, onPin, onAuthError }: { token: string; avatar?: ReactNode; onPin: (pin: TeamPin) => void; onAuthError: (error: unknown) => boolean }) {
   const insets = useSafeAreaInsets();
   const [value, setValue] = useState('');
   const [error, setError] = useState('');
@@ -115,18 +117,21 @@ function PinGate({ token, onPin, onAuthError }: { token: string; onPin: (pin: Te
   };
 
   return (
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 14 }}>
-      <Header variante="faixaLogo" subtitle="Chefe de equipa" title="Equipa" />
+    <View style={{ flex: 1 }}>
+    <Header variante="faixaLogo" subtitle="Chefe de equipa" title="Equipa" right={avatar} />
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 110, gap: 14 }}>
       <Muted size={15}>Aqui vê dados de outras pessoas. Confirme o seu PIN (o mesmo do tablet da obra). Pedimos de novo a cada 12 horas.</Muted>
       <OtpCells value={'•'.repeat(value.length)} length={PIN_LENGTH} />
       {busy ? <ActivityIndicator color={colors.action} /> : <ErrorText>{error}</ErrorText>}
       <NumPad onKey={press} />
     </ScrollView>
+    </View>
   );
 }
 
-function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: {
+function TeamBody({ token, avatar, pinToken, teams, onPinExpired, onAuthError, toast }: {
   token: string;
+  avatar?: ReactNode;
   pinToken: string;
   teams: TeamRef[];
   onPinExpired: () => void;
@@ -216,12 +221,12 @@ function TeamBody({ token, pinToken, teams, onPinExpired, onAuthError, toast }: 
 
   return (
     <View style={{ flex: 1 }}>
+      <Header variante="faixaLogo" subtitle={current?.local ? `Chefe de equipa · ${current.local}` : 'Chefe de equipa'} title={current?.nome ?? 'Equipa'} right={avatar} />
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 12, paddingBottom: 110, gap: 12 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 110, gap: 12 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={() => { load(); loadCounts(); }} />}
       >
-        <Header variante="faixaLogo" subtitle={current?.local ? `Chefe de equipa · ${current.local}` : 'Chefe de equipa'} title={current?.nome ?? 'Equipa'} />
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
           <Pill label="Alertas de hoje" active={false} onPress={() => setEcra('alertas')} />

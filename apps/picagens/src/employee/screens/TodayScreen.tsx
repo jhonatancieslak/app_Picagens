@@ -319,15 +319,16 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
           </Pressable>
         ) : null}
 
-        {!dayClosed && state === 'idle' ? (
+        {(
+          // Sempre visível (pedido de 25/11): bloqueado enquanto envia ou quando o local não deixa picar.
           // Deslizar para a ação seguinte (artboard v9): verde para entrar, vermelho-escuro para sair.
           <SlideAction
             label={`Deslize para ${verb}`}
             color={next === 'saida' ? colors.danger : next === 'pausa_fim' ? colors.warn : colors.ok}
-            disabled={blocked || (online && !dashboard)}
+            disabled={Boolean(blocked) || state !== 'idle' || (online && !dashboard)}
             onConfirm={punch}
           />
-        ) : null}
+        )}
 
         {me.opcoes.ver_pin ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>

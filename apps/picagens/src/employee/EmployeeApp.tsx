@@ -368,7 +368,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
             <NotificationsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)} onOpen={openNotification} onChanged={refreshDashboard} onAuthError={onAuthError} />
           ) : null}
           {!overlay && activeTab === 'team' ? (
-            <TeamScreen token={token} teams={teams} pin={teamPin} onPin={setTeamPin} onAuthError={onAuthError} toast={toast.show} />
+            <TeamScreen token={token} avatar={avatar} teams={teams} pin={teamPin} onPin={setTeamPin} onAuthError={onAuthError} toast={toast.show} />
           ) : null}
         </FadeIn>
       </View>
