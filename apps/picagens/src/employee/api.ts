@@ -9,6 +9,8 @@ export type PunchType = 'entrada' | 'saida' | 'pausa_inicio' | 'pausa_fim';
 export interface Me {
   /** true enquanto o colaborador não aceitou a versão atual dos termos (servidor: /eu). */
   termos_pendentes?: boolean;
+  /** «m****@gmail.com» para o «Esqueci o meu PIN» no Perfil; null = a ficha não tem email válido. */
+  email_mascarado?: string | null;
   /** foto_versao muda quando a foto de perfil muda (servidor 2.3.0); null = sem foto. */
   colaborador: { id: string; nome: string; foto_versao?: number | null };
   empresa: { slug: string; nome: string };
@@ -263,6 +265,10 @@ export const employeeApi = {
   acceptTerms: (token: string, versao: string) => request<{ ok: boolean }>('POST', '/termos/aceitar', { versao }, token),
   pinRequestCode: (codigo: string, nif: string) => request<PinCodeRequest>('POST', '/pin/pedir-codigo', { codigo, nif }),
   pinConfirm: (codigo: string, token: string, codigo_email: string) => request<PinReset>('POST', '/pin/confirmar', { codigo, token, codigo_email }),
+  /** «Esqueci o meu PIN» no Perfil: código para o email da ficha de quem tem a sessão, depois PIN novo + sessão nova. */
+  mePinRequestCode: (token: string) => request<PinCodeRequest>('POST', '/eu/pin/pedir-codigo', {}, token),
+  mePinConfirm: (token: string, codeToken: string, codigo_email: string) =>
+    request<PinReset>('POST', '/eu/pin/confirmar', { token: codeToken, codigo_email }, token),
   newPin: (token: string) => request<{ pin: string; restantes_hoje: number }>('POST', '/eu/pin', {}, token),
   dashboard: (token: string) => request<Dashboard>('GET', '/painel', undefined, token),
   checkPlace: (token: string, lat: number, lon: number) => request<PlaceCheck>('POST', '/verificar-local', { lat, lon }, token),

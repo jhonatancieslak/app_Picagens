@@ -33,11 +33,13 @@ interface Props {
   onNotice: (notice: Notice) => void;
   onLogout: () => void;
   onInfo: (title: string, text: string) => void;
+  /** Abre «Esqueci o meu PIN» (artboard p2311-esqueci-pin). */
+  onForgotPin: () => void;
 }
 
 const PHOTO_OPTIONS: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true };
 
-export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, notices, pending, onBack, onNotice, onLogout, onInfo }: Props) {
+export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, notices, pending, onBack, onNotice, onLogout, onInfo, onForgotPin }: Props) {
   const insets = useSafeAreaInsets();
   const [confirming, setConfirming] = useState(false);
   const [keep, setKeep] = useState(true);
@@ -152,6 +154,7 @@ export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, notic
       <Card>
         <Toggle flat title="Manter sessão neste telemóvel" subtitle="Desligue em telemóveis partilhados" value={keep} onChange={(value) => { setKeep(value); saveKeepSession(value); }} />
         <Toggle flat title="Lembretes para picar" subtitle="Aviso uns minutos antes da entrada e da saída" value={reminders} onChange={changeReminders} />
+        <Row title="Esqueci o meu PIN" subtitle="Enviamos um código para o seu email" right={<Text style={{ color: colors.ink3 }}>›</Text>} onPress={onForgotPin} />
         <Row
           title="Os meus dados (RGPD)"
           subtitle="Ver e pedir cópia dos seus dados"

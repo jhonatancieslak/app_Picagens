@@ -26,6 +26,7 @@ import { LocationIntroScreen } from './screens/LocationIntroScreen';
 import { TermosScreen } from './screens/TermosScreen';
 import { LoginScreen, Splash, parseActivationLink } from './screens/LoginScreen';
 import { MessagesScreen } from './screens/MessagesScreen';
+import { EsqueciPinScreen } from './screens/EsqueciPinScreen';
 import { PinScreen } from './screens/PinScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
@@ -63,6 +64,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [profile, setProfile] = useState(false);
   const [messages, setMessages] = useState(false);
   const [pinScreen, setPinScreen] = useState(false);
+  const [forgotPin, setForgotPin] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
   const [online, setOnline] = useState(true);
   const [pending, setPending] = useState(0);
@@ -87,6 +89,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
     setProfile(false);
     setMessages(false);
     setPinScreen(false);
+    setForgotPin(false);
     setTeamPin(null);
     setToken(null);
   }, [token]);
@@ -153,6 +156,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
 
   const openPush = useCallback((screen: PushScreen) => {
     setPinScreen(false);
+    setForgotPin(false);
     setProfile(false);
     setContract(null);
     if (screen === 'mensagens') {
@@ -210,6 +214,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   // "Voltar" do Android: Perfil e contrato voltam atrás; outros separadores voltam a Hoje; em Hoje sai da app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (forgotPin) { setForgotPin(false); return true; }
       if (pinScreen) { setPinScreen(false); return true; }
       if (messages) { setMessages(false); return true; }
       if (profile) { setProfile(false); return true; }
@@ -219,7 +224,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract, messages, pinScreen]);
+  }, [tab, profile, contract, messages, pinScreen, forgotPin]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
@@ -283,7 +288,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const activeTab: Tab = tab === 'team' && !teams.length ? 'today' : tab;
   const notices = dashboard?.avisos ?? [];
   const updateAvailable = isNewer(me.versao_atual);
-  const overlay = pinScreen ? 'pin' : messages ? 'messages' : profile ? 'profile' : null;
+  const overlay = forgotPin ? 'forgotPin' : pinScreen ? 'pin' : messages ? 'messages' : profile ? 'profile' : null;
   const screenKey = overlay ?? activeTab;
   const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
 
@@ -293,11 +298,12 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       {toast.node}
       <View style={{ flex: 1 }}>
         <FadeIn deps={screenKey}>
-          {pinScreen ? <PinScreen token={token} onBack={() => setPinScreen(false)} onAuthError={onAuthError} /> : null}
-          {!pinScreen && messages ? (
+          {forgotPin ? <EsqueciPinScreen token={token} me={me} onBack={() => setForgotPin(false)} onAuthError={onAuthError} onSession={startSession} /> : null}
+          {!forgotPin && pinScreen ? <PinScreen token={token} onBack={() => setPinScreen(false)} onAuthError={onAuthError} /> : null}
+          {!forgotPin && !pinScreen && messages ? (
             <MessagesScreen token={token} onBack={() => setMessages(false)} onRead={refreshDashboard} onAuthError={onAuthError} />
           ) : null}
-          {!pinScreen && !messages && profile ? (
+          {!forgotPin && !pinScreen && !messages && profile ? (
             <ProfileScreen
               token={token}
               me={me}
@@ -310,6 +316,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               onNotice={openNotice}
               onLogout={logout}
               onInfo={(title, text) => toast.show({ tone: 'ok', title, text })}
+              onForgotPin={() => setForgotPin(true)}
             />
           ) : null}
           {!overlay && activeTab === 'today' ? (

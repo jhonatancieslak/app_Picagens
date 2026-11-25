@@ -283,7 +283,10 @@ export function Header({ subtitle, title, right, wordmark, greeting, variante, o
     // Entrada e «Esqueci o PIN» (artboards p2311-abertura e p2311-esqueci-pin, 25/11): logótipo no topo, voltar e título na mesma linha.
     return (
       <View style={{ backgroundColor: tokens.cores.faixa, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
-        <Logo height={26} white />
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Logo height={26} white />
+          {right}
+        </View>
         <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {onVoltar ? (
             <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
