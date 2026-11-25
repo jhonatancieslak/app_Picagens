@@ -174,6 +174,18 @@ export interface Requests {
   tipos_ferias: { id: string; nome: string }[];
 }
 
+export interface ReportOptions {
+  hoje: string;
+  tipos: { chave: string; titulo: string; sub: string }[];
+  periodos: { chave: string; nome: string; detalhe: string | null }[];
+}
+export interface ReportView {
+  tipo: string; titulo: string; periodo: string; inicio: string; fim: string; total: string | null; vazio: boolean;
+  resumo: { rotulo: string; valor: string }[];
+  itens: { titulo: string; sub: string; valor: string }[];
+}
+export interface ReportChoice { tipo: string; periodo: string; inicio?: string; fim?: string }
+
 export interface Documents {
   documentos: { id: string; titulo: string; tipo: string; tipo_nome: string; ficheiro: string; valido_ate: string | null; validade: { estado: string | null; dias: number | null }; criado_em: string | null }[];
   contratos_por_assinar: { id: string; titulo: string; criado_em: string | null }[];
@@ -292,6 +304,10 @@ export interface TeamCorrection {
 
 const request = createClient(EMPLOYEE_API_URL);
 
+const reportQuery = (choice: ReportChoice) =>
+  [['tipo', choice.tipo], ['periodo', choice.periodo], ['inicio', choice.inicio], ['fim', choice.fim]]
+    .filter(([, value]) => value).map(([key, value]) => `${key}=${encodeURIComponent(value!)}`).join('&');
+
 /** Cabeçalho com a prova do PIN do separador Equipa (válida 12 h, /equipa/confirmar-pin). */
 const teamHeaders = (pinToken: string) => ({ 'X-Equipa-Token': pinToken });
 const teamQuery = (equipa?: string | null, extra = '') => {
@@ -326,6 +342,9 @@ export const employeeApi = {
     request<{ id: string; mensagem: string }>('POST', '/pedidos/ferias', { data_inicio, data_fim, tipo_ferias_id }, token),
   requestSickLeave: (token: string, body: SickLeaveBody) => request<{ id: string; mensagem: string }>('POST', '/pedidos/baixa', body, token, UPLOAD_TIMEOUT_MS),
   documents: (token: string) => request<Documents>('GET', '/documentos', undefined, token),
+  reportOptions: (token: string) => request<ReportOptions>('GET', '/relatorios', undefined, token),
+  reportView: (token: string, choice: ReportChoice) => request<ReportView & { ok: boolean }>('GET', `/relatorios/ver?${reportQuery(choice)}`, undefined, token),
+  reportPdfUrl: (choice: ReportChoice) => `${EMPLOYEE_API_URL}/relatorios/pdf?${reportQuery(choice)}`,
   documentUrl: (id: string) => `${EMPLOYEE_API_URL}/documentos/${encodeURIComponent(id)}`,
   contract: (token: string, id: string) => request<Contract & { ok: boolean }>('GET', `/contratos/${encodeURIComponent(id)}`, undefined, token),
   contractCode: (token: string, id: string, assinatura?: string) =>

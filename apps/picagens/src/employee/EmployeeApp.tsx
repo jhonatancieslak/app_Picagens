@@ -31,6 +31,7 @@ import { EsqueciPinScreen } from './screens/EsqueciPinScreen';
 import { PinScreen } from './screens/PinScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RecordsScreen } from './screens/RecordsScreen';
+import { ReportsScreen } from './screens/ReportsScreen';
 import { RequestsScreen } from './screens/RequestsScreen';
 import { TeamPin, TeamScreen } from './screens/TeamScreen';
 import { TodayScreen, parseHours } from './screens/TodayScreen';
@@ -68,6 +69,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const [tab, setTab] = useState<Tab>('today');
   const [profile, setProfile] = useState(false);
   const [notifView, setNotifView] = useState<NotifView | null>(null);
+  const [reports, setReports] = useState(false);
   const [pinScreen, setPinScreen] = useState(false);
   const [forgotPin, setForgotPin] = useState(false);
   const [contract, setContract] = useState<string | null>(null);
@@ -218,6 +220,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       if (forgotPin) { setForgotPin(false); return true; }
       if (pinScreen) { setPinScreen(false); return true; }
       if (notifView) { setNotifView(null); return true; }
+      if (reports && tab === 'records') { setReports(false); return true; }
       if (profile) { setProfile(false); return true; }
       if (contract) { setContract(null); return true; }
       if (tab === 'today') return false;
@@ -225,7 +228,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
       return true;
     });
     return () => subscription.remove();
-  }, [tab, profile, contract, notifView, pinScreen, forgotPin]);
+  }, [tab, profile, contract, notifView, pinScreen, forgotPin, reports]);
 
   const openNotice = useCallback((notice: Notice) => {
     setProfile(false);
@@ -355,8 +358,11 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
               toast={toast.show}
             />
           ) : null}
-          {!overlay && activeTab === 'records' ? (
-            <RecordsScreen token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
+          {!overlay && activeTab === 'records' && reports ? (
+            <ReportsScreen token={token} avatar={avatar} onBack={() => setReports(false)} onAuthError={onAuthError} />
+          ) : null}
+          {!overlay && activeTab === 'records' && !reports ? (
+            <RecordsScreen onReports={() => setReports(true)} token={token} name={me.colaborador.nome} photo={photo} onProfile={() => setProfile(true)}
               weeklyMinutes={dashboard?.semana?.carga_texto ? parseHours(dashboard.semana.carga_texto) || null : null}
               onSignMonth={() => setNotifView({ kind: 'vistos' })} onAuthError={onAuthError} />
           ) : null}

@@ -96,7 +96,9 @@ const WORKING_DAYS = 5;
 
 /** Registos, semana (artboard p2311-registos, aprovado 24/11): semana anterior/seguinte, total contra as horas previstas
  * e um dia por linha com entrada e saída. Dias sem saída pedem a correção ali mesmo. Os vistos por confirmar ficam no topo. */
-export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onSignMonth, onAuthError }: {
+export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, onSignMonth, onReports, onAuthError }: {
+  /** Abre os Relatórios (artboard p2311-relatorio-v2). */
+  onReports: () => void;
   token: string; name: string; photo: AvatarPhoto | null; onProfile: () => void; weeklyMinutes: number | null;
   /** Abre «Confirmar registos» com o quadro de assinatura do mês (doc 249). */
   onSignMonth: () => void; onAuthError: (error: unknown) => boolean;
@@ -200,6 +202,10 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
             </View>
           ) : null}
         </View>
+
+        <Pressable accessibilityRole="button" onPress={onReports} style={({ pressed }) => ({ minHeight: 52, borderRadius: 14, borderWidth: 1.5, borderColor: colors.band, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', opacity: pressed ? 0.8 : 1 })}>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.band }}>Relatórios</Text>
+        </Pressable>
 
         {error ? <ErrorText>{error}</ErrorText> : null}
         {loading && !data ? <ListaSkeleton /> : null}
