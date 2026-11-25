@@ -4,6 +4,7 @@
 // A posição só é lida com este ecrã aberto (atualiza-se a cada ~20 s) e no toque de picar, nunca em segundo plano.
 // 2.3.0 (doc 49 §14, doc 52): longe da obra com bloqueio o botão avisa antes do toque; vibra ao registar; GPS falso
 // segue marcado para o servidor; sino das mensagens; aviso urgente no topo. O servidor decide o tipo (doc 43 §3).
+import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -197,12 +198,12 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
     const tappedAt = new Date().toISOString();
     setState('locating');
     const position = isFreshFix(fix) ? { fix } : await readPosition();
-    let payload: PunchPayload = {};
+    let payload: PunchPayload = { chave: Crypto.randomUUID() };
     if ('fix' in position) {
       const taken = position.fix;
       setFix(taken);
       setFixError('');
-      payload = { lat: taken.lat, lon: taken.lon, precisao: Math.round(taken.accuracy), loc_idade_ms: Math.max(0, Date.now() - taken.takenAt), simulado: taken.mocked };
+      payload = { ...payload, lat: taken.lat, lon: taken.lon, precisao: Math.round(taken.accuracy), loc_idade_ms: Math.max(0, Date.now() - taken.takenAt), simulado: taken.mocked };
     } else if (me.opcoes.localizacao_obrigatoria) {
       setState('idle');
       setFixError(position.error);

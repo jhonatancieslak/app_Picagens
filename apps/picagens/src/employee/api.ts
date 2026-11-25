@@ -91,6 +91,8 @@ export interface PlaceCheck {
 }
 
 export interface PunchPayload {
+  /** UUID gerado no toque: o mesmo no envio direto e no reenvio da fila, para o servidor não gravar duas vezes. */
+  chave?: string;
   lat?: number;
   lon?: number;
   precisao?: number;
