@@ -10,7 +10,8 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "pt.picagens.colaborador",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
     },
     "android": {
       "package": "pt.picagens.colaborador",
