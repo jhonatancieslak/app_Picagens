@@ -94,10 +94,10 @@ export function DocumentsScreen({ token, me, avatar, openContract, onContractClo
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 110, gap: 14 }}
         refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.band]} />}>
         {pending.length ? (
-          <View style={{ backgroundColor: colors.band, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 18, gap: 4, elevation: 4 }}>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.surface, opacity: 0.85 }}>Para assinar</Text>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 36, color: colors.surface }}>{pending.length} {pending.length === 1 ? 'documento' : 'documentos'}</Text>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.surface, opacity: 0.9 }}>Leia o documento e assine no ecrã ou com o código do email</Text>
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink2 }}>Para assinar</Text>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 32, lineHeight: 36, color: colors.ink }}>{pending.length} {pending.length === 1 ? 'documento' : 'documentos'}</Text>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink2 }}>Leia o documento e assine no ecrã ou com o código do email</Text>
           </View>
         ) : null}
         {error ? <ErrorText>{error}</ErrorText> : null}

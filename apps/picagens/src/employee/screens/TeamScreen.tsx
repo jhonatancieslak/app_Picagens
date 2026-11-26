@@ -714,7 +714,7 @@ function Stat({ value, label, bg, fg }: { value: number; label: string; bg: stri
 
 function Initials({ text }: { text: string }) {
   return (
-    <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: 36, height: 36, borderRadius: 6, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
       <Text style={{ fontFamily: fonts.bodyBold, fontSize: 12.5, color: colors.action }}>{text}</Text>
     </View>
   );

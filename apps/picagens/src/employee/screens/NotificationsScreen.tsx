@@ -69,19 +69,19 @@ export function NotificationsScreen({ token, name, photo, onProfile, onOpen, onC
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+      <View style={{ backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.line }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Logo height={26} white />
+          <Logo height={26} />
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{name.split(/\s+/)[0]}</Text>
             <Avatar name={name} count={0} onPress={onProfile} photo={photo} size={36} />
           </View>
         </View>
         <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 29, color: colors.surface }}>Notificações</Text>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 27, color: colors.ink }}>Notificações</Text>
           {hasMessages ? (
             <Pressable accessibilityRole="button" onPress={readAll} hitSlop={6} style={{ minHeight: 44, justifyContent: 'center' }}>
-              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.surface, textDecorationLine: 'underline' }}>Marcar todas como lidas</Text>
+              <Text style={{ fontFamily: fonts.bodyBold, fontSize: 13, color: colors.action, textDecorationLine: 'underline' }}>Marcar todas como lidas</Text>
             </Pressable>
           ) : null}
         </View>

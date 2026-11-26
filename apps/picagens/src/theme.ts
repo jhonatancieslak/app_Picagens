@@ -4,12 +4,12 @@
 import { tokens } from './tokens';
 
 export const colors = {
-  bg: tokens.cores.fundo,
+  bg: tokens.coresPainel.papel,
   surface: tokens.cores.cartao,
-  line: tokens.cores.borda,
-  ink: tokens.cores.texto,
-  ink2: tokens.cores.textoSecundario,
-  ink3: tokens.cores.textoSuave,
+  line: tokens.coresPainel.linha,
+  ink: tokens.coresPainel.texto,
+  ink2: tokens.coresPainel.texto2,
+  ink3: tokens.coresPainel.texto3,
   action: tokens.cores.azul,
   actionSoft: tokens.cores.azulSuave,
   brand: '#00C3FF',
@@ -63,7 +63,7 @@ export const fonts = {
   bodyBold: 'Inter_700Bold',
 };
 
-export const radius = { sm: 10, md: 16, lg: 22, pill: 999 };
+export const radius = { sm: 6, md: 6, lg: 12, pill: 999 };  // cantos do painel (doc 252, V4Alinhamento)
 
 /** Barra de separadores (EmployeeApp) e botão de picar fixo do Hoje: as medidas num só sítio, para o botão ficar sempre por cima do menu. */
 export const tabBar = { paddingTop: 6, tabMinHeight: 56, paddingBottomExtra: 8, border: 1 };

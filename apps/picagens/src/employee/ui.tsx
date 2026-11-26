@@ -7,11 +7,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ShieldCheckIcon } from '../components/icons';
 import { Logo } from '../components/ui';
-import { colors, fonts } from '../theme';
+import { colors, fonts, painelForma } from '../theme';
 
 export function Card({ children, style }: { children: ReactNode; style?: ViewStyle }) {
   return (
-    <View style={[{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 18 }, style]}>
+    <View style={[{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: painelForma.cartao }, style]}>
       {children}
     </View>
   );
@@ -68,7 +68,7 @@ export function Button({ title, onPress, primary, danger, ghost, link, busy, dis
       disabled={disabled || busy}
       style={({ pressed }) => ({
         minHeight: link ? 44 : green || outline ? 56 : 52,
-        borderRadius: 16,
+        borderRadius: painelForma.botao,
         paddingHorizontal: 18,
         alignItems: 'center',
         justifyContent: 'center',
@@ -183,7 +183,7 @@ export function Toggle({ title, subtitle, value, onChange, flat }: { title: stri
         {subtitle ? <Text style={{ fontFamily: fonts.body, fontSize: 12, color: colors.ink2 }}>{subtitle}</Text> : null}
       </View>
       <Animated.View style={{ width: 46, height: 28, borderRadius: 14, justifyContent: 'center', backgroundColor: knob.interpolate({ inputRange: [0, 1], outputRange: [colors.line, colors.ok] }) }}>
-        <Animated.View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', elevation: 2, transform: [{ translateX: knob.interpolate({ inputRange: [0, 1], outputRange: [3, 21] }) }] }} />
+        <Animated.View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff', transform: [{ translateX: knob.interpolate({ inputRange: [0, 1], outputRange: [3, 21] }) }] }} />
       </Animated.View>
     </Pressable>
   );
@@ -285,39 +285,39 @@ export function Header({ subtitle, title, right, wordmark, greeting, variante, o
   if (variante === 'faixaLogo') {
     // Entrada e «Esqueci o PIN» (artboards p2311-abertura e p2311-esqueci-pin, 25/11): logótipo no topo, voltar e título na mesma linha.
     return (
-      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+      <View style={{ backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.line }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Logo height={26} white />
+          <Logo height={26} />
           {right}
         </View>
         <View style={{ marginTop: 14, flexDirection: 'row', alignItems: 'center', gap: 12 }}>
           {onVoltar ? (
             <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
-              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.bandLine, alignItems: 'center', justifyContent: 'center' }}>
-              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+              style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
+              <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
                 <Path d="M15 6l-6 6 6 6" />
               </Svg>
             </Pressable>
           ) : null}
-          <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 24, lineHeight: 29, color: colors.surface }}>{title}</Text>
+          <Text style={{ flex: 1, fontFamily: fonts.bodyBold, fontSize: 22, lineHeight: 27, color: colors.ink }}>{title}</Text>
         </View>
-        {subtitle ? <Text style={{ marginTop: 4, fontFamily: fonts.body, fontSize: 15, color: colors.surface, opacity: 0.85 }}>{subtitle}</Text> : null}
+        {subtitle ? <Text style={{ marginTop: 4, fontFamily: fonts.body, fontSize: 14, color: colors.ink2 }}>{subtitle}</Text> : null}
       </View>
     );
   }
   if (variante === 'faixa') {
     return (
-      <View style={{ backgroundColor: colors.band, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 18, borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }}>
+      <View style={{ backgroundColor: colors.surface, paddingTop: insets.top + 12, paddingHorizontal: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: colors.line }}>
         {onVoltar ? (
           <Pressable onPress={onVoltar} accessibilityRole="button" accessibilityLabel="Voltar"
-            style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.bandLine, alignItems: 'center', justifyContent: 'center' }}>
-            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+            style={{ width: 44, height: 44, borderRadius: 22, borderWidth: 1, borderColor: colors.line, alignItems: 'center', justifyContent: 'center' }}>
+            <Svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke={colors.ink} strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
               <Path d="M15 6l-6 6 6 6" />
             </Svg>
           </Pressable>
         ) : null}
-        <Text style={{ marginTop: onVoltar ? 14 : 0, fontFamily: fonts.bodyBold, fontSize: 24, color: '#FFFFFF' }}>{title}</Text>
-        {subtitle ? <Text style={{ marginTop: 4, fontFamily: fonts.body, fontSize: 13, color: '#D5DEE5' }}>{subtitle}</Text> : null}
+        <Text style={{ marginTop: onVoltar ? 14 : 0, fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink }}>{title}</Text>
+        {subtitle ? <Text style={{ marginTop: 4, fontFamily: fonts.body, fontSize: 13, color: colors.ink2 }}>{subtitle}</Text> : null}
       </View>
     );
   }
@@ -361,9 +361,8 @@ export function useToast() {
       accessibilityLiveRegion="polite"
       pointerEvents="none"
       style={{
-        position: 'absolute', left: 14, right: 14, top: insets.top + 8, zIndex: 20, borderRadius: 16, padding: 14,
+        position: 'absolute', left: 14, right: 14, top: insets.top + 8, zIndex: 20, borderRadius: 6, padding: 14,
         flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: TOAST_COLORS[message.tone],
-        shadowColor: '#101828', shadowOpacity: 0.3, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8,
         transform: [{ translateY: offset }],
       }}
     >

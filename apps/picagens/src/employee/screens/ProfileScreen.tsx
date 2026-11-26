@@ -108,7 +108,7 @@ export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pendi
   return (
     <View style={{ flex: 1 }}>
       <Header variante="faixaLogo" title="Perfil" subtitle="" onVoltar={onBack}
-        right={<Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>} />
+        right={<Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>} />
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24, gap: 6 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 4 }}>
           <Avatar name={me.colaborador.nome} count={0} size={60} photo={photo} onPress={() => setChoosingPhoto(!choosingPhoto)} />
@@ -172,7 +172,7 @@ export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pendi
 }
 
 const sectionStyle = { marginTop: 14, marginHorizontal: 20, marginBottom: 4, fontFamily: fonts.bodyBold, fontSize: 13, color: colors.ink2 } as const;
-const listStyle = { marginHorizontal: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 16, overflow: 'hidden' } as const;
+const listStyle = { marginHorizontal: 12, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, overflow: 'hidden' } as const;
 
 function Chevron() {
   return (
@@ -254,7 +254,7 @@ function MyData({ token, editing, onEdit, onDone, onBack, onAuthError }: {
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, gap: 14 }} keyboardShouldPersistTaps="handled">
         {!data && !error ? <><Bloco style={{ height: 52 }} /><Bloco style={{ height: 52 }} /><Bloco style={{ height: 52 }} /></> : null}
         {data && !editing ? (
-          <View style={{ backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.line, overflow: 'hidden' }}>
             {row('Nome', data.nome, true)}
             {row('NIF', data.nif_texto, true)}
             {row('Email', data.email)}
@@ -350,7 +350,7 @@ function DeleteAccount({ token, onBack, onDeleted, onAuthError }: { token: strin
           </View>
           <Text style={{ flex: 1, fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.ink2 }}>Vai deixar de conseguir entrar. A sua foto e as notificações são apagadas.</Text>
         </View>
-        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 16, padding: 16, gap: 6 }}>
+        <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 16, gap: 6 }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>O que fica guardado</Text>
           <Text style={{ fontFamily: fonts.body, fontSize: 14, lineHeight: 21, color: colors.ink2 }}>Os registos de ponto, os pedidos e os documentos ficam com a empresa: a lei obriga a guardá-los durante 5 anos (art. 202.º do Código do Trabalho).</Text>
         </View>

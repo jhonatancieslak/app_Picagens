@@ -367,7 +367,7 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         </View>
         <Modal visible={confirmBreak} transparent animationType="fade" onRequestClose={() => setConfirmBreak(false)}>
           <View style={{ flex: 1, backgroundColor: colors.scrim, justifyContent: 'center', padding: 24 }}>
-            <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 22, gap: 12 }}>
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 22, gap: 12 }}>
               <Text style={{ fontFamily: fonts.bodyBold, fontSize: 20, color: colors.ink }}>Iniciar pausa agora?</Text>
               <Text style={{ fontFamily: fonts.body, fontSize: 15, lineHeight: 22, color: colors.ink2 }}>A pausa começa às {clock(now)}. Pode retomar quando quiser. A pausa não entra nas horas trabalhadas.</Text>
               <Button ghost tone="faixa" title="Cancelar" onPress={() => setConfirmBreak(false)} />
@@ -595,7 +595,7 @@ function PlaceMap({ place, fix, address: currentAddress, error, onRecenter }: { 
     <View
       accessibilityLabel={`Mapa: ${chip.label}${place?.distancia !== undefined ? `, a ${distanceLabel(place.distancia)}` : ''}`}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-      style={{ height: MAP_HEIGHT, borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.mapLand }}
+      style={{ height: MAP_HEIGHT, borderRadius: 6, overflow: 'hidden', borderWidth: 1, borderColor: colors.line, backgroundColor: colors.mapLand }}
     >
       {tiles.map((tile) => (
         <Image key={tile.key} source={{ uri: tile.uri }} style={{ position: 'absolute', left: tile.left, top: tile.top, width: TILE_PX, height: TILE_PX }} fadeDuration={0} />
@@ -627,11 +627,11 @@ function PlaceMap({ place, fix, address: currentAddress, error, onRecenter }: { 
         accessibilityRole="button"
         accessibilityLabel="Atualizar a minha posição"
         onPress={onRecenter}
-        style={({ pressed }) => ({ position: 'absolute', right: 10, top: 10, width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', elevation: 3, transform: [{ scale: pressed ? 0.94 : 1 }] })}
+        style={({ pressed }) => ({ position: 'absolute', right: 10, top: 10, width: 38, height: 38, borderRadius: 12, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', transform: [{ scale: pressed ? 0.94 : 1 }] })}
       >
         <RecenterIcon size={18} color={colors.band} />
       </Pressable>
-      <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10, flexDirection: 'row', justifyContent: 'space-between', gap: 8, backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 7, paddingHorizontal: 12, elevation: 3 }}>
+      <View style={{ position: 'absolute', left: 10, right: 10, bottom: 10, flexDirection: 'row', justifyContent: 'space-between', gap: 8, backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 7, paddingHorizontal: 12 }}>
         <Text style={{ flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: 12, color: chip.tone === 'danger' ? colors.danger : chip.tone === 'warn' ? colors.warnInk : colors.ok }} numberOfLines={1}>
           {error ? 'Sem posição' : place?.dentro === true ? 'No raio do posto' : place?.dentro === false ? 'Fora do raio do posto' : chip.label}
         </Text>

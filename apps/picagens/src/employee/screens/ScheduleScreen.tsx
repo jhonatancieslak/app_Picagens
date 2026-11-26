@@ -112,14 +112,14 @@ export function ScheduleBody({ token, switcher, onAuthError }: { token: string; 
 
       {week ? (
         <>
-          <View accessibilityLabel={`Horas previstas nesta semana: ${Math.floor(week.minutos_planeados / 60)} horas`} style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 16, elevation: 2, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <View accessibilityLabel={`Horas previstas nesta semana: ${Math.floor(week.minutos_planeados / 60)} horas`} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink2 }}>Horas previstas</Text>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink, fontVariant: ['tabular-nums'] }}>
               {Math.floor(week.minutos_planeados / 60)} h{week.minutos_planeados % 60 ? ` ${String(week.minutos_planeados % 60).padStart(2, '0')}` : ''}
             </Text>
           </View>
 
-          <View style={{ backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 4, paddingHorizontal: 16, elevation: 2 }}>
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, paddingVertical: 4, paddingHorizontal: 16 }}>
             {week.dias.map((day, index) => {
               const date = dateOf(day.data);
               const text = scheduleDayText(day);

@@ -168,7 +168,7 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
       subtitle={section === 'horario' ? 'O seu horário' : 'As suas horas desta semana'}
       right={(
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
+          <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{name.split(/\s+/)[0]}</Text>
           <Avatar name={name} count={0} onPress={onProfile} photo={photo} size={36} />
         </View>
       )}
@@ -209,7 +209,7 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
             onConfirmed={(text) => { setDone(text); load(); }} />
         ))}
 
-        <View accessibilityLabel="Resumo da semana" style={{ backgroundColor: colors.surface, borderRadius: 18, padding: 16, elevation: 2 }}>
+        <View accessibilityLabel="Resumo da semana" style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, padding: 16 }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 22, color: colors.ink, fontVariant: ['tabular-nums'] }}>{human(totalMinutes)}</Text>
             {weeklyMinutes ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink2 }}>de {human(weeklyMinutes).replace(/ 00$/, '')} previstas</Text> : null}
@@ -229,7 +229,7 @@ export function RecordsScreen({ token, name, photo, onProfile, weeklyMinutes, on
         {loading && !data ? <RegistosSkeleton /> : null}
 
         {data || Object.keys(daysByDate).length ? (
-          <View style={{ backgroundColor: colors.surface, borderRadius: 18, paddingVertical: 4, paddingHorizontal: 16, elevation: 2 }}>
+          <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, paddingVertical: 4, paddingHorizontal: 16 }}>
             {rows.map((row, index) => {
               const incomplete = Boolean(row.day && !row.day.completo && !row.isToday);
               const weekday = WEEKDAYS_FULL[row.date.getDay()];
@@ -316,7 +316,7 @@ function VistoCard({ token, visto, declaration, onConfirmed, onAuthError, onSign
   }
 
   return (
-    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 4, borderLeftColor: colors.band, borderRadius: 18, padding: 14, gap: 10 }}>
+    <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderLeftWidth: 4, borderLeftColor: colors.band, borderRadius: 6, padding: 14, gap: 10 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Confirmar horas {period}</Text>

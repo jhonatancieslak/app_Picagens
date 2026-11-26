@@ -88,7 +88,7 @@ export function RequestsScreen({ token, name, photo, onProfile, onAuthError }: P
 
   const avatar = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{name.split(/\s+/)[0]}</Text>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{name.split(/\s+/)[0]}</Text>
       <Avatar name={name} count={0} onPress={onProfile} photo={photo} size={36} />
     </View>
   );
@@ -123,10 +123,10 @@ export function RequestsScreen({ token, name, photo, onProfile, onAuthError }: P
         refreshControl={<RefreshControl refreshing={loading && Boolean(data)} onRefresh={load} colors={[colors.action]} />}
       >
         {saldo ? (
-          <View accessibilityLabel={`Dias de férias por gozar em ${saldo.ano}: ${saldo.por_gozar}`} style={{ backgroundColor: colors.band, borderRadius: 18, paddingVertical: 16, paddingHorizontal: 18, gap: 4, elevation: 4 }}>
-            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.surface, opacity: 0.85 }}>Dias de férias por gozar em {saldo.ano}</Text>
-            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 36, lineHeight: 40, color: colors.surface, fontVariant: ['tabular-nums'] }}>{saldo.por_gozar} {saldo.por_gozar === 1 ? 'dia' : 'dias'}</Text>
-            {waiting ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.surface, opacity: 0.9 }}>{waiting} {waiting === 1 ? 'pedido à espera' : 'pedidos à espera'} de decisão do RH</Text> : null}
+          <View accessibilityLabel={`Dias de férias por gozar em ${saldo.ano}: ${saldo.por_gozar}`} style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 6, paddingVertical: 16, paddingHorizontal: 18, gap: 4 }}>
+            <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink2 }}>Dias de férias por gozar em {saldo.ano}</Text>
+            <Text style={{ fontFamily: fonts.bodyBold, fontSize: 36, lineHeight: 40, color: colors.ink, fontVariant: ['tabular-nums'] }}>{saldo.por_gozar} {saldo.por_gozar === 1 ? 'dia' : 'dias'}</Text>
+            {waiting ? <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 14, color: colors.ink2 }}>{waiting} {waiting === 1 ? 'pedido à espera' : 'pedidos à espera'} de decisão do RH</Text> : null}
           </View>
         ) : null}
 
@@ -338,7 +338,7 @@ function NewRequest({ kind, token, data, onBack, onSent, onAuthError, avatar }: 
           </Text>
         ) : null}
 
-        <View style={{ backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.line, padding: 12 }}>
+        <View style={{ backgroundColor: colors.surface, borderRadius: 6, borderWidth: 1, borderColor: colors.line, padding: 12 }}>
           <MonthHeader month={month} onMove={(delta) => setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1))} />
           <MonthGrid month={month} classes={classes} today={today} selected={{ start, end }} onDay={pick} />
         </View>

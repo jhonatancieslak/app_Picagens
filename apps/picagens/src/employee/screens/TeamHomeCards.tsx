@@ -55,14 +55,14 @@ export function TeamHomeCards({ token, pinToken, teams, onOpenTeam, onAuthError 
 
   if (!pinToken) {
     return (
-      <Pressable accessibilityRole="button" onPress={onOpenTeam} style={({ pressed }) => ({ borderRadius: 18, backgroundColor: colors.surface, padding: 16, gap: 4, elevation: 2, opacity: pressed ? 0.85 : 1 })}>
+      <Pressable accessibilityRole="button" onPress={onOpenTeam} style={({ pressed }) => ({ borderWidth: 1, borderColor: colors.line, borderRadius: 6, backgroundColor: colors.surface, padding: 16, gap: 4, opacity: pressed ? 0.85 : 1 })}>
         <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{team.nome}, agora</Text>
         <Text style={{ fontFamily: fonts.body, fontSize: 13.5, color: colors.ink2 }}>Confirme o seu PIN para ver quem está a trabalhar, os alertas e o que precisa de si.</Text>
         <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.band, marginTop: 4 }}>Ver a minha equipa ›</Text>
       </Pressable>
     );
   }
-  if (!today || !alerts) return <>{chooser}<Bloco style={{ height: 150, borderRadius: 18 }} /></>;
+  if (!today || !alerts) return <>{chooser}<Bloco style={{ height: 150, borderRadius: 6 }} /></>;
 
   const notPunched = today.membros.filter((m) => m.estado === 'por_comecar' || m.estado === 'em_falta_entrada').length;
   const toForgive = missing?.faltas.length ?? 0;
@@ -72,7 +72,7 @@ export function TeamHomeCards({ token, pinToken, teams, onOpenTeam, onAuthError 
   return (
     <>
       {chooser}
-      <View style={{ borderRadius: 18, backgroundColor: colors.surface, padding: 16, gap: 12, elevation: 2 }}>
+      <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 6, backgroundColor: colors.surface, padding: 16, gap: 12 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>{team.nome}, agora</Text>
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink3 }}>{today.membros.length} pessoas</Text>
@@ -87,7 +87,7 @@ export function TeamHomeCards({ token, pinToken, teams, onOpenTeam, onAuthError 
         </View>
       </View>
 
-      <View style={{ borderRadius: 18, backgroundColor: colors.surface, padding: 16, gap: 10, elevation: 2 }}>
+      <View style={{ borderWidth: 1, borderColor: colors.line, borderRadius: 6, backgroundColor: colors.surface, padding: 16, gap: 10 }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Alertas da equipa</Text>
           <Text style={{ fontFamily: fonts.bodyMedium, fontSize: 13, color: colors.ink3 }}>{alerts.length ? `${alerts.length} hoje` : 'sem alertas'}</Text>
@@ -103,7 +103,7 @@ export function TeamHomeCards({ token, pinToken, teams, onOpenTeam, onAuthError 
 
       {toForgive + toOpine > 0 ? (
         <Pressable accessibilityRole="button" onPress={onOpenTeam}
-          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 56, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 16, backgroundColor: colors.surface, elevation: 2, opacity: pressed ? 0.9 : 1 })}>
+          style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, minHeight: 56, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.line, borderRadius: 6, backgroundColor: colors.surface, opacity: pressed ? 0.9 : 1 })}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>Precisa de si</Text>
             <Text style={{ fontFamily: fonts.body, fontSize: 12.5, color: colors.ink3, marginTop: 2 }}>

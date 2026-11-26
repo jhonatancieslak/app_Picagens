@@ -308,7 +308,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
   const photo: AvatarPhoto | null = me.colaborador.foto_versao && photoUri ? { uri: photoUri } : null;
   const avatar = (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.surface }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
+      <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.ink }}>{me.colaborador.nome.split(/\s+/)[0]}</Text>
       <Avatar name={me.colaborador.nome} count={0} onPress={() => setProfile(true)} photo={photo} size={36} />
     </View>
   );
@@ -389,7 +389,7 @@ export function EmployeeApp({ onKiosk }: { onKiosk: () => void }) {
         <Pressable
           accessibilityRole="button"
           onPress={() => Linking.openURL(me.url_atualizacao || DEFAULT_UPDATE_URL)}
-          style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + (overlay ? 14 : 92), zIndex: 4, elevation: 7, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.actionSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}
+          style={{ position: 'absolute', left: 12, right: 12, bottom: insets.bottom + (overlay ? 14 : 92), zIndex: 4, flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.actionSoft, borderRadius: 14, paddingVertical: 10, paddingHorizontal: 12 }}
         >
           <View style={{ flex: 1 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 14, color: colors.action }}>Nova versão disponível · {me.versao_atual}</Text>

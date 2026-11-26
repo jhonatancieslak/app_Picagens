@@ -12,7 +12,7 @@ type Props = { token: string; onDone: () => void; onAuthError: (error: unknown) 
 function Aceite({ titulo, texto, marcado, onToggle }: { titulo: string; texto: string; marcado: boolean; onToggle: () => void }) {
   return (
     <Pressable onPress={onToggle} accessibilityRole="checkbox" accessibilityState={{ checked: marcado }}
-      style={{ flexDirection: 'row', gap: 14, padding: 16, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
+      style={{ flexDirection: 'row', gap: 14, padding: 16, borderRadius: 6, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }}>
       <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 1.5, borderColor: marcado ? colors.ok : colors.ink, backgroundColor: marcado ? colors.ok : colors.surface, alignItems: 'center', justifyContent: 'center' }}>
         {marcado ? <Text style={{ color: '#fff', fontFamily: fonts.bodyBold }}>✓</Text> : null}
       </View>

@@ -334,7 +334,7 @@ export function LoginScreen({ link, onSession, onKiosk }: Props) {
 
           {step === 'kiosk' ? (
             <View style={{ gap: 14, paddingTop: 6 }}>
-              <View style={{ width: 56, height: 56, borderRadius: 16, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 56, height: 56, borderRadius: 6, backgroundColor: colors.actionSoft, alignItems: 'center', justifyContent: 'center' }}>
                 <TabletIcon size={30} color={colors.band} />
               </View>
               <Title size={24}>Usar como quiosque?</Title>

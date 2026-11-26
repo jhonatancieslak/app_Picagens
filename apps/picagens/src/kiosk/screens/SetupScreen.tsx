@@ -133,8 +133,8 @@ export function SetupScreen({ onActivated, onBack }: { onActivated: (token: stri
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ height: vw(BAR_HEIGHT_VW), backgroundColor: colors.band, borderBottomLeftRadius: vw(2.1), borderBottomRightRadius: vw(2.1), justifyContent: 'center', paddingHorizontal: vw(2.7), elevation: 6 }}>
-        <Logo white height={vw(2.9)} />
+      <View style={{ height: vw(BAR_HEIGHT_VW), backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.line, justifyContent: 'center', paddingHorizontal: vw(2.7) }}>
+        <Logo height={vw(2.9)} />
       </View>
       <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: vw(5.8), paddingVertical: vw(3) }}>
       <View style={{ flexDirection: narrow ? 'column' : 'row', alignItems: narrow ? 'stretch' : 'center', gap: vw(4.8) }}>
