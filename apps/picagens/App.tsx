@@ -6,10 +6,12 @@ import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold } from '@expo-google
 import { SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold } from '@expo-google-fonts/space-grotesk';
 import { useFonts } from 'expo-font';
 import * as ScreenOrientation from 'expo-screen-orientation';
+import NetInfo from '@react-native-community/netinfo';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { REACHABILITY_URL } from './src/config';
 import { DeviceMode, clearDeviceMode, getDeviceMode, saveDeviceMode } from './src/deviceMode';
 import { EmployeeApp } from './src/employee/EmployeeApp';
 import { KioskApp } from './src/kiosk/KioskApp';
@@ -19,6 +21,8 @@ const ORIENTATION: Record<DeviceMode, ScreenOrientation.OrientationLock> = {
   employee: ScreenOrientation.OrientationLock.PORTRAIT_UP,
   kiosk: ScreenOrientation.OrientationLock.LANDSCAPE,
 };
+
+NetInfo.configure({ reachabilityUrl: REACHABILITY_URL, reachabilityTest: async (response) => response.status === 200, reachabilityRequestTimeout: 10 * 1000 });
 
 export default function App() {
   const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_600SemiBold, Inter_700Bold, SpaceGrotesk_600SemiBold, SpaceGrotesk_700Bold });

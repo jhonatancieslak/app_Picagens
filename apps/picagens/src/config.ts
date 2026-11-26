@@ -23,3 +23,6 @@ export const SICK_LEAVE_JPEG_QUALITY = 0.7;
 export const OFFLINE_MAX_HOURS = 48;
 /** Botão de picar do Hoje: segundos para «Desfazer» antes de a picagem sair (doc 252; decidido 26/11). */
 export const PUNCH_UNDO_SECONDS = 5;
+
+/** Teste de rede do NetInfo contra o nosso servidor (por omissão testa a Google, que alguns routers/DNS bloqueiam e a app ficava «sem rede» no Wi-Fi). */
+export const REACHABILITY_URL = 'https://picagens.pt/app/healthz';
