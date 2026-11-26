@@ -15,6 +15,7 @@ import { ApiError, NetworkError } from '../../http';
 import { colors, fonts } from '../../theme';
 import { LegalDocument, Me, ProfileData, employeeApi } from '../api';
 import { getKeepSession, saveKeepSession } from '../storage';
+import { biometricAvailable, confirmBiometric, getBiometricEnabled, saveBiometricEnabled } from '../biometric';
 import { Avatar, AvatarPhoto, BarraRodape, Button, ErrorText, Field, Header, Muted, Toggle } from '../ui';
 
 const PHOTO_OPTIONS: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.7, base64: true };
@@ -44,11 +45,21 @@ export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pendi
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [biometric, setBiometric] = useState(false);
+  const [biometricOffered, setBiometricOffered] = useState(false);
   const reminders = me.opcoes.lembretes_picagem !== false;
 
   useEffect(() => {
     getKeepSession().then(setKeep);
+    biometricAvailable().then(setBiometricOffered);
+    getBiometricEnabled().then(setBiometric);
   }, []);
+
+  async function changeBiometric(value: boolean) {
+    if (value && !(await confirmBiometric('Confirme para ligar a confirmação ao picar'))) return;
+    setBiometric(value);
+    saveBiometricEnabled(value);
+  }
 
   async function changePhoto(camera: boolean) {
     setError('');
@@ -144,6 +155,7 @@ export function ProfileScreen({ token, me, photo, onMeChange, onAuthError, pendi
         <Text style={sectionStyle}>Definições</Text>
         <View style={listStyle}>
           <Toggle flat title="Manter sessão neste telemóvel" subtitle="Não pede o PIN outra vez neste aparelho" value={keep} onChange={(value) => { setKeep(value); saveKeepSession(value); }} />
+          {biometricOffered ? <Toggle flat title="Confirmar com a impressão digital ou rosto" subtitle="Pede a confirmação do telemóvel antes de picar. Nada é guardado pela Picagens" value={biometric} onChange={changeBiometric} /> : null}
           <Toggle flat title="Lembretes para picar" subtitle="Aviso uns minutos antes da entrada e da saída" value={reminders} onChange={changeReminders} />
           <View style={{ paddingVertical: 12, paddingHorizontal: 14 }}>
             <Text style={{ fontFamily: fonts.bodyBold, fontSize: 15, color: colors.ink }}>Localização</Text>

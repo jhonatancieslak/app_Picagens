@@ -8,7 +8,8 @@ import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { AppState, Animated, Easing, Image, KeyboardAvoidingView, Linking, Modal, Platform, Pressable, ScrollView, Text, View } from 'react-native';
+import { confirmBiometric, getBiometricEnabled } from '../biometric';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 
@@ -104,7 +105,6 @@ interface Props {
 
 export function TodayScreen({ token, me, dashboard, online, pending, notices, urgent, onNotice, photo, onRefresh, onProfile, onQueued, onAuthError, onGoRequests, onReports, onSchedule, toast, team }: Props) {
   const insets = useSafeAreaInsets();
-  const [refreshing, setRefreshing] = useState(false);
   const [state, setState] = useState<PunchState>('idle');
   const [resultado, setResultado] = useState<ResultadoPicar | null>(null);
   const fecharResultado = useCallback(() => setResultado(null), []);
@@ -197,6 +197,11 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       setResultado({ tone: 'err', title: 'Não foi possível picar', text: `Está a ${distanceLabel(place?.distancia ?? 0)} do posto${place?.raio ? `. Tem de estar a menos de ${place.raio} metros` : ''}. Aproxime-se e tente de novo.` });
       return;
     }
+    if (await getBiometricEnabled() && !(await confirmBiometric('Confirme que é você para picar'))) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      setResultado({ tone: 'err', title: 'Picagem não confirmada', text: 'A confirmação do telemóvel foi cancelada. Toque no botão para tentar outra vez.' });
+      return;
+    }
     const tappedAt = toque ?? new Date().toISOString();
     setState('locating');
     const position = isFreshFix(fix) ? { fix } : await readPosition();
@@ -241,12 +246,6 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
         setResultado({ tone: 'err', title: 'Picagem não registada', text: error instanceof ApiError ? error.message : 'Tente de novo.' });
       }
     }
-  }
-
-  async function refresh() {
-    setRefreshing(true);
-    await Promise.all([onRefresh(), locate()]);
-    setRefreshing(false);
   }
 
   if (me.licenca?.estado === 'suspensa') {
@@ -299,7 +298,6 @@ export function TodayScreen({ token, me, dashboard, online, pending, notices, ur
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: tabBarHeight(insets.bottom) + punchFooterHeight + 12, gap: 12 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[colors.action]} />}
       >
         <View style={{ alignItems: 'center' }}>
           <Text style={{ fontFamily: fonts.bodyBold, fontSize: 56, lineHeight: 62, letterSpacing: -1.5, color: painel.texto, fontVariant: ['tabular-nums'] }}>{clock(now)}<Text style={{ fontSize: 30, color: painel.texto3, letterSpacing: -0.5 }}>:{String(now.getSeconds()).padStart(2, '0')}</Text></Text>
