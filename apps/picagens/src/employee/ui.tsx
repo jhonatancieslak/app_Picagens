@@ -377,16 +377,17 @@ export function useToast() {
   return { show, node };
 }
 
-/** Entrada suave dos ecrãs (".body.anim"): sobe 8 dp e aparece. */
+/** Só o Perfil (painel que entra pela direita) anima; ao mudar de separador o ecrã aparece logo, para o cabeçalho não «mexer» (feedback do Jhonatan, 27/11). */
 export function FadeIn({ children, deps, fromRight }: { children: ReactNode; deps: unknown; /** Perfil: entra pela direita, como o painel do artboard. */ fromRight?: boolean }) {
-  const value = useRef(new Animated.Value(0)).current;
+  const value = useRef(new Animated.Value(fromRight ? 0 : 1)).current;
   useEffect(() => {
+    if (!fromRight) { value.setValue(1); return; }
     value.setValue(0);
-    Animated.timing(value, { toValue: 1, duration: fromRight ? 220 : 260, useNativeDriver: true }).start();
+    Animated.timing(value, { toValue: 1, duration: 220, useNativeDriver: true }).start();
   }, [deps, value, fromRight]);
-  const slide = fromRight ? { translateX: value.interpolate({ inputRange: [0, 1], outputRange: [48, 0] }) } : { translateY: value.interpolate({ inputRange: [0, 1], outputRange: [8, 0] }) };
+  const slide = { translateX: value.interpolate({ inputRange: [0, 1], outputRange: [48, 0] }) };
   return (
-    <Animated.View style={{ flex: 1, opacity: value, transform: [slide] }}>
+    <Animated.View style={{ flex: 1, opacity: value, transform: fromRight ? [slide] : [] }}>
       {children}
     </Animated.View>
   );
