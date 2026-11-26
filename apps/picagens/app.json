@@ -9,7 +9,8 @@
     "backgroundColor": "#F7F9FC",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "pt.picagens.colaborador"
+      "bundleIdentifier": "pt.picagens.colaborador",
+      "buildNumber": "1"
     },
     "android": {
       "package": "pt.picagens.colaborador",

@@ -15,7 +15,10 @@
       "android": {
         "buildType": "app-bundle"
       },
-      "credentialsSource": "local"
+      "credentialsSource": "local",
+      "ios": {
+        "credentialsSource": "remote"
+      }
     },
     "piloto": {
       "extends": "preview",
